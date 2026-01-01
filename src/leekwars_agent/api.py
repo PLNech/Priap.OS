@@ -148,6 +148,59 @@ class LeekWarsAPI:
         response.raise_for_status()
         return response.json()
 
+    # AI Management
+    def get_ai(self, ai_id: int) -> dict[str, Any]:
+        """Get AI code and metadata."""
+        response = self._client.get(f"/ai/get/{ai_id}", headers=self._headers())
+        response.raise_for_status()
+        return response.json()
+
+    def get_farmer_ais(self) -> dict[str, Any]:
+        """Get all farmer's AIs."""
+        response = self._client.get("/ai/get-farmer-ais", headers=self._headers())
+        response.raise_for_status()
+        return response.json()
+
+    def save_ai(self, ai_id: int, code: str) -> dict[str, Any]:
+        """Save AI code."""
+        response = self._client.post(
+            "/ai/save",
+            headers=self._headers(),
+            data={"ai_id": ai_id, "code": code},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def rename_ai(self, ai_id: int, name: str) -> dict[str, Any]:
+        """Rename an AI."""
+        response = self._client.post(
+            "/ai/rename",
+            headers=self._headers(),
+            data={"ai_id": ai_id, "name": name},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def create_ai(self, name: str = "NewAI", folder_id: int = 0) -> dict[str, Any]:
+        """Create a new AI."""
+        response = self._client.post(
+            "/ai/new",
+            headers=self._headers(),
+            data={"name": name, "folder_id": folder_id},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def set_leek_ai(self, leek_id: int, ai_id: int) -> dict[str, Any]:
+        """Set which AI a leek uses."""
+        response = self._client.post(
+            "/leek/set-ai",
+            headers=self._headers(),
+            data={"leek_id": leek_id, "ai_id": ai_id},
+        )
+        response.raise_for_status()
+        return response.json()
+
     def close(self):
         """Close HTTP client."""
         self._client.close()

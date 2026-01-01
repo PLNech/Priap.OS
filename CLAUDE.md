@@ -24,18 +24,6 @@ Automated LeekWars agent with goal of RL-based combat AI. Browser automation + A
 - **Invest in tooling early** - Time spent on good tools pays compound interest
 - **Composable primitives** - Small, focused tools that combine well
 
-### Workflow Pattern
-```
-1. Hypothesis → 2. Probe/Test → 3. Observe → 4. Document → 5. Refine → repeat
-```
-
-### Testing Approach
-- **Probing scripts** in `scripts/` for quick experiments
-- **Browser introspection** with headful Playwright to discover selectors
-- **API exploration** via curl/httpx before writing client methods
-- **Screenshot evidence** captured in `screenshots/` for debugging
-- **Console logging** to capture JS state, network requests
-
 ### When Adding New Features
 1. First: curl/browser test the endpoint/interaction manually
 2. Second: Write a minimal probe script that captures the response
@@ -90,6 +78,35 @@ poetry run python scripts/login_test.py
 2. Local fight simulation via leek-wars-generator (Java)
 3. RL training for combat decisions (action selection, positioning)
 4. Deploy trained policies as LeekScript AI
+
+## Local Validation (Java)
+
+**Always prefer local validation over online API** - it's faster, reliable, and works offline.
+
+```bash
+# Validate LeekScript locally
+cd tools/leek-wars-generator
+java -jar generator.jar --analyze <file.leek>
+```
+
+Requires Java 21+ (use SDKMAN: `sdk install java 21.0.5-tem`)
+
+### LeekScript Gotchas
+- `var` = block-scoped, `global` = file-scoped
+- Use `global` for variables reassigned across blocks
+- Error 33 = undefined reference, Error 35 = unused variable
+
+## Data Capture for RL
+
+Fight data structure for training:
+```
+data/
+  actions: [...]     # Turn-by-turn action encoding
+  leeks: [...]       # Entity states (pos, hp, tp, mp)
+  map: {...}         # Grid, obstacles
+```
+
+Action codes: see docs/API.md "Action Encoding" section
 
 ## Resources
 - [LeekWars API](https://leekwars.com/help/api)
