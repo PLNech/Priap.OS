@@ -66,7 +66,7 @@ def main():
         )
         result = r.json()
 
-        if "fight" in result:
+        if isinstance(result, dict) and "fight" in result:
             fight_id = result["fight"]
             print(f"  Fight ID: {fight_id}")
 
@@ -96,6 +96,9 @@ def main():
             })
         else:
             print(f"  ERROR: {result}")
+            if isinstance(result, dict) and result.get("error") == "not_enough_fights":
+                print("  No more fights available today!")
+                break
 
         # Small delay between fights
         time.sleep(1)

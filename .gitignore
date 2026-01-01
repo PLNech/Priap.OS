@@ -39,3 +39,6 @@ poetry.lock
 *.class
 *.jar
 .gradle/
+
+# Data files
+data/
