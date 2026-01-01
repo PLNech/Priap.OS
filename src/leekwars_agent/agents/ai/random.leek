@@ -1,0 +1,35 @@
+// Random baseline agent - makes random valid actions
+// Used to establish a floor for RL performance
+
+var enemy = getNearestEnemy()
+if (!enemy) return
+
+// Random action selection
+var action = random(0, 10)
+
+if (action < 3 && getMP() > 0) {
+    // 30% move toward
+    moveToward(enemy)
+} else if (action < 5 && getMP() > 0) {
+    // 20% move away
+    moveAwayFrom(enemy)
+} else if (action < 6 && getMP() > 0) {
+    // 10% random direction
+    var dirs = [-1, 1, -18, 18, -17, 17, -19, 19]
+    var dir = dirs[random(0, 8)]
+    var target = getCell() + dir
+    if (getCellContent(target) == CELL_EMPTY) {
+        moveTowardCell(target)
+    }
+} else if (action < 9) {
+    // 30% try to attack
+    if (getWeapon() != WEAPON_PISTOL) {
+        setWeapon(WEAPON_PISTOL)
+    }
+    var dist = getCellDistance(getCell(), getCell(enemy))
+    if (dist >= 1 && dist <= 7 && getTP() >= 3) {
+        useWeapon(enemy)
+    }
+} else {
+    // 10% do nothing (end turn early)
+}

@@ -1,0 +1,48 @@
+// Heuristic baseline agent - optimal pistol fighter
+// Port of fighter_v1 with improvements
+// NOTE: Avoids 'global' keyword due to entity sharing bug
+
+var enemy = getNearestEnemy()
+if (!enemy) return
+
+var myCell = getCell()
+var enemyCell = getCell(enemy)
+var dist = getCellDistance(myCell, enemyCell)
+
+// Pistol constants
+var PISTOL_MIN = 1
+var PISTOL_MAX = 7
+var PISTOL_COST = 3
+
+// Equip pistol if not equipped
+if (getWeapon() != WEAPON_PISTOL) {
+    setWeapon(WEAPON_PISTOL)
+}
+
+// Phase 1: Get into range
+while (dist > PISTOL_MAX && getMP() > 0) {
+    var moved = moveToward(enemy)
+    if (moved == 0) break
+    dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// Phase 2: Get out of melee if too close
+while (dist < PISTOL_MIN && getMP() > 0) {
+    var moved = moveAwayFrom(enemy)
+    if (moved == 0) break
+    dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// Phase 3: Fire until out of TP or out of range
+while (getTP() >= PISTOL_COST && dist >= PISTOL_MIN && dist <= PISTOL_MAX) {
+    var result = useWeapon(enemy)
+    if (result != USE_SUCCESS) break
+    dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// Phase 4: Spend remaining MP to close distance
+while (getMP() > 0 && dist > PISTOL_MIN) {
+    var moved = moveToward(enemy)
+    if (moved == 0) break
+    dist = getCellDistance(getCell(), getCell(enemy))
+}

@@ -1,24 +1,27 @@
 """Gymnasium environment for LeekWars fights.
 
-NOTE: Current implementation runs full fights (episodic).
-For step-by-step RL training, we need Py4J integration.
+Supports two modes:
+- Episodic: Run full fights (for policy evaluation)
+- Step-by-step: Execute individual actions (for RL training)
+
+Uses Py4J for fast simulation (~20+ fights/sec).
 """
 
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
-from pathlib import Path
 from typing import Any
 
-from .simulator import Simulator, EntityConfig, ScenarioConfig, FightOutcome
+from .simulator import Simulator, EntityConfig, ScenarioConfig, FightOutcome, GENERATOR_PATH
+from .py4j_simulator import Py4JSimulator
 
 
 class LeekWarsEnv(gym.Env):
     """
     LeekWars fight environment.
 
-    Current limitation: Runs full fights, not step-by-step.
-    Use for policy evaluation, not training.
+    Episodic mode: Runs full fights, AI files determine behavior.
+    Use for policy evaluation against scripted opponents.
 
     Observation: Entity stats (HP%, MP, TP, position)
     Action: Not used in episodic mode (AI file determines behavior)
@@ -33,6 +36,7 @@ class LeekWarsEnv(gym.Env):
         opponent_ai: str = "fighter_v1.leek",
         level: int = 1,
         render_mode: str | None = None,
+        use_py4j: bool = True,
     ):
         super().__init__()
 
@@ -40,8 +44,19 @@ class LeekWarsEnv(gym.Env):
         self.opponent_ai = opponent_ai
         self.level = level
         self.render_mode = render_mode
+        self.use_py4j = use_py4j
 
-        self.simulator = Simulator()
+        # Use Py4J for speed, fall back to subprocess
+        if use_py4j:
+            try:
+                self.simulator = Py4JSimulator()
+            except Exception:
+                print("Py4J unavailable, falling back to subprocess")
+                self.simulator = Simulator()
+                self.use_py4j = False
+        else:
+            self.simulator = Simulator()
+
         self.last_outcome: FightOutcome | None = None
         self.episode_count = 0
 
@@ -97,13 +112,22 @@ class LeekWarsEnv(gym.Env):
         # Run full fight
         try:
             # Convert numpy int to Python int for JSON serialization
-            seed = int(self.np_random.integers(0, 2**31)) if self.np_random else None
-            self.last_outcome = self.simulator.run_1v1(
-                self.ai_path,
-                self.opponent_ai,
-                level=self.level,
-                seed=seed,
-            )
+            seed = int(self.np_random.integers(0, 2**31)) if self.np_random else 0
+
+            if self.use_py4j:
+                self.last_outcome = self.simulator.run_1v1(
+                    self.ai_path,
+                    self.opponent_ai,
+                    level=self.level,
+                    seed=seed,
+                )
+            else:
+                self.last_outcome = self.simulator.run_1v1(
+                    self.ai_path,
+                    self.opponent_ai,
+                    level=self.level,
+                    seed=seed if seed else None,
+                )
 
             # Reward: +1 win, -1 loss, 0 draw
             if self.last_outcome.team1_won:
