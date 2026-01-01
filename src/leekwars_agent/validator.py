@@ -1,6 +1,10 @@
 """LeekScript code validator."""
 
+import json
+import shutil
+import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 # Error codes from LeekScript compiler
@@ -94,3 +98,85 @@ def format_validation_report(code: str, errors: list[ValidationError]) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+# --- Local validation using Java generator ---
+
+GENERATOR_PATH = Path(__file__).parent.parent.parent / "tools" / "leek-wars-generator"
+
+
+@dataclass
+class LocalValidationResult:
+    """Result from local Java validation."""
+
+    success: bool
+    errors: list[ValidationError]
+    raw_output: str
+
+
+def validate_locally(file_path: Path | str) -> LocalValidationResult:
+    """
+    Validate a LeekScript file using the local Java generator.
+
+    Requires: Java 21+, generator.jar built in tools/leek-wars-generator
+
+    Returns LocalValidationResult with success flag and parsed errors.
+    """
+    file_path = Path(file_path)
+
+    if not file_path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    generator_jar = GENERATOR_PATH / "generator.jar"
+    if not generator_jar.exists():
+        raise FileNotFoundError(
+            f"generator.jar not found at {generator_jar}. "
+            "Build with: cd tools/leek-wars-generator && ./gradlew jar"
+        )
+
+    # Copy file to generator directory (it expects files relative to cwd)
+    temp_file = GENERATOR_PATH / file_path.name
+    shutil.copy(file_path, temp_file)
+
+    try:
+        result = subprocess.run(
+            ["java", "-jar", "generator.jar", "--analyze", "--verbose", file_path.name],
+            cwd=GENERATOR_PATH,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        output = result.stdout + result.stderr
+        success = "Analyze success!" in output
+
+        # Parse error JSON from output (last line typically)
+        errors = []
+        for line in output.split("\n"):
+            line = line.strip()
+            if line.startswith("[[") and line.endswith("]]"):
+                try:
+                    error_data = json.loads(line)
+                    for err in error_data:
+                        if len(err) >= 7:
+                            errors.append(
+                                ValidationError(
+                                    severity=err[0],
+                                    ai_id=err[1],
+                                    line_start=err[2],
+                                    col_start=err[3],
+                                    line_end=err[4],
+                                    col_end=err[5],
+                                    error_code=err[6],
+                                    context=err[7] if len(err) > 7 else [],
+                                )
+                            )
+                except json.JSONDecodeError:
+                    pass
+
+        return LocalValidationResult(success=success, errors=errors, raw_output=output)
+
+    finally:
+        # Clean up temp file
+        if temp_file.exists():
+            temp_file.unlink()

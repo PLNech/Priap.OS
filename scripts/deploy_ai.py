@@ -30,10 +30,13 @@ def deploy(api: LeekWarsAPI, code: str, name: str = None):
     result = api.save_ai(AI_ID, code)
     print(f"  Save result: {result}")
 
-    # Rename if specified
+    # Rename if specified (may fail due to API quirks)
     if name:
-        api.rename_ai(AI_ID, name)
-        print(f"  Renamed to: {name}")
+        try:
+            api.rename_ai(AI_ID, name)
+            print(f"  Renamed to: {name}")
+        except Exception as e:
+            print(f"  Rename failed (non-fatal): {e}")
 
     # Verify
     ai = api.get_ai(AI_ID)["ai"]
