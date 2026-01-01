@@ -10,6 +10,19 @@ Automated LeekWars agent with goal of RL-based combat AI. Browser automation + A
 2. **Iterative Discovery** - Use Playwright introspection to discover DOM/API structure empirically
 3. **Fail Fast, Learn Fast** - Run experiments immediately, capture failures as documentation
 4. **Living Documentation** - Update docs/ as discoveries are made, not after
+5. **Build Tools as You Go** - Every repeated task is a tooling opportunity
+
+### Tooling Philosophy
+- **Identify repetition** - If you do something twice, consider automating it
+- **Meta-tooling** - Tools that build tools accelerate exponentially
+- **Layered automation**:
+  - L0: Manual exploration (curl, browser)
+  - L1: Scripts for specific tasks (login, fight, upload)
+  - L2: Library abstractions (api.py, browser.py)
+  - L3: Orchestration (batch runners, pipelines)
+  - L4: Self-improving systems (RL, auto-tuning)
+- **Invest in tooling early** - Time spent on good tools pays compound interest
+- **Composable primitives** - Small, focused tools that combine well
 
 ### Workflow Pattern
 ```
