@@ -201,6 +201,25 @@ class LeekWarsAPI:
         response.raise_for_status()
         return response.json()
 
+    # Market operations
+    def buy_fights(self, quantity: int = 1) -> dict[str, Any]:
+        """Buy fight packs from market (50 fights per pack)."""
+        headers = self._headers()
+        headers["Content-Type"] = "application/json; charset=UTF-8"
+        response = self._client.post(
+            "/market/buy-habs-quantity",
+            headers=headers,
+            json={"item_id": "50fights", "quantity": quantity},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def get_market(self) -> dict[str, Any]:
+        """Get market items and prices."""
+        response = self._client.get("/market/get-items", headers=self._headers())
+        response.raise_for_status()
+        return response.json()
+
     def close(self):
         """Close HTTP client."""
         self._client.close()
