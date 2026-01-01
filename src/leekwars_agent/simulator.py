@@ -201,6 +201,7 @@ class Simulator:
         """Convenience method for 1v1 fights with default stats."""
         # Level 1 stats: 100 HP, 10 TP, 3 MP, pistol
         # Map is 17x17 diamond, cells ~0-600
+        # WEAPON_PISTOL = 37 (from FightConstants.java)
         leek1 = EntityConfig(
             id=1,
             name="Leek1",
@@ -212,7 +213,7 @@ class Simulator:
             farmer=1,
             team=1,
             cell=100,  # Near top
-            weapons=[1],  # Pistol
+            weapons=[37],  # WEAPON_PISTOL = 37
         )
         leek2 = EntityConfig(
             id=2,
@@ -225,7 +226,7 @@ class Simulator:
             farmer=2,
             team=2,
             cell=450,  # Near bottom
-            weapons=[1],  # Pistol
+            weapons=[37],  # WEAPON_PISTOL = 37
         )
 
         scenario = ScenarioConfig(
