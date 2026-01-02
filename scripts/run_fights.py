@@ -1,140 +1,149 @@
 #!/usr/bin/env python3
-"""Run multiple fights and analyze results."""
+"""Run all available garden fights.
+
+CORE daily script - maximizes XP and ranking gains.
+
+Usage:
+    poetry run python scripts/run_fights.py        # Run all available fights
+    poetry run python scripts/run_fights.py 10    # Run max 10 fights
+    poetry run python scripts/run_fights.py -q    # Quiet mode
+"""
 
 import sys
 import os
 import time
 import json
+from pathlib import Path
+from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-import httpx
-from leekwars_agent.fight_parser import parse_fight, summarize_fight, ActionType
+from leekwars_agent.api import LeekWarsAPI
 
-USERNAME = "leek@nech.pl"
-PASSWORD = "REDACTED_PASSWORD"
-BASE = "https://leekwars.com/api"
+LEEK_ID = 131321
+HISTORY_FILE = Path(__file__).parent.parent / "data" / "fight_history.json"
+
+
+def load_history() -> dict:
+    """Load cumulative fight history."""
+    if HISTORY_FILE.exists():
+        return json.loads(HISTORY_FILE.read_text())
+    return {"sessions": [], "total_fights": 0, "total_wins": 0, "total_losses": 0}
+
+
+def save_history(history: dict):
+    """Save fight history."""
+    HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    HISTORY_FILE.write_text(json.dumps(history, indent=2))
 
 
 def main():
-    client = httpx.Client(timeout=30.0)
+    # Parse args
+    max_fights = 0  # 0 = all available
+    quiet = False
+    for arg in sys.argv[1:]:
+        if arg == "-q" or arg == "--quiet":
+            quiet = True
+        elif arg.isdigit():
+            max_fights = int(arg)
 
-    # Login
-    print("=== LOGIN ===")
-    r = client.post(
-        f"{BASE}/farmer/login",
-        data={"login": USERNAME, "password": PASSWORD, "keep_connected": "true"},
-    )
-    data = r.json()
-    farmer = data["farmer"]
-    token = None
-    for cookie in r.cookies.jar:
-        if cookie.name == "token":
-            token = cookie.value
-            break
+    api = LeekWarsAPI()
+    api.login("leek@nech.pl", "REDACTED_PASSWORD")
 
-    headers = {"Authorization": f"Bearer {token}"}
-    print(f"Logged in as: {farmer['name']}")
-    print(f"Fights available: {farmer.get('fights', 'N/A')}")
-    print(f"Habs: {farmer.get('habs', 'N/A')}")
-
-    # Get leek
+    farmer = api.farmer
     leeks = farmer["leeks"]
     leek_id = list(leeks.keys())[0]
     leek = leeks[leek_id]
-    print(f"\nLeek: {leek['name']} L{leek['level']}")
 
-    # Get opponents
-    print("\n=== OPPONENTS ===")
-    r = client.get(f"{BASE}/garden/get-leek-opponents/{leek_id}", headers=headers)
-    opps = r.json().get("opponents", [])
-    print(f"Found {len(opps)} opponents")
+    # Get garden state
+    garden = api.get_garden()["garden"]
+    available = garden.get("fights", 0)
 
-    # Run fights
-    num_fights = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-    print(f"\n=== RUNNING {num_fights} FIGHTS ===")
+    if available == 0:
+        print("No fights available!")
+        api.close()
+        return
 
-    results = []
-    for i in range(min(num_fights, len(opps))):
-        target = opps[i]
-        print(f"\n[{i+1}/{num_fights}] Fighting {target['name']} L{target['level']}...")
+    to_fight = available if max_fights == 0 else min(max_fights, available)
+    if not quiet:
+        print(f"Running {to_fight} fights...\n")
 
-        r = client.post(
-            f"{BASE}/garden/start-solo-fight",
-            headers=headers,
-            data={"leek_id": leek_id, "target_id": target["id"]},
-        )
-        result = r.json()
+    # Fight loop
+    wins, losses, draws = 0, 0, 0
+    fight_details = []
 
-        if isinstance(result, dict) and "fight" in result:
-            fight_id = result["fight"]
-            print(f"  Fight ID: {fight_id}")
-
-            # Wait for fight to complete
-            time.sleep(2)
-
-            # Get fight result
-            r = client.get(f"{BASE}/fight/get/{fight_id}")
-            fight_data = r.json()
-
-            # Parse and summarize
-            winner = fight_data.get("winner", 0)
-            outcome = "WIN" if winner == 1 else "LOSS" if winner == 2 else "DRAW"
-            print(f"  Result: {outcome}")
-
-            # Parse fight
-            parsed = parse_fight(fight_data)
-            print(f"  Turns: {parsed['summary']['turns']}")
-            print(f"  Actions: {parsed['summary']['total_actions']}")
-
-            results.append({
-                "fight_id": fight_id,
-                "opponent": target["name"],
-                "outcome": outcome,
-                "turns": parsed["summary"]["turns"],
-                "parsed": parsed,
-            })
-        else:
-            print(f"  ERROR: {result}")
-            if isinstance(result, dict) and result.get("error") == "not_enough_fights":
-                print("  No more fights available today!")
+    for i in range(to_fight):
+        try:
+            opponents = api.get_leek_opponents(int(leek_id))["opponents"]
+            if not opponents:
+                print("No more opponents")
                 break
 
-        # Small delay between fights
-        time.sleep(1)
+            target = opponents[0]
+            result = api.start_solo_fight(int(leek_id), target["id"])
+            fight_id = result.get("fight")
+
+            if not fight_id:
+                print(f"[{i+1}] Failed: {result}")
+                continue
+
+            time.sleep(1.5)
+            fight = api.get_fight(fight_id)
+            winner = fight.get("winner")
+            report = fight.get("report", {})
+
+            if winner == 1:
+                wins += 1
+                outcome = "W"
+            elif winner == 2:
+                losses += 1
+                outcome = "L"
+            else:
+                draws += 1
+                outcome = "D"
+
+            if not quiet:
+                print(f"[{i+1}/{to_fight}] {outcome} vs {target['name']} L{target['level']} ({report.get('duration', '?')}t)")
+
+            fight_details.append({
+                "id": fight_id,
+                "opponent": target["name"],
+                "opponent_level": target["level"],
+                "result": outcome,
+                "turns": report.get("duration", 0),
+            })
+
+        except Exception as e:
+            print(f"[{i+1}] Error: {e}")
+            time.sleep(2)
 
     # Summary
-    print("\n=== SUMMARY ===")
-    wins = sum(1 for r in results if r["outcome"] == "WIN")
-    losses = sum(1 for r in results if r["outcome"] == "LOSS")
-    print(f"Record: {wins}W - {losses}L")
+    total = wins + losses + draws
+    win_rate = (wins / total * 100) if total > 0 else 0
 
-    # Refresh farmer data
-    r = client.get(f"{BASE}/garden/get", headers=headers)
-    # Get updated farmer
-    r = client.post(
-        f"{BASE}/farmer/login",
-        data={"login": USERNAME, "password": PASSWORD, "keep_connected": "true"},
-    )
-    farmer = r.json().get("farmer", {})
-    print(f"Updated stats:")
-    print(f"  Fights remaining: {farmer.get('fights', 'N/A')}")
-    print(f"  Habs: {farmer.get('habs', 'N/A')}")
+    print(f"\n=== {wins}W-{losses}L-{draws}D ({win_rate:.0f}%) ===")
 
-    leek = farmer.get("leeks", {}).get(leek_id, {})
-    print(f"  Leek {leek.get('name')}: L{leek.get('level')}")
+    # Check remaining and level
+    garden = api.get_garden()["garden"]
+    farmer = api.get_farmer(api.farmer_id)["farmer"]
+    leek = farmer["leeks"][leek_id]
+    print(f"Fights left: {garden.get('fights', 0)} | Level: {leek.get('level')} | XP: {leek.get('xp', 0)}/{leek.get('up_xp', 0)}")
 
-    # Save detailed results
-    os.makedirs("data", exist_ok=True)
-    with open("data/fight_results.json", "w") as f:
-        # Convert to serializable format
-        for r in results:
-            r["parsed"]["summary"]["damage_dealt"] = dict(r["parsed"]["summary"]["damage_dealt"])
-            r["parsed"]["summary"]["healing_done"] = dict(r["parsed"]["summary"]["healing_done"])
-        json.dump(results, f, indent=2, default=str)
-    print(f"\nDetailed results saved to data/fight_results.json")
+    # Save history
+    history = load_history()
+    history["sessions"].append({
+        "date": datetime.now().isoformat(),
+        "fights": total,
+        "wins": wins,
+        "losses": losses,
+        "win_rate": win_rate,
+    })
+    history["total_fights"] += total
+    history["total_wins"] += wins
+    history["total_losses"] += losses
+    save_history(history)
 
-    client.close()
+    api.close()
 
 
 if __name__ == "__main__":

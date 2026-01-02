@@ -1,7 +1,25 @@
 # Priap.OS - LeekWars AI Agent
 
 ## Project Overview
-Automated LeekWars agent with goal of RL-based combat AI. Browser automation + API integration.
+Automated LeekWars agent aiming for **top 10 ladder**. The strategy: build infrastructure that lets us iterate faster than anyone else.
+
+## The Winning Formula
+
+### Core Insight
+- Online fights: 150/day (scarce, precious)
+- Offline fights: 1.8M/day potential (21.5 fights/sec)
+- **Leverage ratio: 13,000:1**
+
+**Principle**: Never test online what we can test offline. Every online fight is for data collection, not experimentation.
+
+### The Flywheel
+```
+Fight Online → Collect Data → Analyze Losses → Improve AI Offline
+     ↑                                                    ↓
+     └──────────── Deploy Best Variant ←──────────────────┘
+```
+
+The scaffolding lets us spin this flywheel 13,000x faster than manual iteration.
 
 ## Development Philosophy: Empirical Agentic TDD
 
@@ -42,18 +60,56 @@ Automated LeekWars agent with goal of RL-based combat AI. Browser automation + A
 ```
 src/leekwars_agent/    # Core library
   api.py               # HTTP API client
-  browser.py           # Playwright automation
-scripts/               # Probe/test scripts (run with poetry run python)
+  simulator.py         # Local fight simulation (21.5 fights/sec)
+  fight_parser.py      # Parse fight replays
+  visualizer.py        # Fight replay viewer
+  fight_analyzer.py    # Extract patterns from fights (TODO)
+scripts/               # Automation scripts
+  run_fights.py        # Online fight runner
+  compare_ais.py       # A/B test AI versions (TODO)
+  test_builds.py       # Capital allocation experiments (TODO)
+  fetch_fight.py       # Download fight by ID (TODO)
+  parse_history.py     # Scrape fight history (TODO)
+ais/                   # LeekScript AI files
+  fighter_v1.leek      # Current deployed AI
+  fighter_v2.leek      # Improved variant (TODO)
+data/                  # Fight data, configs
+  fights/              # Raw + parsed fight data
 docs/                  # Living documentation
   API.md               # API endpoints discovered
   LEEK.md              # Game mechanics & strategy
-screenshots/           # Browser debug captures
 ```
 
 ## Credentials
 - Login: `leek@nech.pl`
-- Account: PriapOS
+- Account: PriapOS (Farmer ID: 124831)
 - Leek: IAdonis (ID: 131321)
+
+## Current State (Session 3)
+- Level: ~4 (17 capital available)
+- Rank: ~56,000
+- Win rate: 79% (19W-5L from 21 fights)
+- Build: STR=96, AGI=10
+- Capital: 17 UNUSED (SAVE - stats don't matter yet)
+- Fights remaining: ~139 today
+- AI: fighter_v1.leek deployed
+
+## Session 3 Achievements
+**Scaffolding Built:**
+- `scripts/compare_ais.py` - A/B test AIs offline (2.5 fights/sec)
+- `scripts/test_builds.py` - Capital allocation testing
+- `scripts/fetch_fight.py` - Download fight replays
+- `scripts/parse_history.py` - Fight history parser
+- `src/leekwars_agent/fight_analyzer.py` - Pattern extraction
+
+**Critical Bugs Fixed:**
+- Simulator had 96% team 1 bias → fixed with team swapping
+- AI file paths not found → copy to generator directory first
+
+**Tested & Validated:**
+- AI v2 (shoot-first): NO improvement (50.5% vs 49.5%)
+- Capital allocation: +STR/+AGI/+Frequency all 50% win rate
+- **Conclusion**: Strategy matters, stats don't (yet)
 
 ## Key API Notes
 - Base URL: `https://leekwars.com/api/`
@@ -61,23 +117,28 @@ screenshots/           # Browser debug captures
 - Login requires: `login`, `password`, `keep_connected` params
 - Token in `set-cookie: token=<jwt>` header
 
+### Critical API Discoveries
+- `spend-capital`: POST with `characteristics` as JSON string: `data={'characteristics': json.dumps({'strength': 50})}`
+- `add-weapon`: Returns "already_equipped" if weapon in slot (good)
+- Weapons in slots ≠ weapon held. AI must call `setWeapon(WEAPON_PISTOL)` during combat
+- WEAPON_PISTOL item ID = **37** (not 1!) - this caused early bugs
+- `GET /fight/get/<fight_id>` - Full fight replay data
+- No bulk fight history API - must scrape `/leek/131321/history` or track locally
+
 ## Commands
 ```bash
 # Run any script
 poetry run python scripts/<script>.py
 
-# Browser test (headful)
-poetry run python scripts/login_test.py --browser
+# Run online fights
+poetry run python scripts/run_fights.py 50
 
-# API-only test
-poetry run python scripts/login_test.py
+# Compare AI versions (TODO)
+poetry run python scripts/compare_ais.py v1.leek v2.leek -n 1000
+
+# Test build variants (TODO)
+poetry run python scripts/test_builds.py --stat strength --range 90-110
 ```
-
-## Long-term Goals
-1. Full API coverage for game automation
-2. Local fight simulation via leek-wars-generator (Java)
-3. RL training for combat decisions (action selection, positioning)
-4. Deploy trained policies as LeekScript AI
 
 ## Local Validation (Java)
 
@@ -85,8 +146,10 @@ poetry run python scripts/login_test.py
 
 ```bash
 # Validate LeekScript locally
-cd tools/leek-wars-generator
-java -jar generator.jar --analyze <file.leek>
+java -jar tools/leek-wars-generator/leekscript.jar ais/fighter_v1.leek
+
+# Run simulated fights
+poetry run python scripts/compare_ais.py v1.leek v2.leek -n 1000
 ```
 
 Requires Java 21+ (use SDKMAN: `sdk install java 21.0.5-tem`)
@@ -95,18 +158,15 @@ Requires Java 21+ (use SDKMAN: `sdk install java 21.0.5-tem`)
 - `var` = block-scoped, `global` = file-scoped
 - Use `global` for variables reassigned across blocks
 - Error 33 = undefined reference, Error 35 = unused variable
+- `setWeapon()` costs 1 TP - only call once per fight!
 
-## Data Capture for RL
+## Fight Analysis Insights (Session 3)
 
-Fight data structure for training:
-```
-data/
-  actions: [...]     # Turn-by-turn action encoding
-  leeks: [...]       # Entity states (pos, hp, tp, mp)
-  map: {...}         # Grid, obstacles
-```
-
-Action codes: see docs/API.md "Action Encoding" section
+From analyzing fight 50863105 (a loss):
+- **Damage per shot**: Us 37 avg vs opponent 22 avg (70% stronger!)
+- **But we lost**: Opponent got 5 shots, we got 3
+- **Root cause**: Range timing - opponent reached attack range first
+- **Lesson**: Action economy > raw damage. First strike wins close fights.
 
 ## Resources
 - [LeekWars API](https://leekwars.com/help/api)

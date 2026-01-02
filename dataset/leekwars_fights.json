@@ -1,0 +1,152 @@
+[
+  {
+    "fight_id": 50863109,
+    "leeks1": [
+      {
+        "id": 131321,
+        "name": "IAdonis"
+      }
+    ],
+    "leeks2": [
+      {
+        "id": 127886,
+        "name": "lavabit"
+      }
+    ],
+    "winner": 1,
+    "status": 2,
+    "date": 1767356959,
+    "context": 2,
+    "type": 0,
+    "result": "win",
+    "levelups": 1,
+    "trophies": 0,
+    "rareloot": 0,
+    "timestamp": "2026-01-02T14:22:15.264771"
+  },
+  {
+    "fight_id": 50863108,
+    "leeks1": [
+      {
+        "id": 131321,
+        "name": "IAdonis"
+      }
+    ],
+    "leeks2": [
+      {
+        "id": 101229,
+        "name": "Dabro"
+      }
+    ],
+    "winner": 1,
+    "status": 2,
+    "date": 1767356957,
+    "context": 2,
+    "type": 0,
+    "result": "win",
+    "levelups": 0,
+    "trophies": 0,
+    "rareloot": 0,
+    "timestamp": "2026-01-02T14:22:15.264787"
+  },
+  {
+    "fight_id": 50863107,
+    "leeks1": [
+      {
+        "id": 131321,
+        "name": "IAdonis"
+      }
+    ],
+    "leeks2": [
+      {
+        "id": 131121,
+        "name": "Midzy"
+      }
+    ],
+    "winner": 1,
+    "status": 2,
+    "date": 1767356955,
+    "context": 2,
+    "type": 0,
+    "result": "win",
+    "levelups": 0,
+    "trophies": 1,
+    "rareloot": 0,
+    "timestamp": "2026-01-02T14:22:15.264790"
+  },
+  {
+    "fight_id": 50863106,
+    "leeks1": [
+      {
+        "id": 131321,
+        "name": "IAdonis"
+      }
+    ],
+    "leeks2": [
+      {
+        "id": 130148,
+        "name": "LeoMan"
+      }
+    ],
+    "winner": 1,
+    "status": 2,
+    "date": 1767356953,
+    "context": 2,
+    "type": 0,
+    "result": "win",
+    "levelups": 0,
+    "trophies": 0,
+    "rareloot": 0,
+    "timestamp": "2026-01-02T14:22:15.264793"
+  },
+  {
+    "fight_id": 50863105,
+    "leeks1": [
+      {
+        "id": 131321,
+        "name": "IAdonis"
+      }
+    ],
+    "leeks2": [
+      {
+        "id": 131320,
+        "name": "bloccolegrand"
+      }
+    ],
+    "winner": 2,
+    "status": 2,
+    "date": 1767356951,
+    "context": 2,
+    "type": 0,
+    "result": "defeat",
+    "levelups": 0,
+    "trophies": 0,
+    "rareloot": 1,
+    "timestamp": "2026-01-02T14:22:15.264795"
+  },
+  {
+    "fight_id": 50863104,
+    "leeks1": [
+      {
+        "id": 131321,
+        "name": "IAdonis"
+      }
+    ],
+    "leeks2": [
+      {
+        "id": 130577,
+        "name": "Stack31"
+      }
+    ],
+    "winner": 1,
+    "status": 2,
+    "date": 1767356949,
+    "context": 2,
+    "type": 0,
+    "result": "win",
+    "levelups": 0,
+    "trophies": 0,
+    "rareloot": 1,
+    "timestamp": "2026-01-02T14:22:15.264826"
+  }
+]

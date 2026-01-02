@@ -180,8 +180,23 @@ class Simulator:
             # Parse JSON output
             output = json.loads(result.stdout)
 
+            # Compute winner from dead status (Java generator might return wrong winner)
+            winner = output.get("winner", 0)
+            dead = output.get("fight", {}).get("dead", {})
+            leeks = output.get("fight", {}).get("leeks", [])
+
+            # If winner is 0 (draw) but someone is dead, compute correct winner
+            if winner == 0 and leeks and dead:
+                team1_alive = any(not dead.get(str(l["id"]), False) for l in leeks if l["team"] == 1)
+                team2_alive = any(not dead.get(str(l["id"]), False) for l in leeks if l["team"] == 2)
+
+                if team1_alive and not team2_alive:
+                    winner = 1
+                elif team2_alive and not team1_alive:
+                    winner = 2
+
             return FightOutcome(
-                winner=output.get("winner", 0),
+                winner=winner,
                 turns=output.get("turns", 0),
                 actions=output.get("actions", []),
                 duration_ms=duration_ms,
