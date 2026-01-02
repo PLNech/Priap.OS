@@ -192,9 +192,15 @@ class Effect:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Effect":
+        # Effect ID is the effect type (1=damage, 2=heal, etc)
+        effect_id = data.get("id", 1)
+        try:
+            effect_type = EffectType(effect_id)
+        except ValueError:
+            effect_type = EffectType.DAMAGE  # fallback
         return cls(
-            id=data.get("id", 0),
-            type=EffectType(data.get("type", data.get("id", 1))),
+            id=effect_id,
+            type=effect_type,
             value1=data.get("value1", 0),
             value2=data.get("value2", 0),
             turns=data.get("turns", 0),
@@ -296,13 +302,313 @@ WEAPON_NEUTRINO = 23
 
 
 # === Use Result Constants ===
-USE_SUCCESS = 0
-USE_FAILED = 1
-USE_INVALID = 2
-USE_NOT_ENOUGH_TP = 3
-USE_INVALID_POSITION = 4
-USE_INVALID_COOLDOWN = 5
-USE_TOO_MANY_SUMMONS = 6
-USE_LEEK_DEAD = 7
-USE_INVALID_TARGET = 8
-USE_NOT_EQUIPPED = 9
+USE_SUCCESS = 1
+USE_FAILED = 0
+USE_INVALID_TARGET = -1
+USE_NOT_ENOUGH_TP = -2
+USE_INVALID_COOLDOWN = -3
+USE_INVALID_POSITION = -4
+USE_TOO_MANY_SUMMONS = -5
+USE_RESURRECT_INVALID = -6
+USE_MAX_USES = -7
+
+
+# === Item IDs (used in fights, from constants.json) ===
+WEAPON_PISTOL_ITEM = 37
+WEAPON_MACHINE_GUN_ITEM = 38
+WEAPON_DOUBLE_GUN_ITEM = 39
+WEAPON_DESTROYER_ITEM = 40
+WEAPON_SHOTGUN_ITEM = 41
+WEAPON_LASER_ITEM = 42
+WEAPON_GRENADE_LAUNCHER_ITEM = 43
+WEAPON_ELECTRISOR_ITEM = 44
+WEAPON_MAGNUM_ITEM = 45
+WEAPON_FLAME_THROWER_ITEM = 46
+WEAPON_M_LASER_ITEM = 47
+WEAPON_GAZOR_ITEM = 48
+
+
+# =============================================================================
+# Build System
+# =============================================================================
+
+from dataclasses import field
+from pathlib import Path
+import json
+
+DATA_DIR = Path(__file__).parent.parent.parent / "data"
+
+
+# Capital cost per characteristic point (increases with investment)
+def capital_for_characteristic(points: int) -> int:
+    """Calculate total capital needed for N points in a characteristic.
+
+    Cost increases: 1 cap/pt for 0-49, 2 cap/pt for 50-99, etc.
+    """
+    if points <= 0:
+        return 0
+    total = 0
+    remaining = points
+    cost = 1
+    while remaining > 0:
+        bracket = min(remaining, 50)
+        total += bracket * cost
+        remaining -= bracket
+        cost += 1
+    return total
+
+
+def capital_available(level: int) -> int:
+    """Total capital available at a given level (~10 per level)."""
+    return level * 10
+
+
+@dataclass
+class LeekBuild:
+    """Complete leek build configuration.
+
+    Represents a character's stat allocation and equipment loadout.
+    """
+    level: int = 1
+
+    # Characteristics (points allocated, not capital)
+    strength: int = 0
+    agility: int = 0
+    wisdom: int = 0
+    resistance: int = 0
+    science: int = 0
+    magic: int = 0
+    frequency: int = 0
+
+    # Equipment (item IDs used in fights)
+    weapons: list[int] = field(default_factory=list)
+    chips: list[int] = field(default_factory=list)
+
+    @property
+    def total_capital_spent(self) -> int:
+        """Total capital spent on all characteristics."""
+        return sum([
+            capital_for_characteristic(self.strength),
+            capital_for_characteristic(self.agility),
+            capital_for_characteristic(self.wisdom),
+            capital_for_characteristic(self.resistance),
+            capital_for_characteristic(self.science),
+            capital_for_characteristic(self.magic),
+            capital_for_characteristic(self.frequency),
+        ])
+
+    @property
+    def capital_remaining(self) -> int:
+        """Capital left to spend."""
+        return capital_available(self.level) - self.total_capital_spent
+
+    def validate(self) -> tuple[bool, str]:
+        """Check if build is valid for level."""
+        if self.total_capital_spent > capital_available(self.level):
+            return False, f"Over budget by {-self.capital_remaining} capital"
+        return True, "Valid"
+
+    # Derived stats
+    @property
+    def base_life(self) -> int:
+        """Base HP = 100 + 3*level."""
+        return 100 + self.level * 3
+
+    @property
+    def base_tp(self) -> int:
+        """Base TP = 10 + wisdom bonus (1 per 200 wisdom)."""
+        return 10 + self.wisdom // 200
+
+    @property
+    def base_mp(self) -> int:
+        """Base MP = 3 + agility bonus (1 per 100 agility)."""
+        return 3 + self.agility // 100
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dict for simulator EntityConfig."""
+        return {
+            "level": self.level,
+            "life": self.base_life,
+            "tp": self.base_tp,
+            "mp": self.base_mp,
+            "strength": self.strength,
+            "agility": self.agility,
+            "wisdom": self.wisdom,
+            "resistance": self.resistance,
+            "science": self.science,
+            "magic": self.magic,
+            "frequency": self.frequency,
+            "weapons": self.weapons,
+            "chips": self.chips,
+        }
+
+
+# =============================================================================
+# Build Archetypes
+# =============================================================================
+
+def _points_for_capital(capital: int) -> int:
+    """How many characteristic points can we buy with given capital?
+
+    Inverse of capital_for_characteristic.
+    """
+    if capital <= 0:
+        return 0
+    points = 0
+    remaining = capital
+    cost = 1
+    while remaining > 0:
+        affordable = remaining // cost
+        bracket = min(affordable, 50)
+        if bracket <= 0:
+            break
+        points += bracket
+        remaining -= bracket * cost
+        cost += 1
+    return points
+
+
+def glass_cannon_build(level: int) -> LeekBuild:
+    """High damage, low survivability."""
+    cap = capital_available(level)
+    # 70% strength, 30% agility
+    str_pts = _points_for_capital(int(cap * 0.7))
+    agi_pts = _points_for_capital(int(cap * 0.3))
+    return LeekBuild(
+        level=level,
+        strength=str_pts,
+        agility=agi_pts,
+        weapons=[WEAPON_PISTOL_ITEM],
+    )
+
+
+def tank_build(level: int) -> LeekBuild:
+    """High survivability, moderate damage."""
+    cap = capital_available(level)
+    # 50% resistance, 30% strength, 20% wisdom
+    res_pts = _points_for_capital(int(cap * 0.5))
+    str_pts = _points_for_capital(int(cap * 0.3))
+    wis_pts = _points_for_capital(int(cap * 0.2))
+    return LeekBuild(
+        level=level,
+        strength=str_pts,
+        resistance=res_pts,
+        wisdom=wis_pts,
+        weapons=[WEAPON_PISTOL_ITEM],
+    )
+
+
+def balanced_build(level: int) -> LeekBuild:
+    """Balanced stats across the board."""
+    cap = capital_available(level)
+    # 25% each to 4 stats
+    pts = _points_for_capital(cap // 4)
+    return LeekBuild(
+        level=level,
+        strength=pts,
+        agility=pts,
+        resistance=pts,
+        wisdom=pts,
+        weapons=[WEAPON_PISTOL_ITEM],
+    )
+
+
+def kiter_build(level: int) -> LeekBuild:
+    """High mobility, chip-focused."""
+    cap = capital_available(level)
+    # 40% agility, 40% science, 20% frequency
+    agi_pts = _points_for_capital(int(cap * 0.4))
+    sci_pts = _points_for_capital(int(cap * 0.4))
+    frq_pts = _points_for_capital(int(cap * 0.2))
+    return LeekBuild(
+        level=level,
+        agility=agi_pts,
+        science=sci_pts,
+        frequency=frq_pts,
+        weapons=[WEAPON_PISTOL_ITEM],
+    )
+
+
+BUILD_ARCHETYPES = {
+    "glass_cannon": glass_cannon_build,
+    "tank": tank_build,
+    "balanced": balanced_build,
+    "kiter": kiter_build,
+}
+
+
+# =============================================================================
+# Equipment Catalog
+# =============================================================================
+
+class EquipmentCatalog:
+    """Catalog of all weapons and chips from API data."""
+
+    def __init__(self):
+        self.weapons: dict[int, Weapon] = {}
+        self.chips: dict[int, Chip] = {}
+        self._item_to_weapon: dict[int, int] = {}  # item_id -> weapon_id
+        self._load()
+
+    def _load(self):
+        """Load from data/*.json files."""
+        # Weapons
+        weapons_file = DATA_DIR / "weapons.json"
+        if weapons_file.exists():
+            data = json.loads(weapons_file.read_text())
+            for wid, w in data.get("weapons", data).items():
+                self.weapons[int(wid)] = Weapon.from_dict(w)
+                self._item_to_weapon[w["item"]] = int(wid)
+
+        # Chips
+        chips_file = DATA_DIR / "chips.json"
+        if chips_file.exists():
+            data = json.loads(chips_file.read_text())
+            for cid, c in data.get("chips", data).items():
+                self.chips[int(cid)] = Chip.from_dict(c)
+
+    def weapon_by_item_id(self, item_id: int) -> Weapon | None:
+        """Get weapon by item ID (used in fights)."""
+        wid = self._item_to_weapon.get(item_id)
+        return self.weapons.get(wid) if wid else None
+
+    def weapons_at_level(self, level: int) -> list[Weapon]:
+        """Get weapons unlocked at or before level."""
+        return sorted(
+            [w for w in self.weapons.values() if w.level <= level],
+            key=lambda w: w.level
+        )
+
+    def chips_at_level(self, level: int) -> list[Chip]:
+        """Get chips unlocked at or before level."""
+        return sorted(
+            [c for c in self.chips.values() if c.level <= level],
+            key=lambda c: c.level
+        )
+
+
+_catalog: EquipmentCatalog | None = None
+
+def get_catalog() -> EquipmentCatalog:
+    """Get singleton equipment catalog."""
+    global _catalog
+    if _catalog is None:
+        _catalog = EquipmentCatalog()
+    return _catalog
+
+
+# =============================================================================
+# Summary Helpers
+# =============================================================================
+
+def summarize_build(build: LeekBuild) -> str:
+    """Return build summary string."""
+    valid, msg = build.validate()
+    return (
+        f"Level {build.level} | "
+        f"Capital: {build.total_capital_spent}/{capital_available(build.level)} | "
+        f"STR:{build.strength} AGI:{build.agility} WIS:{build.wisdom} "
+        f"RES:{build.resistance} SCI:{build.science} MAG:{build.magic} FRQ:{build.frequency} | "
+        f"HP:{build.base_life} TP:{build.base_tp} MP:{build.base_mp} | "
+        f"{msg}"
+    )
