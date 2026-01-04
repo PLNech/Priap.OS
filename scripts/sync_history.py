@@ -49,10 +49,11 @@ def sync_fights(api: LeekWarsAPI, full: bool = False) -> int:
     known_ids = set(index["fights"].keys())
     new_count = 0
 
-    # Get fight history from farmer endpoint
-    print("Fetching fight history...")
-    farmer = api.get_farmer(FARMER_ID)["farmer"]
-    fights = farmer.get("fight_history", [])
+    # Get FULL fight history from history endpoint
+    print("Fetching full fight history...")
+    response = api._client.get(f"/history/get-farmer-history/{FARMER_ID}")
+    response.raise_for_status()
+    fights = response.json().get("fights", [])
     print(f"Found {len(fights)} fights in history")
 
     for fight in fights:

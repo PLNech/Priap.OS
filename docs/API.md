@@ -71,7 +71,22 @@ GET /farmer/get/<farmer_id>
 }
 ```
 
-**NOTE**: No dedicated `/leek/get-history` endpoint exists. Use `/farmer/get/{id}` → `fight_history` field instead.
+### Get Full Fight History (BETTER!)
+```
+GET /history/get-farmer-history/{farmer_id}
+```
+
+Returns **ALL** fights (not just recent 50). No auth required.
+```json
+{
+  "fights": [
+    { "id": 50886949, "result": "win", ... },
+    // ALL fights ever
+  ]
+}
+```
+
+**NOTE**: `/farmer/get/{id}` → `fight_history` only returns ~50 recent. Use `/history/get-farmer-history/` for full history.
 
 ### Get Connected Farmer (authenticated)
 ```
