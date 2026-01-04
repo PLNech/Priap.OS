@@ -76,6 +76,7 @@ class ScenarioConfig:
     map_width: int = 17
     map_height: int = 17
     obstacles: list[int] = field(default_factory=list)
+    starter_team: int = 0  # 0=frequency-based, 1=team1 first, 2=team2 first
 
     def to_dict(self) -> dict[str, Any]:
         # Collect unique farmers
@@ -114,6 +115,8 @@ class ScenarioConfig:
         }
         if self.seed is not None:
             scenario["random_seed"] = self.seed
+        if self.starter_team > 0:
+            scenario["starter_team"] = self.starter_team
         return scenario
 
 
