@@ -212,6 +212,33 @@ debug(value) / debugW(value) / debugE(value)
 USE_SUCCESS, USE_FAILED, USE_NOT_ENOUGH_TP, USE_INVALID_TARGET
 ```
 
+### Simulator vs Online Differences (IMPORTANT)
+
+The local simulator (Java generator) differs from online fights:
+
+| Aspect | Simulator | Online |
+|--------|-----------|--------|
+| First-mover advantage | ~0% impact | ~58% (attacker wins) |
+| Team 1 position bias | ~93% win rate | Varies by map |
+| Turn order | Random or `starter_team` | Attacker always first |
+
+**Key findings:**
+- `starter_team` parameter added to generator (fork: `feature/starter-team`)
+- Even with `starter_team=1`, Team 1 wins 93%+ due to position advantage
+- Stats have minimal impact (2-3% difference)
+- Simulator is useful for AI logic testing, NOT for win rate prediction
+
+**Use simulator for:**
+- Validating AI code compiles
+- Testing AI behavior/strategy
+- A/B testing AI variants (relative comparison)
+- Operations profiling
+
+**Do NOT use simulator for:**
+- Predicting online win rates
+- Testing first-mover strategies
+- Absolute performance measurement
+
 ### Operations Management (CRITICAL)
 Each leek has an **operation limit per turn** (upgradeable via cores/memory).
 - Every function call, loop iteration, comparison costs operations
