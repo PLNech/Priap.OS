@@ -137,6 +137,7 @@ def main():
         "wins": wins,
         "losses": losses,
         "win_rate": win_rate,
+        "fight_details": fight_details,  # Save individual fight data
     })
     history["total_fights"] += total
     history["total_wins"] += wins

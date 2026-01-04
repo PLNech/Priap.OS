@@ -85,14 +85,30 @@ docs/                  # Living documentation
 - Account: PriapOS (Farmer ID: 124831)
 - Leek: IAdonis (ID: 131321)
 
-## Current State (Session 3)
-- Level: ~4 (17 capital available)
-- Rank: ~56,000
-- Win rate: 79% (19W-5L from 21 fights)
+## Current State (Session 4)
+- Level: 6 (22 capital available)
+- Rank: ~109 talent
+- Win rate: 76% (26W-8L from 34 fights)
 - Build: STR=96, AGI=10
-- Capital: 17 UNUSED (SAVE - stats don't matter yet)
-- Fights remaining: ~139 today
+- Capital: 22 UNUSED (SAVE - stats don't matter yet)
+- Fights available: 150 today
 - AI: fighter_v1.leek deployed
+
+## Session 4 Achievements
+**Critical Discovery:**
+- Operations management is a core game mechanic (error 113 = too_much_ops)
+- `getCellDistance()` is expensive - minimize in loops
+- v3 kiting AI: 85x more ops-efficient than v1 (750 vs 65,000 ops)
+
+**Scripts Added:**
+- `scripts/debug_fight.py` - Single fight analysis with full action log
+- `scripts/get_recent_fights.py` - Fetch recent fight IDs
+- `api.get_leek_history()` - New API method
+
+**Key Finding:**
+- Kiting strategy LOSES at low damage levels (20% vs 49% win rate)
+- Extends fights to timeout instead of getting kills
+- Strategy must match damage output capability
 
 ## Session 3 Achievements
 **Scaffolding Built:**
@@ -144,12 +160,16 @@ poetry run python scripts/test_builds.py --stat strength --range 90-110
 
 **Always prefer local validation over online API** - it's faster, reliable, and works offline.
 
-```bash
-# Validate LeekScript locally
-java -jar tools/leek-wars-generator/leekscript.jar ais/fighter_v1.leek
+**IMPORTANT**: Simulation validates AI code automatically - skip standalone validator and go straight to testing:
 
-# Run simulated fights
+```bash
+# Test AI directly (validates during simulation)
 poetry run python scripts/compare_ais.py v1.leek v2.leek -n 1000
+```
+
+Optional standalone validation (rarely needed):
+```bash
+java -jar tools/leek-wars-generator/leekscript/leekscript.jar ais/fighter_v1.leek
 ```
 
 Requires Java 21+ (use SDKMAN: `sdk install java 21.0.5-tem`)
@@ -159,6 +179,56 @@ Requires Java 21+ (use SDKMAN: `sdk install java 21.0.5-tem`)
 - Use `global` for variables reassigned across blocks
 - Error 33 = undefined reference, Error 35 = unused variable
 - `setWeapon()` costs 1 TP - only call once per fight!
+- LS4: `null` coerced to 0 in numeric contexts (arithmetic, comparisons)
+- LS4: Type annotations are FREE - zero runtime operation cost
+- `say(message)` costs 1 TP - use `debug()` instead (free)!
+
+### LeekScript Quick Reference
+```leekscript
+// Entity info
+getCell() / getCell(entity)     // Cell positions
+getLife() / getLife(entity)     // HP
+getMP() / getTP()               // Movement/Action points
+getNearestEnemy() / getEnemies() / getAllies()
+
+// Movement
+moveToward(entity)              // Uses all MP
+moveToward(entity, n)           // Move n cells
+moveAwayFrom(entity)
+getCellDistance(cell1, cell2)   // EXPENSIVE - cache result!
+
+// Combat
+setWeapon(WEAPON_PISTOL)        // Equip (costs 1 TP)
+useWeapon(entity)               // Attack
+useChip(CHIP_CONSTANT, entity)  // Use spell
+
+// Weapon info
+getWeaponCost(w) / getWeaponMinRange(w) / getWeaponMaxRange(w)
+
+// Debugging (FREE - no TP cost)
+debug(value) / debugW(value) / debugE(value)
+
+// Return codes
+USE_SUCCESS, USE_FAILED, USE_NOT_ENOUGH_TP, USE_INVALID_TARGET
+```
+
+### Operations Management (CRITICAL)
+Each leek has an **operation limit per turn** (upgradeable via cores/memory).
+- Every function call, loop iteration, comparison costs operations
+- Error 113 = `too_much_ops` = AI exceeded operation limit → turn ends immediately
+- `getCellDistance()` is expensive - minimize calls in tight loops
+- Complex while loops can easily blow the budget
+
+**Key Efficiency Metrics:**
+- **Op Velocity** = operations per cell moved (movement efficiency)
+- **Op Lethality** = operations per damage dealt (combat efficiency)
+- **Op Budget** = % of limit used per turn (resource management)
+
+**Best Practices:**
+- Cache expensive calculations (e.g., compute distance once, store in variable)
+- Use simple loop counters instead of recalculating conditions
+- Limit loop iterations explicitly (e.g., `for (var i = 0; i < 10; i++)`)
+- Profile operation usage in test fights
 
 ## Fight Analysis Insights (Session 3)
 

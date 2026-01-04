@@ -1,0 +1,64 @@
+// PriapOS Fighter v3 - Kiting Strategy (Ops-Efficient)
+// Goal: Stay at MAX weapon range, shoot, maintain distance
+// FIXED: Minimize getCellDistance calls to avoid ops limit
+
+// Global distance variable (declared at top for scoping)
+global dist
+
+// Get enemy
+var enemy = getNearestEnemy()
+if (!enemy) return
+
+// Get distance ONCE per phase
+dist = getCellDistance(getCell(), getCell(enemy))
+
+// Pistol stats: range 1-7, cost 3 TP
+var PISTOL_MIN = 1
+var PISTOL_MAX = 7
+var PISTOL_COST = 3
+
+// Equip pistol if not equipped (costs 1 TP)
+if (getWeapon() != WEAPON_PISTOL) {
+    setWeapon(WEAPON_PISTOL)
+}
+
+// PHASE 1: Shoot if in range
+while (getTP() >= PISTOL_COST && dist >= PISTOL_MIN && dist <= PISTOL_MAX) {
+    var result = useWeapon(enemy)
+    if (result != USE_SUCCESS) break
+    // Only recalc distance if we might have pushed them
+    dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// PHASE 2: Kiting - maintain max range (7)
+// Use MP counter instead of recalculating distance each step
+var mp = getMP()
+if (mp > 0) {
+    if (dist < PISTOL_MAX) {
+        // Too close - back off (limited iterations)
+        var steps = PISTOL_MAX - dist
+        if (steps > mp) steps = mp
+        for (var i = 0; i < steps && getMP() > 0; i++) {
+            var moved = moveAwayFrom(enemy)
+            if (moved == 0) break
+        }
+    } else if (dist > PISTOL_MAX) {
+        // Out of range - close to max range (limited iterations)
+        var steps = dist - PISTOL_MAX
+        if (steps > mp) steps = mp
+        for (var i = 0; i < steps && getMP() > 0; i++) {
+            var moved = moveToward(enemy)
+            if (moved == 0) break
+        }
+    }
+}
+
+// Recalc distance after movement for phase 3
+dist = getCellDistance(getCell(), getCell(enemy))
+
+// PHASE 3: Shoot again if now in range
+while (getTP() >= PISTOL_COST && dist >= PISTOL_MIN && dist <= PISTOL_MAX) {
+    var result = useWeapon(enemy)
+    if (result != USE_SUCCESS) break
+    dist = getCellDistance(getCell(), getCell(enemy))
+}

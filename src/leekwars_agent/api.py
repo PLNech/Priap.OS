@@ -124,6 +124,15 @@ class LeekWarsAPI:
         response.raise_for_status()
         return response.json()
 
+    def get_leek_history(self, leek_id: int, page: int = 0, count: int = 50) -> dict[str, Any]:
+        """Get leek fight history."""
+        response = self._client.get(
+            f"/leek/get-history/{leek_id}/{page}/{count}",
+            headers=self._headers(),
+        )
+        response.raise_for_status()
+        return response.json()
+
     def get_constants(self) -> dict[str, Any]:
         """Get game constants."""
         response = self._client.get("/constant/get-all")

@@ -1,0 +1,31 @@
+// v1d: Min Range
+// Strategy: Get as close as possible (range 1), maximize accuracy
+
+global dist
+var enemy = getNearestEnemy()
+if (!enemy) return
+
+dist = getCellDistance(getCell(), getCell(enemy))
+var PISTOL_MIN = 1
+var PISTOL_COST = 3
+
+if (getWeapon() != WEAPON_PISTOL) setWeapon(WEAPON_PISTOL)
+
+// Get to minimum range ASAP
+while (dist > PISTOL_MIN && getMP() > 0) {
+    var moved = moveToward(enemy)
+    if (moved == 0) break
+    dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// Shoot at point blank
+while (getTP() >= PISTOL_COST && dist >= PISTOL_MIN) {
+    var result = useWeapon(enemy)
+    if (result != USE_SUCCESS) break
+    dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// Stay close with remaining MP
+if (getMP() > 0 && dist > PISTOL_MIN) {
+    moveToward(enemy)
+}

@@ -1,0 +1,27 @@
+// v1f: Aggressive
+// Strategy: Always close distance, even if already in range
+
+global dist
+var enemy = getNearestEnemy()
+if (!enemy) return
+
+dist = getCellDistance(getCell(), getCell(enemy))
+var PISTOL_MIN = 1
+var PISTOL_MAX = 7
+var PISTOL_COST = 3
+
+if (getWeapon() != WEAPON_PISTOL) setWeapon(WEAPON_PISTOL)
+
+// Close ALL distance first (use all MP)
+while (dist > PISTOL_MIN && getMP() > 0) {
+    var moved = moveToward(enemy)
+    if (moved == 0) break
+    dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// Then shoot
+while (getTP() >= PISTOL_COST && dist >= PISTOL_MIN && dist <= PISTOL_MAX) {
+    var result = useWeapon(enemy)
+    if (result != USE_SUCCESS) break
+    dist = getCellDistance(getCell(), getCell(enemy))
+}

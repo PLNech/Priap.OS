@@ -17,12 +17,12 @@ The winner is whoever learns fastest from each fight and tests more variations o
 
 ---
 
-## Current State (Session 3, 2025-01-02)
-- **Level**: ~4 (17 capital available)
-- **Rank**: #56,928
-- **Record**: 19W-5L (79% win rate)
-- **Build**: STR=96, AGI=10, 17 capital SAVED
-- **Fights remaining**: ~139 today
+## Current State (Session 4, 2025-01-04)
+- **Level**: 6 (22 capital available)
+- **Rank**: ~109 talent
+- **Record**: 26W-8L (76% win rate) from 34 total fights
+- **Build**: STR=96, AGI=10, 22 capital SAVED
+- **Fights available**: 150 today (missed Jan 3!)
 - **AI**: fighter_v1.leek deployed
 
 ---
@@ -101,11 +101,42 @@ Fight 50863105 loss wasn't about shoot-order. It was:
 - **Conclusion**: With simple AI, stats DON'T matter - strategy does
 - **Recommendation**: Save capital until we have better AI
 
-### Key Learnings
+### Key Learnings (Session 3)
 1. **Simulator works**: 2.5 fights/sec (not 21.5, but functional)
 2. **Scaffolding complete**: Can now A/B test any AI changes offline
 3. **Stats are irrelevant**: Until AI is smarter, capital allocation is noise
 4. **Real bottleneck**: Movement, positioning, range optimization
+
+---
+
+## Session 4 Findings (2025-01-04)
+
+### Critical Discovery: Operations Management
+- **Every leek has an operation limit per turn** (upgradeable via cores/memory)
+- Error 113 = `too_much_ops` = AI exceeded limit → turn ends immediately
+- `getCellDistance()` is expensive - minimize calls in loops
+- v3 kiting AI initially blew ops budget → did nothing each turn
+
+### Kiting Strategy Results
+| AI | Win Rate | Draws | Ops/Fight |
+|----|----------|-------|-----------|
+| v1 (aggressive) | 49% | 31% | ~65,000 |
+| v3 (kiting) | 20% | 31% | ~750 |
+
+**Conclusion**: Kiting BACKFIRES at low damage levels
+- Extends fights to timeout instead of getting kills
+- 85x more ops-efficient but loses more
+- Strategy must match damage output capability
+
+### Key Metrics to Track
+- **Op Velocity** = operations per cell moved
+- **Op Lethality** = operations per damage dealt
+- **Op Budget** = % of limit used per turn
+
+### Fight Observability Gaps
+- Built `scripts/debug_fight.py` for single-fight analysis
+- Need: Batch analytics with charts/statistics
+- Need: Ops metrics in compare_ais.py output
 
 ### Next Steps
 - [ ] Deploy fighter_v1 and run online fights (collect real data)
@@ -149,6 +180,14 @@ LeekWars has a **crafting system**:
 
 **Current focus**: Simulator and AI optimization
 **Later**: Learn optimal crafting paths and build synergies
+
+### Chips (Long-term Question)
+**Question**: Which chips give best value per coin at our level?
+- **4 chip slots available** (level 6)
+- Chips cost TP during combat (compete with weapon usage)
+- Need offline testing: chip impact vs weapon-only baseline
+- Requires: Database of offline fight results to find correlations at scale
+- **Strategy**: Build data collection infrastructure first, then test chips systematically
 
 ---
 

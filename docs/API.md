@@ -45,6 +45,34 @@ Authorization: Bearer <token>
 GET /farmer/get/<farmer_id>
 ```
 
+**Response includes `fight_history`** (recent ~50 fights):
+```json
+{
+  "farmer": {
+    "fight_history": [
+      {
+        "id": 50886949,
+        "leeks1": [{"id": 131321, "name": "IAdonis"}],
+        "leeks2": [{"id": 130254, "name": "MrLeeks"}],
+        "winner": 1,           // 1=team1, 2=team2, 0=draw
+        "status": 2,           // 2=completed
+        "date": 1767539670,    // Unix timestamp
+        "result": "win",       // "win"|"defeat"|"draw"
+        "context": 2,          // 2=garden
+        "type": 0,             // 0=solo
+        "chests": 0,
+        "trophies": 0,
+        "levelups": 0,
+        "rareloot": 0
+      }
+    ],
+    "fights": 95  // Remaining garden fights today
+  }
+}
+```
+
+**NOTE**: No dedicated `/leek/get-history` endpoint exists. Use `/farmer/get/{id}` → `fight_history` field instead.
+
 ### Get Connected Farmer (authenticated)
 ```
 GET /farmer/get-connected/<token>

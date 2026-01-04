@@ -195,10 +195,13 @@ class Simulator:
                 elif team2_alive and not team1_alive:
                     winner = 2
 
+            # Actions and turns are inside the "fight" object
+            fight = output.get("fight", {})
+
             return FightOutcome(
                 winner=winner,
-                turns=output.get("turns", 0),
-                actions=output.get("actions", []),
+                turns=output.get("duration", 0),  # "duration" is turn count
+                actions=fight.get("actions", []),
                 duration_ms=duration_ms,
                 raw_output=output,
             )
