@@ -7,7 +7,7 @@ global dist
 
 // Get enemy
 var enemy = getNearestEnemy()
-if (!enemy) return
+if (enemy == null) return
 
 // Get distance ONCE per phase
 dist = getCellDistance(getCell(), getCell(enemy))

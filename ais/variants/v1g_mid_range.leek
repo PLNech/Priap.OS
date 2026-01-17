@@ -3,7 +3,7 @@
 
 global dist
 var enemy = getNearestEnemy()
-if (!enemy) return
+if (enemy == null) return
 
 dist = getCellDistance(getCell(), getCell(enemy))
 var PISTOL_MIN = 1
