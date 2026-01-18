@@ -21,6 +21,36 @@ Fight Online → Collect Data → Analyze Losses → Improve AI Offline
 
 The scaffolding lets us spin this flywheel 13,000x faster than manual iteration.
 
+## Website & Brand Identity
+
+### Concept: "The Digital Oracle"
+Priapos (Greek god of gardens) meets LeekWars meets Cyberpunk Singularity.
+**Greco-Futurism**: Ancient wisdom encoded in neural networks.
+
+### Charte Graphique
+Full design system documented in [`docs/CHARTE_GRAPHIQUE.md`](docs/CHARTE_GRAPHIQUE.md).
+
+**Quick Reference**:
+| Element | Value |
+|---------|-------|
+| Background | `#1A1A2E` (Void Black) |
+| Text | `#E8E4D9` (Marble Cream) |
+| Primary Accent | `#00F5D4` (Oracle Cyan) |
+| Secondary Accent | `#7B2CBF` (Divine Purple) |
+| Success/Growth | `#90BE6D` (Leek Green) |
+| Highlight | `#B8860B` (Bronze) |
+| Headlines | Cinzel (serif, uppercase) |
+| Body | Inter (sans-serif) |
+| Code | JetBrains Mono |
+
+### Website Stack
+- **Generator**: Astro (in `docs/`)
+- **Hosting**: GitHub Pages
+- **Tone**: Playful mythological + tech blog casual with real code samples
+
+### Logo
+Oracle Eye pyramid with leek as pupil - see `docs/public/images/logo/`
+
 ## Development Philosophy: Empirical Agentic TDD
 
 ### Core Principles

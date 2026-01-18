@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 220" width="200" height="220">
+  <defs>
+    <!-- Neon glow filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Purple gradient -->
+    <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7B2CBF"/>
+      <stop offset="100%" style="stop-color:#00F5D4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background void -->
+  <rect width="200" height="220" fill="#1A1A2E"/>
+
+  <!-- Pyramid outline with glow -->
+  <g filter="url(#glow)">
+    <path d="M100 20 L180 160 L20 160 Z"
+          fill="none"
+          stroke="url(#purpleGrad)"
+          stroke-width="2"/>
+  </g>
+
+  <!-- Inner pyramid lines (circuit traces) -->
+  <line x1="100" y1="20" x2="100" y2="90" stroke="#B8860B" stroke-width="1" opacity="0.5"/>
+  <line x1="60" y1="100" x2="140" y2="100" stroke="#B8860B" stroke-width="1" opacity="0.5"/>
+
+  <!-- The Eye circle -->
+  <circle cx="100" cy="95" r="35" fill="none" stroke="#00F5D4" stroke-width="2" filter="url(#glow)"/>
+
+  <!-- Leek as pupil (stylized) -->
+  <g transform="translate(100, 95)">
+    <!-- Leek body (white/green gradient) -->
+    <ellipse cx="0" cy="5" rx="8" ry="18" fill="#90BE6D"/>
+    <ellipse cx="0" cy="-5" rx="6" ry="12" fill="#E8E4D9"/>
+    <!-- Leek leaves (top) -->
+    <path d="M-3 -15 Q-8 -30 -2 -35 Q2 -30 0 -15" fill="#90BE6D"/>
+    <path d="M3 -15 Q8 -30 2 -35 Q-2 -30 0 -15" fill="#5A8F4A"/>
+    <!-- Root wisps -->
+    <path d="M-2 23 Q-4 28 -2 30" stroke="#B8860B" stroke-width="1" fill="none"/>
+    <path d="M2 23 Q4 28 2 30" stroke="#B8860B" stroke-width="1" fill="none"/>
+  </g>
+
+  <!-- Base line -->
+  <line x1="10" y1="165" x2="190" y2="165" stroke="#00F5D4" stroke-width="1"/>
+
+  <!-- Wordmark -->
+  <text x="100" y="195"
+        font-family="Georgia, serif"
+        font-size="24"
+        font-weight="bold"
+        fill="#E8E4D9"
+        text-anchor="middle"
+        letter-spacing="4">PRIAP.OS</text>
+</svg>

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <filter id="glow3" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="eyeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7B2CBF"/>
+      <stop offset="50%" style="stop-color:#00F5D4"/>
+      <stop offset="100%" style="stop-color:#90BE6D"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="200" height="200" fill="#1A1A2E"/>
+
+  <!-- Outer eye shape (almond) -->
+  <path d="M20 100 Q100 30 180 100 Q100 170 20 100"
+        fill="none"
+        stroke="url(#eyeGrad)"
+        stroke-width="3"
+        filter="url(#glow3)"/>
+
+  <!-- Inner circle (iris) -->
+  <circle cx="100" cy="100" r="40"
+          fill="none"
+          stroke="#00F5D4"
+          stroke-width="2"
+          filter="url(#glow3)"/>
+
+  <!-- Leek pupil (simplified/geometric) -->
+  <g transform="translate(100, 100)">
+    <!-- Leek body (hexagon-ish) -->
+    <path d="M0 -25 L12 -15 L12 15 L0 25 L-12 15 L-12 -15 Z"
+          fill="#90BE6D"
+          stroke="#5A8F4A"
+          stroke-width="1"/>
+
+    <!-- White base section -->
+    <path d="M0 5 L10 12 L10 22 L0 25 L-10 22 L-10 12 Z"
+          fill="#E8E4D9"/>
+
+    <!-- Leaf tips at top -->
+    <path d="M-4 -25 L-6 -35 L0 -30 L6 -35 L4 -25"
+          fill="#5A8F4A"/>
+  </g>
+
+  <!-- Corner accents (circuit nodes) -->
+  <circle cx="30" cy="30" r="4" fill="#7B2CBF" filter="url(#glow3)"/>
+  <circle cx="170" cy="30" r="4" fill="#00F5D4" filter="url(#glow3)"/>
+  <circle cx="30" cy="170" r="4" fill="#00F5D4" filter="url(#glow3)"/>
+  <circle cx="170" cy="170" r="4" fill="#90BE6D" filter="url(#glow3)"/>
+
+  <!-- Connecting lines -->
+  <g stroke="#B8860B" stroke-width="1" opacity="0.5">
+    <line x1="30" y1="30" x2="60" y2="60"/>
+    <line x1="170" y1="30" x2="140" y2="60"/>
+    <line x1="30" y1="170" x2="60" y2="140"/>
+    <line x1="170" y1="170" x2="140" y2="140"/>
+  </g>
+</svg>

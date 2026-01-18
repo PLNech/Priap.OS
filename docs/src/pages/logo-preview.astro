@@ -1,0 +1,95 @@
+---
+// Logo preview page for evaluation
+---
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Logo Sketches - Priap.OS</title>
+  <style>
+    body {
+      background: #1A1A2E;
+      color: #E8E4D9;
+      font-family: system-ui, sans-serif;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3rem;
+    }
+    h1 {
+      font-family: Georgia, serif;
+      letter-spacing: 0.1em;
+      color: #00F5D4;
+    }
+    .logo-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2rem;
+      max-width: 900px;
+    }
+    .logo-card {
+      background: rgba(0,245,212,0.05);
+      border: 1px solid rgba(0,245,212,0.2);
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .logo-card img {
+      width: 200px;
+      height: auto;
+    }
+    .logo-card h3 {
+      margin: 1rem 0 0.5rem;
+      color: #7B2CBF;
+    }
+    .logo-card p {
+      font-size: 0.875rem;
+      opacity: 0.8;
+    }
+    .notes {
+      max-width: 700px;
+      background: rgba(123,44,191,0.1);
+      border-left: 3px solid #7B2CBF;
+      padding: 1rem 1.5rem;
+      margin-top: 2rem;
+    }
+    .notes h2 {
+      color: #7B2CBF;
+      margin-top: 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>LOGO SKETCHES</h1>
+
+  <div class="logo-grid">
+    <div class="logo-card">
+      <img src="/images/logo/logo-v1-oracle-eye.svg" alt="V1: Oracle Eye">
+      <h3>V1: Oracle Eye Pyramid</h3>
+      <p>Classic Eye of Providence with leek as pupil inside pyramid. Most "Greek mysticism" vibes.</p>
+    </div>
+
+    <div class="logo-card">
+      <img src="/images/logo/logo-v2-leek-circuit.svg" alt="V2: Leek Circuit">
+      <h3>V2: Leek + Circuit</h3>
+      <p>Central leek with circuit traces emanating. Eye embedded in the leek body. Most "tech" forward.</p>
+    </div>
+
+    <div class="logo-card">
+      <img src="/images/logo/logo-v3-minimal-eye.svg" alt="V3: Minimal Eye">
+      <h3>V3: Minimal Eye</h3>
+      <p>Clean almond eye shape with geometric leek pupil. Most versatile for small sizes.</p>
+    </div>
+  </div>
+
+  <div class="notes">
+    <h2>My Analysis</h2>
+    <ul>
+      <li><strong>V1</strong>: Strong brand recognition, but pyramid might feel too "illuminati" rather than Greek. Wordmark works well.</li>
+      <li><strong>V2</strong>: Very cyberpunk, circuit traces are cool. Eye-in-leek is unique but might be too busy for small sizes.</li>
+      <li><strong>V3</strong>: Cleanest, scales best, but loses some personality. Good for favicon.</li>
+    </ul>
+    <p><strong>Recommendation</strong>: Hybrid - V1's pyramid structure + V3's minimal execution. Or V2's circuit aesthetic with V3's cleaner shapes.</p>
+  </div>
+</body>
+</html>
