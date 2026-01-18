@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from leekwars_agent.api import LeekWarsAPI
+from leekwars_agent.auth import login_api
 
 
 def parse_history_page(leek_id: int, fetch_fights: bool = False) -> dict:
@@ -29,8 +30,7 @@ def parse_history_page(leek_id: int, fetch_fights: bool = False) -> dict:
     For now, we'll use approach #3 - read from local fight data.
     """
 
-    api = LeekWarsAPI()
-    api.login("leek@nech.pl", "REDACTED_PASSWORD")
+    api = login_api()
 
     # Get leek info
     leek_data = api.get_leek(leek_id)

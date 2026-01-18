@@ -9,9 +9,9 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import httpx
+from leekwars_agent.auth import get_credentials
 
-USERNAME = "leek@nech.pl"
-PASSWORD = "REDACTED_PASSWORD"
+USERNAME, PASSWORD = get_credentials()
 BASE = "https://leekwars.com/api"
 
 client = httpx.Client(timeout=30.0)

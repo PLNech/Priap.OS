@@ -72,8 +72,8 @@ def test_browser_login(username: str, password: str, headless: bool = False):
 
 if __name__ == "__main__":
     # Credentials
-    USERNAME = "leek@nech.pl"
-    PASSWORD = "REDACTED_PASSWORD"
+    from leekwars_agent.auth import get_credentials
+    USERNAME, PASSWORD = get_credentials()
 
     # Create screenshots dir
     os.makedirs("screenshots", exist_ok=True)

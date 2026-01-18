@@ -8,10 +8,11 @@ import argparse
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from leekwars_agent import LeekWarsAPI
+from leekwars_agent.auth import login_api
 from leekwars_agent.validator import validate_code, format_validation_report
 
-USERNAME = "leek@nech.pl"
-PASSWORD = "REDACTED_PASSWORD"
+
+
 AI_ID = 453627
 
 
@@ -33,9 +34,8 @@ def main():
     print(f"Validating {args.ai_file} ({len(code)} chars)...")
 
     # Connect and validate
-    api = LeekWarsAPI()
+    api = login_api()
     try:
-        api.login(USERNAME, PASSWORD)
 
         is_valid, errors = validate_code(api, AI_ID, code)
 

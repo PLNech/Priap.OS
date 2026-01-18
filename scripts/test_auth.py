@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Test API authentication formats."""
 
-import httpx
+import sys
+import os
 
-USERNAME = "leek@nech.pl"
-PASSWORD = "REDACTED_PASSWORD"
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+import httpx
+from leekwars_agent.auth import get_credentials
+
+USERNAME, PASSWORD = get_credentials()
 BASE = "https://leekwars.com/api"
 
 # Login and get token from cookies

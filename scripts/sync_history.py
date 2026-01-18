@@ -17,6 +17,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from leekwars_agent.api import LeekWarsAPI
+from leekwars_agent.auth import login_api
 
 LEEK_ID = 131321
 FARMER_ID = 124831
@@ -146,8 +147,7 @@ def main():
         analyze_history()
         return
 
-    api = LeekWarsAPI()
-    api.login("leek@nech.pl", "REDACTED_PASSWORD")
+    api = login_api()
 
     if args.fetch:
         print(f"Fetching fight {args.fetch}...")

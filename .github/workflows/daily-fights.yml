@@ -1,0 +1,61 @@
+name: Daily Fights Fallback
+
+# Run at 22:30 UTC (23:30 Paris winter time) as last-chance fallback
+# Also allows manual trigger for testing
+on:
+  schedule:
+    - cron: '30 22 * * *'  # 22:30 UTC = 23:30 CET
+  workflow_dispatch:  # Manual trigger
+    inputs:
+      percent:
+        description: 'Percentage of fights to use'
+        required: false
+        default: '100'
+      dry_run:
+        description: 'Dry run (check only)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  run-fights:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Run daily fights
+        env:
+          LEEKWARS_USER: ${{ secrets.LEEKWARS_USER }}
+          LEEKWARS_PASS: ${{ secrets.LEEKWARS_PASS }}
+        run: |
+          # Use inputs if manual, otherwise defaults
+          PERCENT="${{ github.event.inputs.percent || '100' }}"
+          DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            poetry run python scripts/auto_daily_fights.py --percent $PERCENT --dry-run
+          else
+            poetry run python scripts/auto_daily_fights.py --percent $PERCENT
+          fi
+
+      - name: Upload logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fight-logs
+          path: logs/auto_fights.log
+          retention-days: 30

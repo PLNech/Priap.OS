@@ -14,6 +14,7 @@ from datetime import datetime, date
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from leekwars_agent.api import LeekWarsAPI
+from leekwars_agent.auth import login_api
 
 # State file to track what we've done today
 STATE_FILE = Path(__file__).parent.parent / "data" / "daily_state.json"
@@ -144,10 +145,9 @@ def main():
 
     state = load_state()
 
-    api = LeekWarsAPI()
+    api = login_api()
     try:
         print("Logging in...")
-        api.login("leek@nech.pl", "REDACTED_PASSWORD")
         print(f"Logged in as farmer {api.farmer_id}\n")
 
         # Task 1: Buy fights

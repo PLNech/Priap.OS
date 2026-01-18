@@ -15,8 +15,8 @@ Features:
 - Handles rate limiting appropriately
 
 Usage Examples:
-python leekwars_dataset_builder.py --login PriapOS --password REDACTED_PASSWORD
-python leekwars_dataset_builder.py --login PriapOS --password REDACTED_PASSWORD --max-fights 50
+python leekwars_dataset_builder.py --login $LEEKWARS_USER --password $LEEKWARS_PASS
+python leekwars_dataset_builder.py --login $LEEKWARS_USER --password $LEEKWARS_PASS --max-fights 50
 """
 
 import json

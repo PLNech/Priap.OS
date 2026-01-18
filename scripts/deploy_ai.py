@@ -10,8 +10,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from leekwars_agent import LeekWarsAPI
 
-USERNAME = "leek@nech.pl"
-PASSWORD = "REDACTED_PASSWORD"
+
+
 AI_ID = 453627  # Our main AI
 LEEK_ID = 131321  # IAdonis
 
@@ -103,11 +103,10 @@ def main():
                        help="Show current AI code")
     args = parser.parse_args()
 
-    api = LeekWarsAPI()
+    api = login_api()
     try:
         # Login
         print("Logging in...")
-        api.login(USERNAME, PASSWORD)
         print(f"  Logged in as {api.farmer['name']}")
 
         if args.show:

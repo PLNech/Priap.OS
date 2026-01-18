@@ -8,9 +8,10 @@ import json
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from leekwars_agent import LeekWarsAPI, LeekWarsBrowser
+from leekwars_agent.auth import get_credentials, login_api
 
-USERNAME = "leek@nech.pl"
-PASSWORD = "REDACTED_PASSWORD"
+
+
 
 
 def explore_api():
@@ -22,7 +23,8 @@ def explore_api():
     with LeekWarsAPI() as api:
         # Login
         print("\n[1] Login...")
-        login_data = api.login(USERNAME, PASSWORD)
+        username, password = get_credentials()
+        login_data = api.login(username, password)
         print(f"    Token: {api.token[:50]}..." if api.token else "    No token!")
         print(f"    Farmer ID: {api.farmer_id}")
         print(f"    Farmer: {api.farmer.get('name')}")
@@ -147,8 +149,9 @@ def explore_browser(token: str = None):
             pass_input = page.locator("input[type='password']").first
 
             if login_input.is_visible() and pass_input.is_visible():
-                login_input.fill(USERNAME)
-                pass_input.fill(PASSWORD)
+                username, password = get_credentials()
+                login_input.fill(username)
+                pass_input.fill(password)
                 browser.screenshot("screenshots/03_filled_form.png")
 
                 # Find submit button

@@ -18,7 +18,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from leekwars_agent.api import LeekWarsAPI
+from leekwars_agent.auth import login_api
 
 LEEK_ID = 131321
 HISTORY_FILE = Path(__file__).parent.parent / "data" / "fight_history.json"
@@ -47,8 +47,7 @@ def main():
         elif arg.isdigit():
             max_fights = int(arg)
 
-    api = LeekWarsAPI()
-    api.login("leek@nech.pl", "REDACTED_PASSWORD")
+    api = login_api()
 
     farmer = api.farmer
     leeks = farmer["leeks"]

@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """
 Configuration file for Leek Wars Dataset Builder
+
+Credentials are loaded from environment variables:
+    export LEEKWARS_USER="your_email"
+    export LEEKWARS_PASS="your_password"
 """
 
-# Leek Wars API credentials
-LOGIN = "PriapOS"
-PASSWORD = "REDACTED_PASSWORD"
+import os
+
+# Leek Wars API credentials (from environment)
+LOGIN = os.environ.get("LEEKWARS_USER", "")
+PASSWORD = os.environ.get("LEEKWARS_PASS", "")
 
 # Dataset settings
 MAX_FIGHTS = 100

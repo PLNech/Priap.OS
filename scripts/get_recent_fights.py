@@ -7,10 +7,10 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from leekwars_agent.api import LeekWarsAPI
+from leekwars_agent.auth import login_api
 
 def main():
-    api = LeekWarsAPI()
-    api.login("leek@nech.pl", "REDACTED_PASSWORD")
+    api = login_api()
 
     # Get garden with recent fights
     garden = api.get_garden()
