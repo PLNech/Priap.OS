@@ -1,0 +1,211 @@
+// Fighter v7 "Proactive" - Kite at 60% HP instead of 40%
+// Hypothesis S005: Earlier retreat preserves HP for winning endgame
+
+// Globals for cross-turn state
+global turn_count
+global my_start_hp
+global damage_dealt
+global damage_taken
+global last_enemy_hp
+global last_my_hp
+global last_enemy_dist  // NEW: track enemy distance trend
+global enemy_retreating // NEW: is enemy kiting us?
+global my_ttk
+global enemy_ttk
+global winning_race
+global shots_this_turn
+global start_dist
+global first_shot_result
+
+// Constants
+global PISTOL_MIN
+global PISTOL_MAX
+global PISTOL_COST
+
+// Get enemy
+var enemy = getNearestEnemy()
+if (enemy == null) return
+
+// Pistol stats
+PISTOL_MIN = 1
+PISTOL_MAX = 7
+PISTOL_COST = 3
+
+// Current state
+var dist = getCellDistance(getCell(), getCell(enemy))
+var enemy_hp = getLife(enemy)
+var my_hp = getLife()
+
+// State init (first turn only)
+if (turn_count == null) {
+turn_count = 0
+my_start_hp = my_hp
+damage_dealt = 0
+damage_taken = 0
+last_enemy_hp = enemy_hp
+last_my_hp = my_hp
+last_enemy_dist = dist
+enemy_retreating = false
+my_ttk = 999
+enemy_ttk = 999
+winning_race = true
+}
+
+// Track damage from last turn
+var dmg_this_turn = last_enemy_hp - enemy_hp
+var taken_this_turn = last_my_hp - my_hp
+if (dmg_this_turn > 0) damage_dealt = damage_dealt + dmg_this_turn
+if (taken_this_turn > 0) damage_taken = damage_taken + taken_this_turn
+
+// CRITICAL: Detect if enemy is retreating (kiting)
+// If distance increased since our last turn end, they moved away
+if (turn_count > 0) {
+if (dist > last_enemy_dist) {
+enemy_retreating = true
+} else if (dist < last_enemy_dist - 1) {
+// They closed significantly, not a kiter
+enemy_retreating = false
+}
+// If dist == last_enemy_dist, keep previous assessment
+}
+
+// Update tracking
+last_enemy_hp = enemy_hp
+last_my_hp = my_hp
+turn_count = turn_count + 1
+shots_this_turn = 0
+first_shot_result = -1
+start_dist = dist
+
+// TTK calculation (after turn 1)
+if (turn_count > 1 && damage_dealt > 0) {
+var dpt = damage_dealt / (turn_count - 1)
+my_ttk = ceil(enemy_hp / dpt)
+}
+if (turn_count > 1 && damage_taken > 0) {
+var ept = damage_taken / (turn_count - 1)
+enemy_ttk = ceil(my_hp / ept)
+}
+
+// Am I winning the damage race?
+winning_race = my_ttk <= enemy_ttk
+
+// Equip pistol once
+if (getWeapon() != WEAPON_PISTOL) {
+setWeapon(WEAPON_PISTOL)
+}
+
+// ============================================================
+// STRATEGY SELECTION
+// ============================================================
+var my_hp_pct = my_hp * 100 / my_start_hp
+var endgame = my_hp_pct < 60  // S005: Earlier kite threshold
+var should_kite = !winning_race && endgame
+
+if (enemy_retreating && !should_kite) {
+// ========== COUNTER-KITER: ALL-MP COMMIT ==========
+// Use ALL movement first to close gap, THEN shoot
+// Don't stop mid-chase to shoot - they'll just retreat
+
+// PHASE 1: Burn ALL MP closing
+while (getMP() > 0 && dist > PISTOL_MIN) {
+var moved = moveToward(enemy)
+if (moved == 0) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// PHASE 2: Now dump ALL TP
+while (getTP() >= PISTOL_COST && dist >= PISTOL_MIN && dist <= PISTOL_MAX) {
+var result = useWeapon(enemy)
+if (first_shot_result == -1) first_shot_result = result
+if (result != USE_SUCCESS) break
+shots_this_turn = shots_this_turn + 1
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+} else if (!should_kite) {
+// ========== STANDARD AGGRESSIVE ENGAGE ==========
+// Interleave move and shoot for flexibility
+
+// PHASE 1: Rush to get in range
+while (dist > PISTOL_MAX && getMP() > 0) {
+var moved = moveToward(enemy)
+if (moved == 0) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// PHASE 2: Shoot
+while (getTP() >= PISTOL_COST && dist >= PISTOL_MIN && dist <= PISTOL_MAX) {
+var result = useWeapon(enemy)
+if (first_shot_result == -1) first_shot_result = result
+if (result != USE_SUCCESS) break
+shots_this_turn = shots_this_turn + 1
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// PHASE 3: Close more if MP left
+while (dist > PISTOL_MAX && getMP() > 0) {
+var moved = moveToward(enemy)
+if (moved == 0) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// PHASE 4: Shoot again
+while (getTP() >= PISTOL_COST && dist >= PISTOL_MIN && dist <= PISTOL_MAX) {
+var result = useWeapon(enemy)
+if (first_shot_result == -1) first_shot_result = result
+if (result != USE_SUCCESS) break
+shots_this_turn = shots_this_turn + 1
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+} else {
+// ========== KITE MODE (losing damage race) ==========
+// PHASE 1: Retreat first
+while (dist < PISTOL_MAX && getMP() > 0) {
+var moved = moveAwayFrom(enemy)
+if (moved == 0) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// PHASE 2: Shoot from safety
+while (getTP() >= PISTOL_COST && dist >= PISTOL_MIN && dist <= PISTOL_MAX) {
+var result = useWeapon(enemy)
+if (first_shot_result == -1) first_shot_result = result
+if (result != USE_SUCCESS) break
+shots_this_turn = shots_this_turn + 1
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// PHASE 3: If out of range, close just enough
+while (dist > PISTOL_MAX && getMP() > 0) {
+var moved = moveToward(enemy)
+if (moved == 0) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// PHASE 4: Shoot again
+while (getTP() >= PISTOL_COST && dist >= PISTOL_MIN && dist <= PISTOL_MAX) {
+var result = useWeapon(enemy)
+if (first_shot_result == -1) first_shot_result = result
+if (result != USE_SUCCESS) break
+shots_this_turn = shots_this_turn + 1
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// PHASE 5: Retreat with remaining MP
+while (dist < PISTOL_MAX && getMP() > 0) {
+var moved = moveAwayFrom(enemy)
+if (moved == 0) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+}
+
+// Update last_enemy_dist for next turn's kiter detection
+last_enemy_dist = dist
+
+debug("T" + turn_count + " HP:" + my_hp + "/" + my_start_hp + " TTK:" + my_ttk + "/" + enemy_ttk + " Kiter:" + enemy_retreating + " Shots:" + shots_this_turn)
+
+// === REGISTRY DEBUG ===
+var reg_val = turn_count + "|" + my_hp + "|" + enemy_hp + "|" + shots_this_turn + "|" + start_dist + "|" + dist + "|" + enemy_retreating + "|" + first_shot_result
+setRegister("v7_t" + turn_count, reg_val)
+setRegister("v7_last", reg_val)

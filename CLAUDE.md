@@ -115,14 +115,34 @@ docs/                  # Living documentation
 - Account: PriapOS (Farmer ID: 124831)
 - Leek: IAdonis (ID: 131321)
 
-## Current State (Session 4)
-- Level: 6 (22 capital available)
-- Rank: ~109 talent
-- Win rate: 76% (26W-8L from 34 fights)
-- Build: STR=96, AGI=10
-- Capital: 22 UNUSED (SAVE - stats don't matter yet)
-- Fights available: 150 today
-- AI: fighter_v1.leek deployed
+## Current State (Session 7 - 2026-01-18)
+- **Level**: 17
+- **Rank**: ~101 talent
+- **Win rate**: ~50% online
+- **Build**: STR=96, AGI=10
+- **AI Deployed**: fighter_v6.leek "Oracle"
+- **Website**: https://plnech.github.io/Priap.OS/
+
+### Session 7 Experiments (Today)
+| Hypothesis | Test | Result |
+|------------|------|--------|
+| S005: Kite at 60% HP vs 40% | v7 vs v6, n=1000, L17 | **REJECTED** (49.9% vs 50.1%) |
+| S006: Shoot before retreat in kite | v8 vs v6, n=1000, L17 | **REJECTED** (49.9% vs 50.1%) |
+
+**Key Insight**: Kite mode variations don't matter at high STR. Fights end quickly, kite rarely triggers. Need hypotheses that affect main combat flow.
+
+### AI Versions
+| Version | Codename | Key Feature | Status |
+|---------|----------|-------------|--------|
+| v6 | Oracle | TTK + counter-kiter | **DEPLOYED** |
+| v7 | Proactive | 60% kite threshold | Rejected |
+| v8 | ShootFirst | Shoot-first kite | Rejected |
+
+### Next Hypotheses to Test
+- Safe cell scoring (move to cells where we can shoot but enemy can't)
+- Better pathfinding (A* to avoid obstacles)
+- Chip usage (we have 10 TP, only use 9 for 3 shots)
+- Test vs archetypes to find matchup weaknesses
 
 ## Session 4 Achievements
 **Critical Discovery:**
