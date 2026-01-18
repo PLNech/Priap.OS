@@ -23,9 +23,9 @@
     }
     .logo-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 2rem;
-      max-width: 900px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+      max-width: 1100px;
     }
     .logo-card {
       background: rgba(0,245,212,0.05);
@@ -64,32 +64,33 @@
 
   <div class="logo-grid">
     <div class="logo-card">
-      <img src={`${import.meta.env.BASE_URL}images/logo/logo-v1-oracle-eye.svg`} alt="V1: Oracle Eye">
+      <img src={`${import.meta.env.BASE_URL}/images/logo/logo-v1-oracle-eye.svg`} alt="V1: Oracle Eye">
       <h3>V1: Oracle Eye Pyramid</h3>
       <p>Classic Eye of Providence with leek as pupil inside pyramid. Most "Greek mysticism" vibes.</p>
     </div>
 
     <div class="logo-card">
-      <img src={`${import.meta.env.BASE_URL}images/logo/logo-v2-leek-circuit.svg`} alt="V2: Leek Circuit">
+      <img src={`${import.meta.env.BASE_URL}/images/logo/logo-v2-leek-circuit.svg`} alt="V2: Leek Circuit">
       <h3>V2: Leek + Circuit</h3>
       <p>Central leek with circuit traces emanating. Eye embedded in the leek body. Most "tech" forward.</p>
     </div>
 
     <div class="logo-card">
-      <img src={`${import.meta.env.BASE_URL}images/logo/logo-v3-minimal-eye.svg`} alt="V3: Minimal Eye">
+      <img src={`${import.meta.env.BASE_URL}/images/logo/logo-v3-minimal-eye.svg`} alt="V3: Minimal Eye">
       <h3>V3: Minimal Eye</h3>
       <p>Clean almond eye shape with geometric leek pupil. Most versatile for small sizes.</p>
+    </div>
+
+    <div class="logo-card" style="border-color: #90BE6D;">
+      <img src={`${import.meta.env.BASE_URL}/images/logo/logo-v4-abstract-eye.svg`} alt="V4: Abstract Eye">
+      <h3>V4: Abstract Eye ⭐</h3>
+      <p>Bold almond eye with abstract chevron growth. Minimal, scales well. CURRENT.</p>
     </div>
   </div>
 
   <div class="notes">
-    <h2>My Analysis</h2>
-    <ul>
-      <li><strong>V1</strong>: Strong brand recognition, but pyramid might feel too "illuminati" rather than Greek. Wordmark works well.</li>
-      <li><strong>V2</strong>: Very cyberpunk, circuit traces are cool. Eye-in-leek is unique but might be too busy for small sizes.</li>
-      <li><strong>V3</strong>: Cleanest, scales best, but loses some personality. Good for favicon.</li>
-    </ul>
-    <p><strong>Recommendation</strong>: Hybrid - V1's pyramid structure + V3's minimal execution. Or V2's circuit aesthetic with V3's cleaner shapes.</p>
+    <h2>V4: The Winner</h2>
+    <p>Based on feedback: minimal execution, abstract leek as growth chevrons, bold shapes. V4 is now deployed as the main logo.</p>
   </div>
 </body>
 </html>

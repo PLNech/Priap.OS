@@ -6,164 +6,184 @@ import Base from '../layouts/Base.astro';
   <section class="hero">
     <div class="hero-content">
       <img
-        src={`${import.meta.env.BASE_URL}images/logo/logo-v1-oracle-eye.svg`}
+        src={`${import.meta.env.BASE_URL}/images/logo/logo-v4-abstract-eye.svg`}
         alt="Priap.OS Logo"
         class="hero-logo"
       />
       <h1>PRIAP.OS</h1>
       <p class="hero-subtitle">
-        The Digital Oracle for <a href="https://leekwars.com" target="_blank">LeekWars</a>.
-        Systematic AI experimentation meets ancient wisdom.
+        AI experimentation framework for <a href="https://leekwars.com" target="_blank">LeekWars</a>
       </p>
       <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
         <a href="https://github.com/PLNech/Priap.OS" class="btn btn-primary">
-          View on GitHub
+          GitHub
         </a>
-        <a href="#methodology" class="btn btn-secondary">
-          STELLAR Methodology
+        <a href="#how" class="btn btn-secondary">
+          How It Works
         </a>
       </div>
     </div>
   </section>
 
-  <!-- Stats Section -->
-  <section class="container">
-    <div class="divider"><span>The Numbers</span></div>
+  <!-- STELLAR Methodology - Single Line with Hover Cards -->
+  <section class="container" id="methodology">
+    <div class="divider"><span>Methodology</span></div>
 
-    <div class="stats-grid">
-      <div class="stat-card card">
-        <div class="stat-value">13,000:1</div>
-        <div class="stat-label">Leverage Ratio</div>
-        <p style="font-size: 0.875rem; margin-top: 0.5rem;">
-          Offline fights per online fight
-        </p>
+    <div class="stellar-row">
+      <div class="stellar-letter" data-letter="S">
+        <span class="letter">S</span>
+        <span class="word">ystematic</span>
+        <div class="stellar-popup">
+          <div class="popup-example bad">
+            <span class="label">Bad</span>
+            <code>"Let's try random stuff"</code>
+          </div>
+          <div class="popup-example good">
+            <span class="label">Good</span>
+            <code>H007: If kite at 60% HP, win +5%</code>
+          </div>
+        </div>
       </div>
-      <div class="stat-card card">
-        <div class="stat-value">21.5</div>
-        <div class="stat-label">Fights/Second</div>
-        <p style="font-size: 0.875rem; margin-top: 0.5rem;">
-          Local simulation speed
-        </p>
+      <div class="stellar-letter" data-letter="T">
+        <span class="letter">T</span>
+        <span class="word">estable</span>
+        <div class="stellar-popup">
+          <div class="popup-example bad">
+            <span class="label">Bad</span>
+            <code>"This feels better"</code>
+          </div>
+          <div class="popup-example good">
+            <span class="label">Good</span>
+            <code>n=1000, p&lt;0.05, delta=3.5%</code>
+          </div>
+        </div>
       </div>
-      <div class="stat-card card">
-        <div class="stat-value">L17</div>
-        <div class="stat-label">Current Level</div>
-        <p style="font-size: 0.875rem; margin-top: 0.5rem;">
-          IAdonis, the test subject
-        </p>
+      <div class="stellar-letter" data-letter="E">
+        <span class="letter">E</span>
+        <span class="word">fficient</span>
+        <div class="stellar-popup">
+          <div class="popup-example bad">
+            <span class="label">Bad</span>
+            <code>Test online, lose rank</code>
+          </div>
+          <div class="popup-example good">
+            <span class="label">Good</span>
+            <code>1000 offline first, then 10 online</code>
+          </div>
+        </div>
       </div>
-      <div class="stat-card card">
-        <div class="stat-value">50%</div>
-        <div class="stat-label">Win Rate</div>
-        <p style="font-size: 0.875rem; margin-top: 0.5rem;">
-          Fighter v6 "Oracle" online
-        </p>
+      <div class="stellar-letter" data-letter="L">
+        <span class="letter">L</span>
+        <span class="word">ogged</span>
+        <div class="stellar-popup">
+          <div class="popup-example bad">
+            <span class="label">Bad</span>
+            <code>"I think I tried this..."</code>
+          </div>
+          <div class="popup-example good">
+            <span class="label">Good</span>
+            <code>experiments.md: EXP-042</code>
+          </div>
+        </div>
+      </div>
+      <div class="stellar-letter" data-letter="L">
+        <span class="letter">L</span>
+        <span class="word">earning</span>
+        <div class="stellar-popup">
+          <div class="popup-example bad">
+            <span class="label">Bad</span>
+            <code>"It lost, next idea"</code>
+          </div>
+          <div class="popup-example good">
+            <span class="label">Good</span>
+            <code>Insight: retreat > react</code>
+          </div>
+        </div>
+      </div>
+      <div class="stellar-letter" data-letter="A">
+        <span class="letter">A</span>
+        <span class="word">daptive</span>
+        <div class="stellar-popup">
+          <div class="popup-example bad">
+            <span class="label">Bad</span>
+            <code>Same strat at all levels</code>
+          </div>
+          <div class="popup-example good">
+            <span class="label">Good</span>
+            <code>L10: rush, L20: kite, L50: combo</code>
+          </div>
+        </div>
+      </div>
+      <div class="stellar-letter" data-letter="R">
+        <span class="letter">R</span>
+        <span class="word">eproducible</span>
+        <div class="stellar-popup">
+          <div class="popup-example bad">
+            <span class="label">Bad</span>
+            <code>"Worked once, ship it"</code>
+          </div>
+          <div class="popup-example good">
+            <span class="label">Good</span>
+            <code>seed=42, same result 100%</code>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- Philosophy Section -->
-  <section class="container-narrow">
-    <div class="divider"><span>The Philosophy</span></div>
+  <!-- How It Works -->
+  <section class="container-narrow" id="how">
+    <div class="divider"><span>How It Works</span></div>
 
-    <h2>The Oracle Speaks</h2>
-    <p>
-      <strong>Priapos</strong> was the Greek god of gardens and fertility—protector of vegetation.
-      In LeekWars, we tend a different kind of garden: one of battling vegetables and
-      algorithmic evolution.
-    </p>
-    <p>
-      <strong>Priap.OS</strong> is our Digital Oracle—an AI development framework that
-      combines systematic experimentation with the wisdom of measured iteration.
-      We never waste a precious online fight on untested hypotheses.
-    </p>
-
-    <blockquote style="border-left: 3px solid var(--color-purple); padding-left: 1rem; margin: 2rem 0; font-style: italic; color: var(--color-marble-dim);">
-      "The Oracle spoke: kiting at low damage levels is a path to timeout and defeat.
-      We tested 1000 fights and the data was clear..."
-      <br><span style="color: var(--color-bronze);">— Experiment Log, Session 4</span>
-    </blockquote>
-
-    <h2 id="methodology">The STELLAR Methodology</h2>
-    <p>Every hypothesis follows a rigorous protocol:</p>
-
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; margin: 1.5rem 0;">
-      <div class="card" style="text-align: center; padding: 1rem;">
-        <div style="font-size: 1.5rem; color: var(--color-cyan);">S</div>
-        <div style="font-size: 0.75rem;">Systematic</div>
+    <div class="approach-grid">
+      <div class="approach-card card">
+        <h3>🎮 generator.jar</h3>
+        <p>LeekWars' open-source fight simulator. Runs battles locally at 20+ fights/second.</p>
+        <code>java -jar generator.jar fight.json</code>
       </div>
-      <div class="card" style="text-align: center; padding: 1rem;">
-        <div style="font-size: 1.5rem; color: var(--color-cyan);">T</div>
-        <div style="font-size: 0.75rem;">Testable</div>
+      <div class="approach-card card">
+        <h3>🐍 simulator.py</h3>
+        <p>Python wrapper with Py4J bridge. Orchestrates batch runs and parses results.</p>
+        <code>sim.run_1v1(ai_a, ai_b, n=1000)</code>
       </div>
-      <div class="card" style="text-align: center; padding: 1rem;">
-        <div style="font-size: 1.5rem; color: var(--color-cyan);">E</div>
-        <div style="font-size: 0.75rem;">Efficient</div>
-      </div>
-      <div class="card" style="text-align: center; padding: 1rem;">
-        <div style="font-size: 1.5rem; color: var(--color-purple);">L</div>
-        <div style="font-size: 0.75rem;">Logged</div>
-      </div>
-      <div class="card" style="text-align: center; padding: 1rem;">
-        <div style="font-size: 1.5rem; color: var(--color-purple);">L</div>
-        <div style="font-size: 0.75rem;">Learning</div>
-      </div>
-      <div class="card" style="text-align: center; padding: 1rem;">
-        <div style="font-size: 1.5rem; color: var(--color-leek);">A</div>
-        <div style="font-size: 0.75rem;">Adaptive</div>
-      </div>
-      <div class="card" style="text-align: center; padding: 1rem;">
-        <div style="font-size: 1.5rem; color: var(--color-leek);">R</div>
-        <div style="font-size: 0.75rem;">Reproducible</div>
+      <div class="approach-card card">
+        <h3>👁️ Visibility Patches</h3>
+        <p>Fork with exposed internals. Access fight state, entity positions, damage logs.</p>
+        <code>result.raw_output["fight"]["dead"]</code>
       </div>
     </div>
 
-    <h2>The Flywheel</h2>
-    <pre><code>Fight Online → Collect Data → Analyze Losses → Improve AI Offline
-     ↑                                                    ↓
-     └──────────── Deploy Best Variant ←──────────────────┘</code></pre>
-    <p>
-      The scaffolding lets us spin this flywheel <strong>13,000x faster</strong>
-      than manual iteration.
-    </p>
+    <div class="flywheel">
+      <pre><code>Online → Data → Analyze → Improve Offline → Deploy</code></pre>
+    </div>
   </section>
 
-  <!-- Recent Discoveries Section -->
+  <!-- Recent Discoveries -->
   <section class="container-narrow">
-    <div class="divider"><span>Recent Discoveries</span></div>
+    <div class="divider"><span>Discoveries</span></div>
 
-    <div class="card" style="margin-bottom: 1rem;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-        <h3 style="margin: 0;">Counter-Kiter Detection</h3>
-        <span class="chip chip-success">✓ Validated</span>
+    <div class="discoveries-grid">
+      <div class="discovery-card card">
+        <div class="discovery-header">
+          <span>Counter-Kiter</span>
+          <span class="chip chip-success">+18%</span>
+        </div>
+        <code>if (dist > last_dist) commit_all_mp()</code>
       </div>
-      <p style="margin: 0.5rem 0;">
-        Fighter v6 "Oracle" detects when enemies are retreating and commits ALL MP to close
-        before shooting. Result: <strong>+18% win rate</strong> vs kiter archetype.
-      </p>
-      <code>if (dist > last_enemy_dist) enemy_retreating = true</code>
-    </div>
-
-    <div class="card" style="margin-bottom: 1rem;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-        <h3 style="margin: 0;">Kiting at Low Damage = Death</h3>
-        <span class="chip chip-error">✗ Rejected</span>
+      <div class="discovery-card card">
+        <div class="discovery-header">
+          <span>Low-Damage Kiting</span>
+          <span class="chip chip-error">-29%</span>
+        </div>
+        <code>// timeout instead of kills</code>
       </div>
-      <p style="margin: 0.5rem 0;">
-        Pure kiting strategy loses <strong>20% vs 49%</strong> at low damage levels.
-        Extends fights to timeout instead of securing kills.
-      </p>
-    </div>
-
-    <div class="card">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-        <h3 style="margin: 0;">First-Mover Advantage</h3>
-        <span class="chip chip-info">~ 58%</span>
+      <div class="discovery-card card">
+        <div class="discovery-header">
+          <span>First-Mover</span>
+          <span class="chip chip-info">~58%</span>
+        </div>
+        <code>// attacker advantage online</code>
       </div>
-      <p style="margin: 0.5rem 0;">
-        Online fights show significant attacker advantage. Simulator bias differs
-        (93% Team 1 wins due to position, not turn order).
-      </p>
     </div>
   </section>
 
@@ -171,14 +191,170 @@ import Base from '../layouts/Base.astro';
   <footer>
     <div class="container">
       <p>
-        <strong>Priap.OS</strong> — The Digital Oracle for LeekWars
-        <br>
+        Built by <a href="https://me.nech.pl">PLN</a> ·
         <a href="https://github.com/PLNech/Priap.OS">GitHub</a> ·
-        Built with <a href="https://astro.build">Astro</a>
-      </p>
-      <p style="font-size: 0.75rem; margin-top: 1rem;">
-        "Tend your garden with data, not guesswork."
+        <a href="https://astro.build">Astro</a>
       </p>
     </div>
   </footer>
+
+  <style>
+    /* STELLAR Row */
+    .stellar-row {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin: 2rem 0;
+    }
+
+    .stellar-letter {
+      position: relative;
+      display: flex;
+      align-items: baseline;
+      padding: 0.5rem 0.75rem;
+      background: var(--color-bg-elevated);
+      border: 1px solid rgba(0, 245, 212, 0.2);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .stellar-letter:hover {
+      border-color: var(--color-cyan);
+      box-shadow: var(--glow-cyan);
+    }
+
+    .stellar-letter .letter {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .stellar-letter:nth-child(1) .letter,
+    .stellar-letter:nth-child(2) .letter,
+    .stellar-letter:nth-child(3) .letter { color: var(--color-cyan); }
+    .stellar-letter:nth-child(4) .letter,
+    .stellar-letter:nth-child(5) .letter { color: var(--color-purple); }
+    .stellar-letter:nth-child(6) .letter,
+    .stellar-letter:nth-child(7) .letter { color: var(--color-leek); }
+
+    .stellar-letter .word {
+      font-size: 0.9rem;
+      color: var(--color-text-dim);
+    }
+
+    /* Popup */
+    .stellar-popup {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%) translateY(-8px);
+      background: var(--color-void);
+      border: 1px solid var(--color-cyan);
+      border-radius: 8px;
+      padding: 1rem;
+      min-width: 220px;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.2s ease;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    .stellar-letter:hover .stellar-popup {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) translateY(-12px);
+    }
+
+    .popup-example {
+      margin-bottom: 0.75rem;
+    }
+    .popup-example:last-child { margin-bottom: 0; }
+
+    .popup-example .label {
+      display: block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.25rem;
+    }
+
+    .popup-example.bad .label { color: var(--color-coral); }
+    .popup-example.good .label { color: var(--color-leek); }
+
+    .popup-example code {
+      display: block;
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    /* Approach Grid */
+    .approach-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+
+    .approach-card h3 {
+      margin: 0 0 0.5rem;
+      font-size: 1rem;
+    }
+
+    .approach-card p {
+      font-size: 0.875rem;
+      margin: 0 0 0.75rem;
+      color: var(--color-text-dim);
+    }
+
+    .approach-card code {
+      font-size: 0.75rem;
+    }
+
+    /* Flywheel */
+    .flywheel {
+      text-align: center;
+      margin: 2rem 0;
+    }
+
+    .flywheel pre {
+      display: inline-block;
+      border-left: none;
+      border: 2px solid var(--color-bronze);
+      border-radius: 8px;
+      padding: 1rem 2rem;
+    }
+
+    /* Discoveries Grid */
+    .discoveries-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .discovery-card {
+      padding: 1rem;
+    }
+
+    .discovery-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+
+    .discovery-card code {
+      font-size: 0.75rem;
+      display: block;
+    }
+
+    /* Footer tweak */
+    footer p {
+      margin: 0;
+    }
+  </style>
 </Base>
