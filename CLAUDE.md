@@ -256,6 +256,28 @@ When encountering LeekScript compiler errors:
    - Document each fix in this file for future reference
    - Apply fixes to ALL similar patterns (use sed/grep)
 
+### AI Logging Requirements (CRITICAL)
+**Every AI module MUST have comprehensive debug output** for online introspection.
+Without logging, we fly blind during online fights and can't diagnose behavior issues.
+
+**Required debug points in every AI:**
+1. **State tracking**: Turn number, phase, HP, key metrics
+2. **Strategy selection**: Which strategy was chosen and WHY
+3. **Movement decisions**: Where we moved, what cell we targeted
+4. **Combat execution**: Attacks made, damage dealt, TP used
+5. **Positioning decisions**: Danger levels, safe cells found, retreat choices
+
+**Debug function checklist per module:**
+```leekscript
+// v8_state: debugState() → turn, phase, TTK, patterns
+// v8_danger_map: debugDangerMap() → min/max/avg danger, safest cell
+// v8_combat: logs after executeAttacks() → hits, damage, TP
+// v8_hide_seek: logs in getBestRetreatCell() → safe cell count, choice
+// fighter_v8: strategy_name logged, all subsystem debug calls
+```
+
+**Remember**: `debug()` is FREE (no TP cost). Use it liberally!
+
 ### LeekScript Quick Reference
 ```leekscript
 // Entity info

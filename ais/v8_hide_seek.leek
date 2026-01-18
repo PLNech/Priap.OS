@@ -9,10 +9,10 @@
 // ============================================================
 
 // Find cells that are completely safe (no LOS from any enemy position)
-// This is expensive but powerful for retreat decisions
+// This is VERY expensive (O(n*m) LOS checks) - use sparingly!
 function findSafeCells(my_accessible, enemy_accessible) {
     var safe_cells = []
-    var ops_limit = 750000  // Leave room for other operations
+    var ops_limit = 400000  // Aggressive limit - bail early
 
     for (var my_cell : var my_cost in my_accessible) {
         var is_safe = true
@@ -63,6 +63,7 @@ function getBestRetreatCell(my_accessible, enemy_accessible, danger_map) {
             }
         }
 
+        debug("  Retreat: " + count(safe) + " safe cells, chose " + best + " (closest)")
         return best
     }
 
@@ -70,6 +71,7 @@ function getBestRetreatCell(my_accessible, enemy_accessible, danger_map) {
     if (danger_map != null) {
         var safest = getSafestCell(danger_map)
         if (safest != -1) {
+            debug("  Retreat: 0 safe cells, using lowest danger " + safest)
             return safest
         }
     }
@@ -77,9 +79,12 @@ function getBestRetreatCell(my_accessible, enemy_accessible, danger_map) {
     // Strategy 3: Just move away from enemy
     var enemy = getNearestEnemy()
     if (enemy != null) {
-        return getFurthestAccessible(my_accessible, getCell(enemy))
+        var far = getFurthestAccessible(my_accessible, getCell(enemy))
+        debug("  Retreat: no danger map, fleeing to " + far)
+        return far
     }
 
+    debug("  Retreat: staying put (no options)")
     return my_cell  // Stay put as fallback
 }
 

@@ -85,6 +85,7 @@ function getBestWeapon(enemy, remaining_tp) {
 function executeAttacks(enemy) {
     var attacks_made = 0
     var total_tp = getTP()
+    var total_damage = 0
 
     while (getTP() > 0) {
         var weapon = getBestWeapon(enemy, getTP())
@@ -106,10 +107,13 @@ function executeAttacks(enemy) {
         }
 
         // Attack
+        var enemy_hp_before = getLife(enemy)
         var result = useWeapon(enemy)
 
         if (result == USE_SUCCESS) {
             attacks_made = attacks_made + 1
+            var dmg = enemy_hp_before - getLife(enemy)
+            total_damage = total_damage + dmg
 
             // Track usage
             var uses = weapon_uses[weapon]
@@ -129,6 +133,9 @@ function executeAttacks(enemy) {
         // Safety: limit iterations
         if (attacks_made >= 10) break;
     }
+
+    // Combat introspection
+    debug("  Combat: " + attacks_made + " hits, " + total_damage + " dmg, " + (total_tp - getTP()) + " TP used")
 
     return attacks_made
 }

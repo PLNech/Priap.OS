@@ -48,17 +48,24 @@ if (getWeapon() == null) {
 }
 
 // =============================================================================
-// COMPUTE SPATIAL AWARENESS
+// COMPUTE SPATIAL AWARENESS (ops-conscious)
 // =============================================================================
 var my_mp = getMP()
 var enemy_mp = getMP(enemy)
 
-// Get accessible cells for both sides
+// Always compute our accessible cells (needed for movement)
 cached_my_accessible = getAccessibleCells(getCell(), my_mp)
-cached_enemy_accessible = getAccessibleCells(getCell(enemy), enemy_mp)
 
-// Compute danger map (use quick version to save ops)
-var use_full_danger = (fight_phase != "opening" && getOperations() < 400000)
+// Only compute enemy accessible in non-opening (expensive!)
+if (fight_phase != "opening") {
+    cached_enemy_accessible = getAccessibleCells(getCell(enemy), enemy_mp)
+} else {
+    cached_enemy_accessible = [:]  // Empty in opening - we don't need it
+}
+
+// Compute danger map - VERY expensive, use quick version by default
+// Only use full danger in endgame when positioning matters most
+var use_full_danger = (fight_phase == "endgame" && getOperations() < 200000)
 if (use_full_danger) {
     cached_danger_map = computeDangerMap(cached_my_accessible, enemy, enemy_mp)
 } else {
@@ -74,21 +81,29 @@ var weapon_max = range_info[1]
 // STRATEGY DISPATCH
 // =============================================================================
 
+var strategy_name = "standard"
 if (fight_phase == "opening") {
+    strategy_name = "opening"
     executeOpeningStrategy(enemy, weapon_max)
 } else if (enemy_pattern == "kiting" && winning_race) {
+    strategy_name = "counter-kite"
     executeCounterKiteStrategy(enemy)
 } else if (!winning_race && fight_phase == "endgame") {
+    strategy_name = "kite"
     executeKiteStrategy(enemy, weapon_min, weapon_max)
 } else {
     executeStandardStrategy(enemy, weapon_min, weapon_max)
 }
+
+debug("  Strategy: " + strategy_name + " | Range: " + weapon_min + "-" + weapon_max)
 
 // =============================================================================
 // DEBUG OUTPUT
 // =============================================================================
 debugState()
 debug("  Accessible: me=" + countAccessible(cached_my_accessible) + " enemy=" + countAccessible(cached_enemy_accessible))
+debugDangerMap(cached_danger_map)
+debug("  Ops: " + getOperations())
 
 // =============================================================================
 // STRATEGY IMPLEMENTATIONS

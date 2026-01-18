@@ -3,28 +3,64 @@
 
 import sys
 import os
+import re
 import time
 import argparse
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from leekwars_agent import LeekWarsAPI
-
+from leekwars_agent.auth import login_api
 
 
 AI_ID = 453627  # Our main AI
 LEEK_ID = 131321  # IAdonis
 
 
+def inline_includes(source: Path, already_inlined: set | None = None) -> str:
+    """Recursively inline all include() statements.
+
+    Returns a single file with all includes expanded.
+    """
+    if already_inlined is None:
+        already_inlined = set()
+
+    content = source.read_text()
+
+    # Find all include statements
+    pattern = r'include\s*\(\s*["\']([^"\']+)["\']\s*\)'
+
+    def replace_include(match):
+        include_name = match.group(1)
+        include_path = source.parent / include_name
+
+        if not include_path.exists():
+            print(f"Warning: Include not found: {include_path}", file=sys.stderr)
+            return f"// ERROR: Include not found: {include_name}"
+
+        # Avoid circular includes
+        abs_path = include_path.resolve()
+        if abs_path in already_inlined:
+            return f"// Already included: {include_name}"
+
+        already_inlined.add(abs_path)
+
+        # Recursively inline
+        inlined = inline_includes(include_path, already_inlined)
+        return f"// === BEGIN INCLUDE: {include_name} ===\n{inlined}\n// === END INCLUDE: {include_name} ==="
+
+    return re.sub(pattern, replace_include, content)
+
+
 def load_ai_file(path: str) -> str:
-    """Load AI code from file."""
-    with open(path, "r") as f:
-        return f.read()
+    """Load AI code from file, inlining any includes."""
+    source = Path(path)
+    return inline_includes(source)
 
 
-def deploy(api: LeekWarsAPI, code: str, name: str = None):
+def deploy(api, code: str, name: str = None):
     """Deploy AI code."""
-    print(f"Deploying AI ({len(code)} chars)...")
+    print(f"Deploying AI ({len(code)} chars, {code.count(chr(10))+1} lines)...")
 
     # Save code
     result = api.save_ai(AI_ID, code)
@@ -45,7 +81,7 @@ def deploy(api: LeekWarsAPI, code: str, name: str = None):
     return ai["valid"]
 
 
-def test_fight(api: LeekWarsAPI, num_fights: int = 1):
+def test_fight(api, num_fights: int = 1):
     """Run test fights with the deployed AI."""
     print(f"\nRunning {num_fights} test fight(s)...")
 
@@ -103,39 +139,34 @@ def main():
                        help="Show current AI code")
     args = parser.parse_args()
 
+    print("Logging in...")
     api = login_api()
-    try:
-        # Login
-        print("Logging in...")
-        print(f"  Logged in as {api.farmer['name']}")
+    print("  Logged in!")
 
-        if args.show:
-            # Just show current AI
-            ai = api.get_ai(AI_ID)["ai"]
-            print(f"\n=== {ai['name']} (ID: {ai['id']}) ===")
-            print(ai["code"])
-            return
+    if args.show:
+        # Just show current AI
+        ai = api.get_ai(AI_ID)["ai"]
+        print(f"\n=== {ai['name']} (ID: {ai['id']}) ===")
+        print(ai["code"])
+        return
 
-        # Load and deploy
-        if os.path.exists(args.ai_file):
-            code = load_ai_file(args.ai_file)
-            name = args.name or os.path.basename(args.ai_file).replace(".leek", "")
-        else:
-            print(f"File not found: {args.ai_file}")
-            return
+    # Load and deploy
+    if os.path.exists(args.ai_file):
+        code = load_ai_file(args.ai_file)
+        name = args.name or os.path.basename(args.ai_file).replace(".leek", "")
+    else:
+        print(f"File not found: {args.ai_file}")
+        return
 
-        valid = deploy(api, code, name)
+    valid = deploy(api, code, name)
 
-        if not valid:
-            print("\nWARNING: AI has errors! Check the code.")
-            return
+    if not valid:
+        print("\nWARNING: AI has errors! Check the code.")
+        return
 
-        # Test if requested
-        if args.test > 0:
-            test_fight(api, args.test)
-
-    finally:
-        api.close()
+    # Test if requested
+    if args.test > 0:
+        test_fight(api, args.test)
 
 
 if __name__ == "__main__":

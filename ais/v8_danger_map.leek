@@ -53,7 +53,7 @@ function computeDangerMap(my_accessible, enemy, enemy_mp) {
             }
 
             // Ops safety - aggressive limit for danger map
-            if (getOperations() > 700000) {
+            if (getOperations() > 300000) {
                 // Set danger for unchecked cells to average
                 danger[my_cell] = cell_danger
                 return danger
@@ -172,4 +172,25 @@ function getDangerAt(danger_map, cell) {
     var d = danger_map[cell]
     if (d == null) return 999  // Unknown = assume dangerous
     return d
+}
+
+// Debug output for danger map
+function debugDangerMap(danger_map) {
+    var min_d = 999999
+    var max_d = 0
+    var total = 0
+    var n = 0
+
+    for (var cell : var d in danger_map) {
+        if (d < min_d) min_d = d
+        if (d > max_d) max_d = d
+        total = total + d
+        n = n + 1
+    }
+
+    var avg = 0
+    if (n > 0) avg = round(total / n)
+
+    var safest = getSafestCell(danger_map)
+    debug("  Danger: min=" + round(min_d) + " max=" + round(max_d) + " avg=" + avg + " safest=" + safest)
 }
