@@ -1,0 +1,175 @@
+// v8_danger_map.leek - Cell danger scoring based on enemy reach
+// Fighter v8 "Architect" - Module 3/5
+//
+// Computes a danger score for each cell based on:
+// - How many positions enemy can reach to shoot us
+// - Distance to enemy (closer = more danger)
+// - Line of sight availability
+
+// ============================================================
+// DANGER COMPUTATION
+// ============================================================
+
+// Compute danger score for each cell in my_accessible
+// Higher score = more dangerous (enemy can hit from more positions)
+function computeDangerMap(my_accessible, enemy, enemy_mp) {
+    var danger = [:]
+    var enemy_cell = getCell(enemy)
+
+    // Get enemy's reachable positions
+    var enemy_accessible = getAccessibleCells(enemy_cell, enemy_mp)
+
+    // Get enemy's weapon info (for range check)
+    var enemy_weapon = getWeapon(enemy)
+    var enemy_min_range = 1
+    var enemy_max_range = 7  // Default pistol range
+
+    if (enemy_weapon != null) {
+        enemy_min_range = getWeaponMinRange(enemy_weapon)
+        enemy_max_range = getWeaponMaxRange(enemy_weapon)
+    }
+
+    // For each cell I could move to
+    for (var my_cell : var my_cost in my_accessible) {
+        var cell_danger = 0
+
+        // Check how many enemy positions can hit this cell
+        for (var e_cell : var e_cost in enemy_accessible) {
+            var dist = getCellDistance(my_cell, e_cell)
+
+            // Can enemy shoot me from there?
+            if (dist >= enemy_min_range && dist <= enemy_max_range) {
+                // Check line of sight
+                if (lineOfSight(e_cell, my_cell)) {
+                    cell_danger = cell_danger + 1
+
+                    // Bonus danger if they can reach in fewer moves
+                    // (more MP left to shoot multiple times)
+                    var remaining_mp = enemy_mp - e_cost
+                    if (remaining_mp >= 0) {
+                        cell_danger = cell_danger + (remaining_mp * 0.5)
+                    }
+                }
+            }
+
+            // Ops safety - aggressive limit for danger map
+            if (getOperations() > 700000) {
+                // Set danger for unchecked cells to average
+                danger[my_cell] = cell_danger
+                return danger
+            }
+        }
+
+        danger[my_cell] = cell_danger
+    }
+
+    return danger
+}
+
+// ============================================================
+// SIMPLIFIED DANGER (faster, less accurate)
+// ============================================================
+
+// Quick danger estimate based on distance only (very fast)
+function computeQuickDanger(my_accessible, enemy) {
+    var danger = [:]
+    var enemy_cell = getCell(enemy)
+
+    for (var my_cell : var my_cost in my_accessible) {
+        // Simple: closer = more dangerous
+        var dist = getCellDistance(my_cell, enemy_cell)
+
+        // Invert distance: dist 1 = danger 10, dist 10 = danger 1
+        var cell_danger = 0
+        if (dist > 0) {
+            cell_danger = 15 - dist
+            if (cell_danger < 0) cell_danger = 0
+        } else {
+            cell_danger = 20  // Same cell = max danger
+        }
+
+        // Reduce danger if no line of sight from enemy
+        if (!lineOfSight(enemy_cell, my_cell)) {
+            cell_danger = cell_danger * 0.3  // 70% reduction
+        }
+
+        danger[my_cell] = cell_danger
+    }
+
+    return danger
+}
+
+// ============================================================
+// DANGER ANALYSIS
+// ============================================================
+
+// Find the safest cell (lowest danger)
+function getSafestCell(danger_map) {
+    var safest_cell = -1
+    var lowest_danger = 999999
+
+    for (var cell : var danger in danger_map) {
+        if (danger < lowest_danger) {
+            lowest_danger = danger
+            safest_cell = cell
+        }
+    }
+
+    return safest_cell
+}
+
+// Find safest cell that's also close to a target
+function getSafestCellNear(danger_map, target_cell, max_dist) {
+    var best_cell = -1
+    var best_score = -999999  // Higher = better (low danger, close)
+
+    for (var cell : var danger in danger_map) {
+        var dist = getCellDistance(cell, target_cell)
+
+        if (dist <= max_dist) {
+            // Score: prefer low danger and close distance
+            var score = -danger - (dist * 2)  // Weight distance less than danger
+
+            if (score > best_score) {
+                best_score = score
+                best_cell = cell
+            }
+        }
+    }
+
+    return best_cell
+}
+
+// Find cells below danger threshold
+function getCellsBelowDanger(danger_map, threshold) {
+    var safe_cells = []
+
+    for (var cell : var danger in danger_map) {
+        if (danger <= threshold) {
+            push(safe_cells, cell)
+        }
+    }
+
+    return safe_cells
+}
+
+// Get average danger level
+function getAverageDanger(danger_map) {
+    var total = 0
+    var cell_count = 0
+
+    for (var cell : var danger in danger_map) {
+        total = total + danger
+        cell_count = cell_count + 1
+    }
+
+    if (cell_count == 0) return 0
+    return total / cell_count
+}
+
+// Get danger at specific cell
+function getDangerAt(danger_map, cell) {
+    var d = danger_map[cell]
+    if (d == null) return 999  // Unknown = assume dangerous
+    return d
+}

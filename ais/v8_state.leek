@@ -1,0 +1,159 @@
+// v8_state.leek - Cross-turn persistence and fight phase detection
+// Fighter v8 "Architect" - Module 1/5
+
+// ============================================================
+// TURN TRACKING
+// ============================================================
+global turn_count = 0
+global fight_phase = "opening"  // opening, midgame, endgame
+
+// ============================================================
+// HP TRACKING
+// ============================================================
+global my_start_hp = 0
+global enemy_start_hp = 0
+global last_enemy_hp = 0
+global last_my_hp = 0
+
+// ============================================================
+// DAMAGE TRACKING
+// ============================================================
+global total_damage_dealt = 0
+global total_damage_taken = 0
+global my_dpt = 0   // damage per turn average
+global enemy_dpt = 0
+
+// ============================================================
+// TTK (Time To Kill) CALCULATIONS
+// ============================================================
+global my_ttk = 999    // turns to kill enemy
+global enemy_ttk = 999 // turns for enemy to kill us
+global winning_race = true
+
+// ============================================================
+// ENEMY BEHAVIOR DETECTION
+// ============================================================
+global last_enemy_dist = 0
+global enemy_pattern = "unknown"  // aggressive, kiting, passive
+global enemy_closing_count = 0    // turns enemy moved toward us
+global enemy_retreating_count = 0 // turns enemy moved away
+
+// ============================================================
+// POSITION CACHING
+// ============================================================
+global cached_my_accessible = null
+global cached_enemy_accessible = null
+global cached_danger_map = null
+
+// ============================================================
+// STATE INITIALIZATION
+// ============================================================
+function initState(enemy) {
+    my_start_hp = getLife()
+    enemy_start_hp = getLife(enemy)
+    last_enemy_hp = enemy_start_hp
+    last_my_hp = my_start_hp
+    last_enemy_dist = getCellDistance(getCell(), getCell(enemy))
+    enemy_pattern = "unknown"
+    enemy_closing_count = 0
+    enemy_retreating_count = 0
+    fight_phase = "opening"
+}
+
+// ============================================================
+// TURN UPDATE
+// ============================================================
+function updateState(enemy) {
+    var my_hp = getLife()
+    var enemy_hp = getLife(enemy)
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    // Track damage from last turn
+    var dmg_dealt = last_enemy_hp - enemy_hp
+    var dmg_taken = last_my_hp - my_hp
+
+    if (dmg_dealt > 0) {
+        total_damage_dealt = total_damage_dealt + dmg_dealt
+    }
+    if (dmg_taken > 0) {
+        total_damage_taken = total_damage_taken + dmg_taken
+    }
+
+    // Update DPT averages (after turn 1)
+    if (turn_count > 0) {
+        my_dpt = total_damage_dealt / turn_count
+        enemy_dpt = total_damage_taken / turn_count
+    }
+
+    // TTK calculation (need at least 1 damage to estimate)
+    if (my_dpt > 0) {
+        my_ttk = ceil(enemy_hp / my_dpt)
+    }
+    if (enemy_dpt > 0) {
+        enemy_ttk = ceil(my_hp / enemy_dpt)
+    }
+
+    // Am I winning the damage race?
+    winning_race = my_ttk <= enemy_ttk
+
+    // Detect enemy movement pattern
+    if (turn_count > 0) {
+        if (dist > last_enemy_dist) {
+            enemy_retreating_count = enemy_retreating_count + 1
+        } else if (dist < last_enemy_dist) {
+            enemy_closing_count = enemy_closing_count + 1
+        }
+
+        // Classify pattern after a few turns
+        if (turn_count >= 2) {
+            if (enemy_retreating_count > enemy_closing_count + 1) {
+                enemy_pattern = "kiting"
+            } else if (enemy_closing_count > enemy_retreating_count + 1) {
+                enemy_pattern = "aggressive"
+            } else {
+                enemy_pattern = "passive"
+            }
+        }
+    }
+
+    // Update tracking for next turn
+    last_enemy_hp = enemy_hp
+    last_my_hp = my_hp
+    last_enemy_dist = dist
+
+    // Increment turn
+    turn_count = turn_count + 1
+
+    // Clear caches (recompute each turn)
+    cached_my_accessible = null
+    cached_enemy_accessible = null
+    cached_danger_map = null
+}
+
+// ============================================================
+// PHASE DETECTION
+// ============================================================
+function detectPhase() {
+    var my_hp_pct = getLife() * 100 / my_start_hp
+    var enemy_hp_pct = 100
+    if (enemy_start_hp > 0) {
+        enemy_hp_pct = last_enemy_hp * 100 / enemy_start_hp
+    }
+
+    if (turn_count <= 2) {
+        fight_phase = "opening"
+    } else if (my_hp_pct < 40 || enemy_hp_pct < 40) {
+        fight_phase = "endgame"
+    } else {
+        fight_phase = "midgame"
+    }
+}
+
+// ============================================================
+// DEBUG OUTPUT
+// ============================================================
+function debugState() {
+    debug("T" + turn_count + " Phase:" + fight_phase + " HP:" + getLife() + "/" + my_start_hp)
+    debug("  TTK: me=" + my_ttk + " vs enemy=" + enemy_ttk + " winning=" + winning_race)
+    debug("  Pattern: " + enemy_pattern + " (close:" + enemy_closing_count + " retreat:" + enemy_retreating_count + ")")
+}

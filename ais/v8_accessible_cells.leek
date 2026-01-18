@@ -1,0 +1,216 @@
+// v8_accessible_cells.leek - Efficient neighbor propagation for reachability
+// Fighter v8 "Architect" - Module 2/5
+//
+// Uses BFS flood-fill to find all cells reachable with N movement points.
+// Optimizations:
+// - Associative array for O(1) visited lookup (vs O(n) with inArray)
+// - Pre-computed neighbors cached per-fight
+// - Early exit on ops limit
+
+// ============================================================
+// NEIGHBOR CACHE (computed once per fight)
+// ============================================================
+global neighbor_cache_initialized = false
+global neighbor_cache = [:]  // cell -> [neighbors]
+
+// LeekWars grid constants
+global MAP_WIDTH = 18
+global MAP_HEIGHT = 18
+
+// ============================================================
+// COORDINATE HELPERS
+// ============================================================
+
+// Get cell from x,y coordinates (LeekWars specific formula)
+function cellFromXY(x, y) {
+    if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) {
+        return -1
+    }
+    return y * MAP_WIDTH + x
+}
+
+// Get x coordinate from cell
+function cellX(cell) {
+    return cell % MAP_WIDTH
+}
+
+// Get y coordinate from cell
+function cellY(cell) {
+    return floor(cell / MAP_WIDTH)
+}
+
+// ============================================================
+// NEIGHBOR COMPUTATION
+// ============================================================
+
+// Get cardinal neighbors of a cell (4-directional: N, S, E, W)
+function getCardinalNeighbors(cell) {
+    var x = cellX(cell)
+    var y = cellY(cell)
+    var neighbors = []
+
+    // North
+    if (y > 0) {
+        push(neighbors, cellFromXY(x, y - 1))
+    }
+    // South
+    if (y < MAP_HEIGHT - 1) {
+        push(neighbors, cellFromXY(x, y + 1))
+    }
+    // West
+    if (x > 0) {
+        push(neighbors, cellFromXY(x - 1, y))
+    }
+    // East
+    if (x < MAP_WIDTH - 1) {
+        push(neighbors, cellFromXY(x + 1, y))
+    }
+
+    return neighbors
+}
+
+// Initialize neighbor cache for all cells (call once at fight start)
+function initNeighborCache() {
+    if (neighbor_cache_initialized) return;
+
+    // For each cell, pre-compute walkable neighbors
+    // This is expensive but only done once
+    var cell = 0;
+    while (cell < 324) {
+        var neighbors = getCardinalNeighbors(cell)
+        var walkable = []
+
+        for (var n in neighbors) {
+            // Check if the neighbor cell is not an obstacle
+            // Note: We check obstacle status, not entity occupancy
+            // Entities can move, so we recheck occupancy at query time
+            if (isEmptyCell(n) || getCellContent(n) != CELL_OBSTACLE) {
+                push(walkable, n)
+            }
+        }
+
+        neighbor_cache[cell] = walkable
+
+        // Ops safety check
+        if (getOperations() > 500000) {
+            debug("Warning: neighbor cache init stopped early (ops limit)")
+            break;
+        }
+        cell++
+    }
+
+    neighbor_cache_initialized = true
+}
+
+// ============================================================
+// ACCESSIBLE CELLS (BFS FLOOD FILL)
+// ============================================================
+
+// Find all cells reachable from start_cell with up to max_mp movement
+// Returns associative array: cell -> mp_cost to reach it
+function getAccessibleCells(start_cell, max_mp) {
+    // Result: cell -> cost to reach
+    var accessible = [:]
+    accessible[start_cell] = 0
+
+    // BFS frontier
+    var frontier = [start_cell]
+    var current_cost = 0
+
+    while (current_cost < max_mp && count(frontier) > 0) {
+        var next_frontier = []
+
+        for (var cell in frontier) {
+            // Get pre-computed neighbors
+            var neighbors = neighbor_cache[cell]
+            if (neighbors == null) {
+                // Fallback if cache not initialized
+                neighbors = getCardinalNeighbors(cell)
+            }
+
+            for (var neighbor in neighbors) {
+                // Skip if already visited
+                if (accessible[neighbor] != null) continue;
+
+                // Skip if occupied by an entity (can't walk through)
+                // But allow our own cell and empty cells
+                if (!isEmptyCell(neighbor)) continue;
+
+                // Add to accessible with cost
+                accessible[neighbor] = current_cost + 1
+                push(next_frontier, neighbor)
+            }
+
+            // Ops safety
+            if (getOperations() > 800000) {
+                debug("Warning: accessible cells stopped early (ops limit)")
+                return accessible
+            }
+        }
+
+        frontier = next_frontier
+        current_cost = current_cost + 1
+    }
+
+    return accessible
+}
+
+// ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
+
+// Get all cells from accessible map as array (keys only)
+function accessibleCellsToArray(accessible) {
+    var cells = []
+    for (var cell : var cost in accessible) {
+        push(cells, cell)
+    }
+    return cells
+}
+
+// Find closest cell in accessible map to target cell
+function getClosestAccessible(accessible, target_cell) {
+    var best_cell = -1
+    var best_dist = 999999
+
+    for (var cell : var cost in accessible) {
+        var dist = getCellDistance(cell, target_cell)
+        if (dist < best_dist) {
+            best_dist = dist
+            best_cell = cell
+        }
+
+        // Ops safety
+        if (getOperations() > 850000) break;
+    }
+
+    return best_cell
+}
+
+// Find furthest cell in accessible map from target cell
+function getFurthestAccessible(accessible, target_cell) {
+    var best_cell = -1
+    var best_dist = -1
+
+    for (var cell : var cost in accessible) {
+        var dist = getCellDistance(cell, target_cell)
+        if (dist > best_dist) {
+            best_dist = dist
+            best_cell = cell
+        }
+
+        // Ops safety
+        if (getOperations() > 850000) break;
+    }
+
+    return best_cell
+}
+
+// Count accessible cells
+function countAccessible(accessible) {
+    var count_val = 0
+    for (var cell : var cost in accessible) {
+        count_val = count_val + 1
+    }
+    return count_val
+}

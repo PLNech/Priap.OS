@@ -7,6 +7,7 @@ Usage:
 
 import sys
 import os
+import re
 import json
 from pathlib import Path
 
@@ -15,6 +16,35 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from leekwars_agent.simulator import Simulator, ScenarioConfig, EntityConfig
 
 GENERATOR_PATH = Path(__file__).parent.parent / "tools" / "leek-wars-generator"
+
+
+def extract_includes(source: Path) -> list[Path]:
+    """Extract include() statements from a LeekScript file."""
+    includes = []
+    content = source.read_text()
+
+    # Match: include("filename") or include('filename')
+    pattern = r'include\s*\(\s*["\']([^"\']+)["\']\s*\)'
+
+    for match in re.finditer(pattern, content):
+        include_name = match.group(1)
+
+        # Resolve relative to source file's directory
+        include_path = source.parent / include_name
+        if include_path.exists():
+            includes.append(include_path)
+            # Recursively check for nested includes
+            includes.extend(extract_includes(include_path))
+
+    # Remove duplicates while preserving order
+    seen = set()
+    unique = []
+    for p in includes:
+        if p not in seen:
+            seen.add(p)
+            unique.append(p)
+
+    return unique
 
 # Action type constants (from Java generator)
 ACTION_TYPES = {
@@ -42,11 +72,25 @@ ACTION_TYPES = {
 }
 
 
-def copy_ai_to_generator(source: Path, name: str) -> str:
-    """Copy AI file to generator directory."""
+def copy_ai_to_generator(source: Path, name: str) -> tuple[str, list[str]]:
+    """Copy AI file and its includes to generator directory.
+
+    Returns tuple of (main_name, list_of_copied_files).
+    """
+    copied_files = []
+
+    # Copy main file
     dest = GENERATOR_PATH / name
     dest.write_text(source.read_text())
-    return name
+    copied_files.append(name)
+
+    # Copy included files
+    for include_path in extract_includes(source):
+        include_dest = GENERATOR_PATH / include_path.name
+        include_dest.write_text(include_path.read_text())
+        copied_files.append(include_path.name)
+
+    return name, copied_files
 
 
 def parse_actions(actions: list, leeks: dict) -> list[dict]:
@@ -216,9 +260,10 @@ def main():
         print(f"Error: AI file not found")
         sys.exit(1)
 
-    # Copy AIs to generator
-    ai1_name = copy_ai_to_generator(ai1_path, ai1_path.name)
-    ai2_name = copy_ai_to_generator(ai2_path, ai2_path.name)
+    # Copy AIs (and includes) to generator
+    ai1_name, ai1_files = copy_ai_to_generator(ai1_path, ai1_path.name)
+    ai2_name, ai2_files = copy_ai_to_generator(ai2_path, ai2_path.name)
+    all_copied_files = ai1_files + ai2_files
 
     print(f"AI 1: {ai1_path.name}")
     print(f"AI 2: {ai2_path.name}")
@@ -316,6 +361,10 @@ def main():
         "stats": stats,
     }, indent=2))
     print(f"\nFull data saved to: {debug_file}")
+
+    # Cleanup all copied files (including includes)
+    for f in all_copied_files:
+        (GENERATOR_PATH / f).unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

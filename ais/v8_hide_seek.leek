@@ -1,0 +1,200 @@
+// v8_hide_seek.leek - Safe cell computation (hide from enemy)
+// Fighter v8 "Architect" - Module 4/5
+//
+// Find cells where enemy has NO line of sight, even after moving.
+// This is the "hide" part of hide-and-seek positioning.
+
+// ============================================================
+// SAFE CELL DETECTION
+// ============================================================
+
+// Find cells that are completely safe (no LOS from any enemy position)
+// This is expensive but powerful for retreat decisions
+function findSafeCells(my_accessible, enemy_accessible) {
+    var safe_cells = []
+    var ops_limit = 750000  // Leave room for other operations
+
+    for (var my_cell : var my_cost in my_accessible) {
+        var is_safe = true
+
+        // Check if ANY enemy position has LOS to this cell
+        for (var enemy_cell : var enemy_cost in enemy_accessible) {
+            if (lineOfSight(enemy_cell, my_cell)) {
+                is_safe = false
+                break  // One LOS = not safe, no need to check more
+            }
+
+            // Ops safety
+            if (getOperations() > ops_limit) {
+                // Return what we have so far
+                return safe_cells
+            }
+        }
+
+        if (is_safe) {
+            push(safe_cells, my_cell)
+        }
+    }
+
+    return safe_cells
+}
+
+// ============================================================
+// RETREAT CELL SELECTION
+// ============================================================
+
+// Get best retreat cell considering safety and position
+function getBestRetreatCell(my_accessible, enemy_accessible, danger_map) {
+    var my_cell = getCell()
+
+    // Strategy 1: Find completely safe cells
+    var safe = findSafeCells(my_accessible, enemy_accessible)
+
+    if (count(safe) > 0) {
+        // Pick closest safe cell to maintain some aggression
+        var best = -1
+        var best_dist = 999999
+
+        for (var cell in safe) {
+            var dist = getCellDistance(cell, my_cell)
+            if (dist < best_dist) {
+                best_dist = dist
+                best = cell
+            }
+        }
+
+        return best
+    }
+
+    // Strategy 2: No completely safe cell - pick lowest danger
+    if (danger_map != null) {
+        var safest = getSafestCell(danger_map)
+        if (safest != -1) {
+            return safest
+        }
+    }
+
+    // Strategy 3: Just move away from enemy
+    var enemy = getNearestEnemy()
+    if (enemy != null) {
+        return getFurthestAccessible(my_accessible, getCell(enemy))
+    }
+
+    return my_cell  // Stay put as fallback
+}
+
+// ============================================================
+// ATTACK POSITION SELECTION
+// ============================================================
+
+// Find best cell to attack from (can hit enemy, low danger)
+function getBestAttackCell(my_accessible, enemy, danger_map, weapon_min, weapon_max) {
+    var enemy_cell = getCell(enemy)
+    var best_cell = -1
+    var best_score = -999999
+
+    for (var cell : var cost in my_accessible) {
+        var dist = getCellDistance(cell, enemy_cell)
+
+        // Must be in weapon range
+        if (dist < weapon_min || dist > weapon_max) continue;
+
+        // Must have line of sight
+        if (!lineOfSight(cell, enemy_cell)) continue;
+
+        // Score: prefer low danger, prefer optimal range (max range = safer)
+        var danger = 10  // Default if no map
+        if (danger_map != null && danger_map[cell] != null) {
+            danger = danger_map[cell]
+        }
+
+        // Score calculation:
+        // - Lower danger is better (negative weight)
+        // - Prefer max range (safer kiting position)
+        // - Lower movement cost is better (save MP)
+        var range_bonus = dist - weapon_min  // Higher = better
+        var mp_bonus = -cost  // Lower cost = better
+        var danger_penalty = -danger * 2  // Weight danger heavily
+
+        var score = range_bonus + mp_bonus + danger_penalty
+
+        if (score > best_score) {
+            best_score = score
+            best_cell = cell
+        }
+    }
+
+    return best_cell
+}
+
+// ============================================================
+// COVER DETECTION
+// ============================================================
+
+// Check if a cell provides cover (blocks LOS from enemy's current position)
+function hasCover(cell, enemy_cell) {
+    return !lineOfSight(enemy_cell, cell)
+}
+
+// Count how many enemy positions this cell is hidden from
+function getCoverScore(cell, enemy_accessible) {
+    var hidden_from = 0
+
+    for (var e_cell : var cost in enemy_accessible) {
+        if (!lineOfSight(e_cell, cell)) {
+            hidden_from = hidden_from + 1
+        }
+
+        // Ops safety
+        if (getOperations() > 850000) break;
+    }
+
+    return hidden_from
+}
+
+// ============================================================
+// TACTICAL POSITION ANALYSIS
+// ============================================================
+
+// Categorize my accessible cells by tactical value
+function analyzeTacticalPositions(my_accessible, enemy_accessible, danger_map, weapon_min, weapon_max) {
+    var enemy = getNearestEnemy()
+    if (enemy == null) return null
+
+    var enemy_cell = getCell(enemy)
+
+    var result = [:]
+    result["safe"] = []       // Completely hidden
+    result["attack"] = []     // Can attack, reasonable danger
+    result["exposed"] = []    // Can attack but high danger
+    result["retreat"] = []    // Out of range, low danger
+
+    var avg_danger = 0
+    if (danger_map != null) {
+        avg_danger = getAverageDanger(danger_map)
+    }
+
+    for (var cell : var cost in my_accessible) {
+        var dist = getCellDistance(cell, enemy_cell)
+        var has_los = lineOfSight(cell, enemy_cell)
+        var in_range = dist >= weapon_min && dist <= weapon_max && has_los
+
+        var danger = 10
+        if (danger_map != null && danger_map[cell] != null) {
+            danger = danger_map[cell]
+        }
+
+        // Categorize
+        if (danger == 0) {
+            push(result["safe"], cell)
+        } else if (in_range && danger <= avg_danger) {
+            push(result["attack"], cell)
+        } else if (in_range && danger > avg_danger) {
+            push(result["exposed"], cell)
+        } else if (danger < avg_danger) {
+            push(result["retreat"], cell)
+        }
+    }
+
+    return result
+}

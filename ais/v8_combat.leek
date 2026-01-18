@@ -1,0 +1,260 @@
+// v8_combat.leek - Weapon rotation and combat execution
+// Fighter v8 "Architect" - Module 5/5
+//
+// Handles multi-weapon rotation respecting v2.42 usage limits.
+// Tracks uses per turn and selects optimal weapon for situation.
+
+// ============================================================
+// WEAPON USAGE TRACKING (v2.42 limits)
+// ============================================================
+global weapon_uses = [:]       // weapon_id -> uses this turn
+global current_weapon = null   // Currently equipped weapon
+global weapon_switched = false // Did we switch this turn?
+
+// Reset at start of each turn
+function resetCombatState() {
+    weapon_uses = [:]
+    weapon_switched = false
+}
+
+// ============================================================
+// WEAPON SELECTION
+// ============================================================
+
+// Get best weapon to use against enemy with remaining TP
+function getBestWeapon(enemy, remaining_tp) {
+    var best_weapon = null
+    var best_score = -999999
+
+    var weapons = getWeapons()
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    for (var w in weapons) {
+        var cost = getWeaponCost(w)
+        var min_range = getWeaponMinRange(w)
+        var max_range = getWeaponMaxRange(w)
+
+        // Skip if can't afford
+        if (cost > remaining_tp) continue;
+
+        // Check usage limit (v2.42 feature)
+        var max_uses = 999  // Default unlimited
+        // Note: getWeaponMaxUses() may not exist in all versions
+        // Fallback: track uses manually and assume 3 for most weapons
+        var uses_this_turn = weapon_uses[w]
+        if (uses_this_turn == null) uses_this_turn = 0
+        if (uses_this_turn >= 3) continue  // Safe limit
+
+        // Skip if out of range
+        if (dist < min_range || dist > max_range) continue;
+
+        // Need line of sight
+        if (!lineOfSight(getCell(), getCell(enemy))) continue;
+
+        // Score weapon by damage output
+        var damage = getWeaponEffects(w)  // Get weapon effects/damage
+        // Approximation: use item ID as rough damage proxy for now
+        // Higher tier weapons = higher damage generally
+        var damage_estimate = cost * 10  // Rough estimate
+
+        // Switching cost: penalize if we need to switch
+        var switch_penalty = 0
+        if (current_weapon != w && current_weapon != null) {
+            switch_penalty = 1  // 1 TP to switch
+            if (switch_penalty >= remaining_tp - cost) {
+                switch_penalty = 999  // Can't afford switch + shot
+            }
+        }
+
+        var score = damage_estimate - switch_penalty
+
+        if (score > best_score) {
+            best_score = score
+            best_weapon = w
+        }
+    }
+
+    return best_weapon
+}
+
+// ============================================================
+// COMBAT EXECUTION
+// ============================================================
+
+// Execute all possible attacks against enemy
+function executeAttacks(enemy) {
+    var attacks_made = 0
+    var total_tp = getTP()
+
+    while (getTP() > 0) {
+        var weapon = getBestWeapon(enemy, getTP())
+
+        if (weapon == null) {
+            // No usable weapon - might need to move
+            break;
+        }
+
+        // Switch weapon if needed
+        if (getWeapon() != weapon) {
+            if (getTP() < getWeaponCost(weapon) + 1) {
+                // Can't afford switch + attack
+                break;
+            }
+            setWeapon(weapon)
+            current_weapon = weapon
+            weapon_switched = true
+        }
+
+        // Attack
+        var result = useWeapon(enemy)
+
+        if (result == USE_SUCCESS) {
+            attacks_made = attacks_made + 1
+
+            // Track usage
+            var uses = weapon_uses[weapon]
+            if (uses == null) uses = 0
+            weapon_uses[weapon] = uses + 1
+        } else if (result == USE_INVALID_TARGET) {
+            // Target moved or died
+            break;
+        } else if (result == USE_NOT_ENOUGH_TP) {
+            // Out of TP
+            break;
+        } else {
+            // Other failure - break to avoid infinite loop
+            break;
+        }
+
+        // Safety: limit iterations
+        if (attacks_made >= 10) break;
+    }
+
+    return attacks_made
+}
+
+// ============================================================
+// SINGLE ATTACK (for controlled attack sequences)
+// ============================================================
+
+// Try to make one attack, return success
+function attackOnce(enemy) {
+    var weapon = getBestWeapon(enemy, getTP())
+
+    if (weapon == null) return false
+
+    // Switch if needed
+    if (getWeapon() != weapon) {
+        if (getTP() < getWeaponCost(weapon) + 1) return false
+        setWeapon(weapon)
+        current_weapon = weapon
+    }
+
+    var result = useWeapon(enemy)
+
+    if (result == USE_SUCCESS) {
+        var uses = weapon_uses[weapon]
+        if (uses == null) uses = 0
+        weapon_uses[weapon] = uses + 1
+        return true
+    }
+
+    return false
+}
+
+// ============================================================
+// ATTACK OPPORTUNITY ANALYSIS
+// ============================================================
+
+// Can we attack enemy from current position?
+function canAttackFrom(cell, enemy) {
+    var dist = getCellDistance(cell, getCell(enemy))
+
+    // Check all weapons
+    var weapons = getWeapons()
+    for (var w in weapons) {
+        var min_range = getWeaponMinRange(w)
+        var max_range = getWeaponMaxRange(w)
+
+        if (dist >= min_range && dist <= max_range) {
+            if (lineOfSight(cell, getCell(enemy))) {
+                return true
+            }
+        }
+    }
+
+    return false
+}
+
+// Get weapon range (primary weapon)
+function getMyWeaponRange() {
+    var weapons = getWeapons()
+    if (count(weapons) > 0) {
+        var w = weapons[0]
+        return [getWeaponMinRange(w), getWeaponMaxRange(w)]
+    }
+    return [1, 7]  // Default pistol range
+}
+
+// Calculate potential damage output with remaining TP
+function getPotentialDamage(enemy, remaining_tp) {
+    var total = 0
+    var sim_tp = remaining_tp
+    var sim_uses = [:]
+
+    var weapons = getWeapons()
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    // Simulate attacks
+    for (var i = 0; i < 5; i++) {  // Max 5 attacks
+        for (var w in weapons) {
+            var cost = getWeaponCost(w)
+            var min_range = getWeaponMinRange(w)
+            var max_range = getWeaponMaxRange(w)
+
+            if (cost > sim_tp) continue;
+            if (dist < min_range || dist > max_range) continue;
+
+            var uses = sim_uses[w]
+            if (uses == null) uses = 0
+            if (uses >= 3) continue;
+
+            // Estimate damage (cost * 10 rough)
+            total = total + (cost * 10)
+            sim_tp = sim_tp - cost
+            sim_uses[w] = uses + 1
+            break;
+        }
+
+        if (sim_tp <= 0) break;
+    }
+
+    return total
+}
+
+// ============================================================
+// CHIP USAGE (if available)
+// ============================================================
+
+// Use healing chip on self if available and hurt
+function tryHeal() {
+    var chips = getChips()
+    var my_hp = getLife()
+    var my_max = getTotalLife()
+
+    if (my_hp >= my_max * 0.8) return false  // Don't heal if >80% HP
+
+    for (var chip in chips) {
+        // Check if it's a healing chip (positive life effect)
+        var effects = getChipEffects(chip)
+        if (effects != null) {
+            // Try to use on self
+            var result = useChip(chip, getEntity())
+            if (result == USE_SUCCESS) {
+                return true
+            }
+        }
+    }
+
+    return false
+}

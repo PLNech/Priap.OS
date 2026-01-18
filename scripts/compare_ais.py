@@ -9,6 +9,7 @@ Usage:
 
 import sys
 import os
+import re
 import argparse
 from pathlib import Path
 
@@ -17,11 +18,59 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from leekwars_agent.simulator import Simulator, EntityConfig, ScenarioConfig, GENERATOR_PATH
 
 
-def copy_ai_to_generator(source: Path, name: str) -> str:
-    """Copy AI file to generator directory and return relative name."""
+def extract_includes(source: Path) -> list[Path]:
+    """Extract include() statements from a LeekScript file.
+
+    Returns list of included file paths (resolved relative to source).
+    """
+    includes = []
+    content = source.read_text()
+
+    # Match: include("filename") or include('filename')
+    pattern = r'include\s*\(\s*["\']([^"\']+)["\']\s*\)'
+
+    for match in re.finditer(pattern, content):
+        include_name = match.group(1)
+        # Handle both with and without .leek extension
+        include_file = include_name if include_name.endswith('.leek') else include_name + '.leek'
+
+        # Resolve relative to source file's directory
+        include_path = source.parent / include_name
+        if include_path.exists():
+            includes.append(include_path)
+            # Recursively check for nested includes
+            includes.extend(extract_includes(include_path))
+
+    # Remove duplicates while preserving order
+    seen = set()
+    unique = []
+    for p in includes:
+        if p not in seen:
+            seen.add(p)
+            unique.append(p)
+
+    return unique
+
+
+def copy_ai_to_generator(source: Path, name: str) -> tuple[str, list[str]]:
+    """Copy AI file and its includes to generator directory.
+
+    Returns tuple of (main_name, list_of_copied_files).
+    """
+    copied_files = []
+
+    # Copy main file
     dest = GENERATOR_PATH / name
     dest.write_text(source.read_text())
-    return name
+    copied_files.append(name)
+
+    # Copy included files
+    for include_path in extract_includes(source):
+        include_dest = GENERATOR_PATH / include_path.name
+        include_dest.write_text(include_path.read_text())
+        copied_files.append(include_path.name)
+
+    return name, copied_files
 
 
 def compare_ais(
@@ -68,9 +117,10 @@ def compare_ais(
     if not ai2_path.is_absolute():
         ai2_path = Path.cwd() / ai2_path
 
-    # Copy AI files to generator directory
-    ai1_name = copy_ai_to_generator(ai1_path, f"test_ai1_{ai1_path.name}")
-    ai2_name = copy_ai_to_generator(ai2_path, f"test_ai2_{ai2_path.name}")
+    # Copy AI files (and includes) to generator directory
+    ai1_name, ai1_files = copy_ai_to_generator(ai1_path, f"test_ai1_{ai1_path.name}")
+    ai2_name, ai2_files = copy_ai_to_generator(ai2_path, f"test_ai2_{ai2_path.name}")
+    all_copied_files = ai1_files + ai2_files
 
     chips1 = chips1 or []
     chips2 = chips2 or []
@@ -244,9 +294,9 @@ def compare_ais(
     else:
         print(f"\n= Tie!")
 
-    # Cleanup copied files
-    (GENERATOR_PATH / ai1_name).unlink(missing_ok=True)
-    (GENERATOR_PATH / ai2_name).unlink(missing_ok=True)
+    # Cleanup all copied files (including includes)
+    for f in all_copied_files:
+        (GENERATOR_PATH / f).unlink(missing_ok=True)
 
     return {
         "ai1": ai1_path.name,

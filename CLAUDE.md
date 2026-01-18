@@ -233,6 +233,29 @@ Requires Java 21+ (use SDKMAN: `sdk install java 21.0.5-tem`)
 - LS4: Type annotations are FREE - zero runtime operation cost
 - `say(message)` costs 1 TP - use `debug()` instead (free)!
 
+### LeekScript Syntax (Compiler Requirements)
+**IMPORTANT**: These cause silent failures or cryptic errors if violated:
+- **Includes need `.leek` extension**: `include("module.leek")` NOT `include("module")`
+- **Semicolons after bare return**: `if (x) return;` NOT `if (x) return` (parser gets confused)
+- **Semicolons recommended**: While often optional, add `;` after statements to avoid parser ambiguity
+- **Empty maps**: `var m = [:]` is valid LeekScript syntax for empty associative array
+- **For-each syntax**: `for (var x in array)` or `for (var k : var v in map)` (BOTH vars need `var`!)
+- **C-style for loops**: `for (var i = 0; i < n; ++i)` - prefer pre-increment `++i`
+
+### LeekScript Debugging Meta-Approach
+When encountering LeekScript compiler errors:
+1. **Standalone compiler** (`leekscript.jar`) validates syntax but NOT fight functions
+   - `UNKNOWN_VARIABLE_OR_FUNCTION` on fight functions (isEmptyCell, getCell, etc.) is OK
+   - Use `compare_ais.py` or `debug_fight.py` for full validation with fight context
+2. **Common error patterns**:
+   - `CLOSING_PARENTHESIS_EXPECTED` → Check for missing semicolons on previous lines
+   - `VALUE_EXPECTED` → Parser in wrong state, likely missing semicolons above
+   - `AI_NOT_EXISTING` → Include path wrong (add `.leek` extension)
+3. **When fixing syntax errors**:
+   - Fix ONE error at a time, re-test immediately
+   - Document each fix in this file for future reference
+   - Apply fixes to ALL similar patterns (use sed/grep)
+
 ### LeekScript Quick Reference
 ```leekscript
 // Entity info
@@ -241,10 +264,12 @@ getLife() / getLife(entity)     // HP
 getMP() / getTP()               // Movement/Action points
 getNearestEnemy() / getEnemies() / getAllies()
 
-// Movement
-moveToward(entity)              // Uses all MP
-moveToward(entity, n)           // Move n cells
-moveAwayFrom(entity)
+// Movement (NO moveToCell - only moveTowardCell!)
+moveToward(entity)              // Uses all MP toward entity
+moveToward(entity, n)           // Move n cells toward entity
+moveTowardCell(cell)            // Move toward a cell
+moveAwayFrom(entity)            // Move away from entity
+moveAwayFromCell(cell)          // Move away from cell
 getCellDistance(cell1, cell2)   // EXPENSIVE - cache result!
 
 // Combat
