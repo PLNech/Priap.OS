@@ -115,34 +115,79 @@ docs/                  # Living documentation
 - Account: PriapOS (Farmer ID: 124831)
 - Leek: IAdonis (ID: 131321)
 
-## Current State (Session 7 - 2026-01-18)
-- **Level**: 17
-- **Rank**: ~101 talent
-- **Win rate**: ~50% online
-- **Build**: STR=96, AGI=10
-- **AI Deployed**: fighter_v6.leek "Oracle"
+## Current State (Session 8 - 2026-01-18)
+- **Level**: 25 (was 20, +5 this session!)
+- **Rank**: Climbing (fighting L20-L25 opponents)
+- **Win rate**: 38% raw / 48% excluding draws
+- **Build**: STR=234, AGI=10
+- **AI Deployed**: fighter_v8.leek "Architect"
+- **Chips**: 0/6 equipped (need to craft - see below)
+- **Habs**: 51,515+
+- **Components**: 12+ resources for crafting
 - **Website**: https://plnech.github.io/Priap.OS/
+- **Priority Bug**: 21% draw rate from kite stalemates
 
-### Session 7 Experiments (Today)
-| Hypothesis | Test | Result |
-|------------|------|--------|
-| S005: Kite at 60% HP vs 40% | v7 vs v6, n=1000, L17 | **REJECTED** (49.9% vs 50.1%) |
-| S006: Shoot before retreat in kite | v8 vs v6, n=1000, L17 | **REJECTED** (49.9% vs 50.1%) |
+### Session 8 Achievements
+- **v8 Architect AI**: Modular 5-subsystem architecture (~1300 lines)
+- **Ops Optimization**: 707k → 27k/turn (26x improvement)
+- **Capital Spent**: 40 points on STR (188 → 234)
+- **Ran 95 fights**: 36W-39L-20D (38% WR) → Level 20 → 25
 
-**Key Insight**: Kite mode variations don't matter at high STR. Fights end quickly, kite rarely triggers. Need hypotheses that affect main combat flow.
+### Session 8 Fight Analysis (95 fights)
+**Critical Finding: 21% draw rate (20/95) - ALL 64-turn timeouts**
+
+| Pattern | Count | Insight |
+|---------|-------|---------|
+| Quick wins (≤5t) | 18 | STR advantage decisive when we strike first |
+| Quick losses (≤5t) | 6 | Enemy has better positioning/first strike |
+| Long fights (>10t) | 15 | Both kiters, neither commits |
+| Draws (64t) | 20 | **KITE STALEMATES** - priority fix |
+
+**Why Draws Happen (Theory)**:
+1. Both AIs enter kite mode simultaneously
+2. Neither commits to close gap (both retreat after shooting)
+3. Damage dealt < natural regen threshold
+4. Fight times out at turn 64
+
+**Proposed Fix for Next Session**:
+- Add "aggression threshold" - if fight > 30 turns, switch to all-in mode
+- Track cumulative damage - if damage stagnates, force engagement
+- Detect mutual kiting pattern and break symmetry
+
+**Win Rate Without Draws**: 36/(36+39) = **48%** (competitive!)
+
+**Opponent Level Distribution**:
+- L20-21: Mostly wins (favorable matchups)
+- L22-23: Mixed (skill-based)
+- L24-25: More losses (level disadvantage)
+
+**Leveling Insight**: Gained 5 levels in one session = good XP from high-level opponents
+
+### Chip/Crafting System Discovery (IMPORTANT)
+**LeekWars v2.40+ uses a CRAFTING SYSTEM for chips:**
+1. Chips are NOT purchased - they must be crafted from components
+2. Components drop from fights (seen as "rareloot" in fight data)
+3. We have 12 resources (components) ready for crafting
+4. Crafting UI is at `/market` → Inventory tab → click item → craft
+5. Most chip-related API endpoints return 401 - must use browser UI
+
+**Current Resources** (template IDs):
+- 191, 193, 194, 195 (common)
+- 203, 204, 206, 207 (materials)
+- 231, 232, 233, 236 (special)
+
+**To acquire chips**: Navigate to leek page → Chips section → click empty slot → craft from available recipes
 
 ### AI Versions
 | Version | Codename | Key Feature | Status |
 |---------|----------|-------------|--------|
-| v6 | Oracle | TTK + counter-kiter | **DEPLOYED** |
-| v7 | Proactive | 60% kite threshold | Rejected |
-| v8 | ShootFirst | Shoot-first kite | Rejected |
+| v8 | Architect | 5-module subsystems, ops-optimized | **DEPLOYED** |
+| v6 | Oracle | TTK + counter-kiter | Baseline |
 
 ### Next Hypotheses to Test
-- Safe cell scoring (move to cells where we can shoot but enemy can't)
-- Better pathfinding (A* to avoid obstacles)
-- Chip usage (we have 10 TP, only use 9 for 3 shots)
-- Test vs archetypes to find matchup weaknesses
+- Craft and equip chips for extra damage/utility
+- Fix kite stalemates (v8 vs kiters = draws)
+- Test vs archetypes (rusher/tank/burst)
 
 ## Session 4 Achievements
 **Critical Discovery:**
