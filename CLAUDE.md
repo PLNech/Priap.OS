@@ -1,5 +1,7 @@
 # Priap.OS - LeekWars AI Agent
 
+> **Claude**: Keep `THOUGHTS.md` in context (Read at session start) and up-to-date (Edit as you learn). Track learnings, questions, hypotheses to test there - not here.
+
 ## Project Overview
 Automated LeekWars agent aiming for **top 10 ladder**. The strategy: build infrastructure that lets us iterate faster than anyone else.
 
@@ -127,67 +129,14 @@ docs/                  # Living documentation
 - **Website**: https://plnech.github.io/Priap.OS/
 - **Priority Bug**: 21% draw rate from kite stalemates
 
-### Session 8 Achievements
-- **v8 Architect AI**: Modular 5-subsystem architecture (~1300 lines)
-- **Ops Optimization**: 707k → 27k/turn (26x improvement)
-- **Capital Spent**: 40 points on STR (188 → 234)
-- **Ran 95 fights**: 36W-39L-20D (38% WR) → Level 20 → 25
-
-### Session 8 Fight Analysis (95 fights)
-**Critical Finding: 21% draw rate (20/95) - ALL 64-turn timeouts**
-
-| Pattern | Count | Insight |
-|---------|-------|---------|
-| Quick wins (≤5t) | 18 | STR advantage decisive when we strike first |
-| Quick losses (≤5t) | 6 | Enemy has better positioning/first strike |
-| Long fights (>10t) | 15 | Both kiters, neither commits |
-| Draws (64t) | 20 | **KITE STALEMATES** - priority fix |
-
-**Why Draws Happen (Theory)**:
-1. Both AIs enter kite mode simultaneously
-2. Neither commits to close gap (both retreat after shooting)
-3. Damage dealt < natural regen threshold
-4. Fight times out at turn 64
-
-**Proposed Fix for Next Session**:
-- Add "aggression threshold" - if fight > 30 turns, switch to all-in mode
-- Track cumulative damage - if damage stagnates, force engagement
-- Detect mutual kiting pattern and break symmetry
-
-**Win Rate Without Draws**: 36/(36+39) = **48%** (competitive!)
-
-**Opponent Level Distribution**:
-- L20-21: Mostly wins (favorable matchups)
-- L22-23: Mixed (skill-based)
-- L24-25: More losses (level disadvantage)
-
-**Leveling Insight**: Gained 5 levels in one session = good XP from high-level opponents
-
-### Chip/Crafting System Discovery (IMPORTANT)
-**LeekWars v2.40+ uses a CRAFTING SYSTEM for chips:**
-1. Chips are NOT purchased - they must be crafted from components
-2. Components drop from fights (seen as "rareloot" in fight data)
-3. We have 12 resources (components) ready for crafting
-4. Crafting UI is at `/market` → Inventory tab → click item → craft
-5. Most chip-related API endpoints return 401 - must use browser UI
-
-**Current Resources** (template IDs):
-- 191, 193, 194, 195 (common)
-- 203, 204, 206, 207 (materials)
-- 231, 232, 233, 236 (special)
-
-**To acquire chips**: Navigate to leek page → Chips section → click empty slot → craft from available recipes
+### Active Learnings
+**See `THOUGHTS.md`** for session analysis, hypotheses, and discoveries.
 
 ### AI Versions
 | Version | Codename | Key Feature | Status |
 |---------|----------|-------------|--------|
 | v8 | Architect | 5-module subsystems, ops-optimized | **DEPLOYED** |
 | v6 | Oracle | TTK + counter-kiter | Baseline |
-
-### Next Hypotheses to Test
-- Craft and equip chips for extra damage/utility
-- Fix kite stalemates (v8 vs kiters = draws)
-- Test vs archetypes (rusher/tank/burst)
 
 ## Session 4 Achievements
 **Critical Discovery:**
