@@ -5,13 +5,12 @@
 
 ---
 
-## Priority Queue (Next Session)
+## TODOs (Next Session)
 
-| # | Task | Impact | Approach |
-|---|------|--------|----------|
-| 🔴 | **Fix kite stalemates** | +21% WR | Add turn_count > 30 → force_engage |
-| 🟡 | Craft chips | +damage | Manual UI: /market → Inventory |
-| 🟢 | Archetype testing | Find gaps | Offline A/B vs rusher/tank/burst |
+1. 🔴 **FIX KITE STALEMATES** (21% draw rate!) → Add turn_count > 30 → force_engage
+2. 🟡 **Craft chips** from 12+ components → Manual UI: /market → Inventory
+3. 🟢 **Archetype testing** vs rusher/tank/burst → Offline A/B
+4. 🟢 **Validate danger map** influences positioning → Add debug logging
 
 ---
 
