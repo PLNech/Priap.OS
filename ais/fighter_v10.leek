@@ -1,0 +1,226 @@
+// Fighter v10 "Phoenix" - Burst Aggro with Chips
+// =============================================================================
+// Philosophy: Dead enemies deal no damage. Commit fully, burst hard.
+//
+// Our equipped chips (verified from source):
+//   CHIP_CURE (4)   - 4 TP, CD 2, heal 38±8
+//   CHIP_FLAME (5)  - 4 TP, CD 0, 29±2 DMG (3 uses/turn max!)
+//   CHIP_FLASH (6)  - 3 TP, CD 1, 32±3 DMG, AOE, long range
+//   CHIP_PROTEIN (8) - 3 TP, CD 3, +80 STR buff
+//   CHIP_LEATHER_BOOTS (14) - 3 TP, CD 5, +2 MP
+//   CHIP_MOTIVATION (15) - 4 TP, CD 6, +2 TP
+//
+// Uses getChips() for simulator compatibility (CHIP_* not available offline)
+// =============================================================================
+
+// State tracking
+global turn_count = 0
+global total_damage_dealt = 0
+global my_start_hp = 0
+
+// Chip references (populated from getChips())
+global chip_cure = null
+global chip_flame = null
+global chip_flash = null
+global chip_protein = null
+global chip_boots = null
+global chip_motivation = null
+global chips_initialized = false
+
+// =============================================================================
+// MAIN ENTRY
+// =============================================================================
+
+var enemy = getNearestEnemy()
+if (enemy == null) return;
+
+// Initialize chip references (once)
+if (!chips_initialized) {
+    initChips()
+    chips_initialized = true
+}
+
+// First turn init
+if (turn_count == 0) {
+    my_start_hp = getLife()
+}
+
+turn_count++
+var turn_start_enemy_hp = getLife(enemy)
+
+debug("═══ T" + turn_count + " Phoenix ═══")
+debug("  HP: " + getLife() + "/" + my_start_hp + " vs " + getLife(enemy))
+
+// =============================================================================
+// PHASE 1: BUFFS (turn 1 only)
+// =============================================================================
+
+if (turn_count == 1) {
+    applyBuffs()
+}
+
+// =============================================================================
+// PHASE 2: CLOSE GAP
+// =============================================================================
+
+var dist = getCellDistance(getCell(), getCell(enemy))
+debug("  Distance: " + dist + " MP: " + getMP())
+
+// Close to attack range
+while (dist > 7 && getMP() > 0) {
+    var moved = moveToward(enemy)
+    if (moved == 0) break;
+    dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// =============================================================================
+// PHASE 3: BURST DAMAGE
+// =============================================================================
+
+executeBurst(enemy)
+
+// =============================================================================
+// PHASE 4: HEAL CHECK (only if critical)
+// =============================================================================
+
+var hp_pct = getLife() * 100 / my_start_hp
+if (hp_pct < 30 && chip_cure != null && getTP() >= 4) {
+    var result = useChip(chip_cure, getEntity())
+    if (result == USE_SUCCESS) {
+        debug("  HEALED!")
+    }
+}
+
+// =============================================================================
+// PHASE 5: CONTINUE AGGRESSION
+// =============================================================================
+
+while (getMP() > 0) {
+    var moved = moveToward(enemy)
+    if (moved == 0) break;
+}
+
+executeBurst(enemy)
+
+// Track damage
+var turn_damage = turn_start_enemy_hp - getLife(enemy)
+total_damage_dealt = total_damage_dealt + turn_damage
+debug("  Damage: " + turn_damage + " (total: " + total_damage_dealt + ")")
+debug("  Remaining: TP=" + getTP() + " MP=" + getMP())
+
+// =============================================================================
+// CHIP INITIALIZATION - Find chips by iterating getChips()
+// =============================================================================
+
+function initChips() {
+    var myChips = getChips()
+    debug("  Found " + count(myChips) + " chips")
+
+    for (var chip in myChips) {
+        // Use chip name to identify
+        var name = getChipName(chip)
+        debug("    Chip: " + name)
+
+        if (name == "cure") chip_cure = chip
+        if (name == "flame") chip_flame = chip
+        if (name == "flash") chip_flash = chip
+        if (name == "protein") chip_protein = chip
+        if (name == "leather_boots") chip_boots = chip
+        if (name == "motivation") chip_motivation = chip
+    }
+}
+
+// =============================================================================
+// BUFF APPLICATION
+// =============================================================================
+
+function applyBuffs() {
+    debug("  Applying buffs...")
+
+    // MOTIVATION (+2 TP)
+    if (chip_motivation != null && getTP() >= 4) {
+        var result = useChip(chip_motivation, getEntity())
+        if (result == USE_SUCCESS) {
+            debug("    +2 TP buff!")
+        }
+    }
+
+    // LEATHER_BOOTS (+2 MP)
+    if (chip_boots != null && getTP() >= 3) {
+        var result = useChip(chip_boots, getEntity())
+        if (result == USE_SUCCESS) {
+            debug("    +2 MP buff!")
+        }
+    }
+
+    // PROTEIN (+80 STR)
+    if (chip_protein != null && getTP() >= 3) {
+        var result = useChip(chip_protein, getEntity())
+        if (result == USE_SUCCESS) {
+            debug("    STR buff!")
+        }
+    }
+}
+
+// =============================================================================
+// BURST DAMAGE EXECUTION
+// =============================================================================
+
+function executeBurst(enemy) {
+    var dist = getCellDistance(getCell(), getCell(enemy))
+    var los = lineOfSight(getCell(), getCell(enemy))
+
+    if (!los) {
+        debug("  No LOS")
+        return;
+    }
+
+    // FLASH (range 1-10) - long range opener
+    if (chip_flash != null && getTP() >= 3 && dist >= 1 && dist <= 10) {
+        var result = useChip(chip_flash, enemy)
+        if (result == USE_SUCCESS) {
+            debug("  FLASH hit!")
+        }
+    }
+
+    // FLAME (range 2-7, up to 3 uses)
+    var flame_count = 0
+    while (chip_flame != null && flame_count < 3 && getTP() >= 4 && dist >= 2 && dist <= 7) {
+        var result = useChip(chip_flame, enemy)
+        if (result == USE_SUCCESS) {
+            flame_count++
+            debug("  FLAME x" + flame_count)
+        } else {
+            break;
+        }
+    }
+
+    // Weapon attacks
+    var weapon = getWeapon()
+    if (weapon == null) {
+        var weapons = getWeapons()
+        if (count(weapons) > 0) {
+            setWeapon(weapons[0])
+            weapon = weapons[0]
+        }
+    }
+
+    if (weapon != null) {
+        var w_cost = getWeaponCost(weapon)
+        var w_min = getWeaponMinRange(weapon)
+        var w_max = getWeaponMaxRange(weapon)
+
+        var shot_count = 0
+        while (getTP() >= w_cost && dist >= w_min && dist <= w_max && shot_count < 5) {
+            var result = useWeapon(enemy)
+            if (result == USE_SUCCESS) {
+                shot_count++
+            } else {
+                break;
+            }
+        }
+        if (shot_count > 0) {
+            debug("  Weapon x" + shot_count)
+        }
+    }
+}

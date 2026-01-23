@@ -7,12 +7,58 @@
 
 ## TODOs (Next Session)
 
-1. ✅ **BUY CHIPS FROM MARKET** (#0401) - 6/6 chips equipped! Weapon pending (low habs)
-2. 🔴 **FIX KITE STALEMATES** (#0201) - 21% draw rate kills win rate
-3. 🟡 **Implement garden API** (#0109) - Passive income endpoints
-4. 🟡 **Implement tournament API** (#0110) - Registration endpoints
-5. 🟢 **Archetype testing** (#0203) - Offline A/B
-6. 🟢 **Scrape full fights DB** - See tip below
+1. 🔴 **FIX SIMULATOR CHIP SUPPORT** (#0111) - getChips() returns empty!
+2. 🔴 **SPEND 76 CAPITAL** - All on STR (leek build spend str 76)
+3. 🔴 **DEPLOY v10 OR v9** - v6 doesn't use chips, v9 has stalemate fix
+4. 🟡 **Buy magnum** (#0407) - Need 7,510 habs (have 4,752)
+5. 🟡 **Test v10 online** - Chips work online even if sim broken
+6. 🟢 **FIX KITE STALEMATES** (#0201) - v9 has force_engage
+
+---
+
+## Session 12 AI Rebuild & Simulator Gap (2026-01-23)
+
+**Theme:** First-principles AI rebuild, discovered simulator doesn't support chips.
+
+### v10 "Phoenix" Created
+New AI with burst aggro philosophy:
+- Uses `getChips()` for simulator compatibility
+- FLASH + FLAME x3 + weapon rotation
+- Tracks chip cooldowns manually
+- Buffs turn 1 (MOTIVATION, BOOTS, PROTEIN)
+
+### Critical Discovery: Simulator Gap 🔴
+| Issue | Impact |
+|-------|--------|
+| `getChips()` returns empty | Can't test chip AIs offline |
+| CHIP_* constants undefined | Had to use dynamic lookup |
+| Chips passed but not accessible | EntityConfig.chips not exposed |
+
+**Task created**: #0111 - Fix simulator chip support
+
+### Chip Ground Truth (from chips.ts)
+| Chip | TP | CD | Uses/Turn | Range | Effect |
+|------|----|----|-----------|-------|--------|
+| FLAME (5) | 4 | 0 | **3 max** | 2-7 | 29±2 DMG |
+| FLASH (6) | 3 | 1 | unlimited | 1-10 | 32±3 DMG |
+| CURE (4) | 4 | 2 | unlimited | 0-5 | 38±8 HEAL |
+| PROTEIN (8) | 3 | 3 | unlimited | 0-4 | +80 STR x2t |
+| BOOTS (14) | 3 | 5 | unlimited | 0-5 | +2 MP x2t |
+| MOTIVATION (15) | 4 | 6 | unlimited | 0-5 | +2 TP x3t |
+
+### CLI Improvements
+New commands added:
+- `leek status` - Quick overview (fights, habs, AI, recent)
+- `leek build show/spend/recommend` - Capital management
+- `leek ai list/deploy/local` - AI management
+- `leek sim specs/compare/debug` - Simulation with real specs
+
+### Current State
+- **Level**: 34, **Talent**: 38
+- **Capital**: 76 unspent!
+- **AI**: v6 deployed (doesn't use chips!)
+- **Fights**: 30/30 remaining
+- **Recent**: WDDDD (still draws from stalemates)
 
 ---
 
