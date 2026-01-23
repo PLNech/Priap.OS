@@ -17,6 +17,10 @@ from leekwars_agent.simulator import Simulator, ScenarioConfig, EntityConfig
 
 GENERATOR_PATH = Path(__file__).parent.parent / "tools" / "leek-wars-generator"
 
+# Default chips matching our leek (from GROUND_TRUTH.md)
+# CURE=4, FLAME=5, FLASH=6, PROTEIN=8, BOOTS=14, MOTIVATION=15
+DEFAULT_CHIPS = [4, 5, 6, 8, 14, 15]
+
 
 def extract_includes(source: Path) -> list[Path]:
     """Extract include() statements from a LeekScript file."""
@@ -278,6 +282,7 @@ def main():
         farmer=1,
         team=1,
         weapons=[37],  # Pistol
+        chips=DEFAULT_CHIPS,
     )
     entity2 = EntityConfig(
         id=1,
@@ -287,6 +292,7 @@ def main():
         farmer=2,
         team=2,
         weapons=[37],
+        chips=DEFAULT_CHIPS,
     )
 
     scenario = ScenarioConfig(
