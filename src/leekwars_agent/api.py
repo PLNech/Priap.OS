@@ -360,6 +360,151 @@ class LeekWarsAPI:
         response.raise_for_status()
         return response.json()
 
+    # =========================================================================
+    # Test Scenarios - UNLIMITED server-side fights for AI validation
+    # Discovered from: tools/leek-wars/src/component/editor/editor-test.vue
+    # =========================================================================
+
+    def get_test_scenarios(self) -> dict[str, Any]:
+        """Get all saved test scenarios.
+
+        Returns dict with 'scenarios', 'leeks', 'maps' for test configuration.
+        """
+        response = self._client.get("/test-scenario/get-all", headers=self._headers())
+        response.raise_for_status()
+        return response.json()
+
+    def create_test_scenario(self, name: str) -> dict[str, Any]:
+        """Create a new test scenario.
+
+        Args:
+            name: Scenario name
+
+        Returns:
+            {id: <scenario_id>}
+        """
+        response = self._client.post(
+            "/test-scenario/new",
+            headers=self._headers(),
+            data={"name": name},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def update_test_scenario(self, scenario_id: int, data: dict) -> dict[str, Any]:
+        """Update test scenario configuration.
+
+        Args:
+            scenario_id: Scenario to update
+            data: Config dict (type, ai, map, etc.) - will be JSON stringified
+        """
+        import json
+        response = self._client.post(
+            "/test-scenario/update",
+            headers=self._headers(),
+            data={"id": scenario_id, "data": json.dumps(data)},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def add_leek_to_scenario(
+        self, scenario_id: int, leek_id: int, team: int, ai_id: int | None = None
+    ) -> dict[str, Any]:
+        """Add a leek to a test scenario.
+
+        Args:
+            scenario_id: Target scenario
+            leek_id: Leek to add (real or test leek)
+            team: 0 for team1, 1 for team2, -1 to just set AI
+            ai_id: Optional AI override for this leek
+        """
+        response = self._client.post(
+            "/test-scenario/add-leek",
+            headers=self._headers(),
+            data={
+                "scenario_id": scenario_id,
+                "leek": leek_id,
+                "team": team,
+                "ai": ai_id if ai_id else "",
+            },
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def run_test_fight(self, scenario_id: int, ai_id: int) -> dict[str, Any]:
+        """Run a test fight using a scenario - NO DAILY LIMIT!
+
+        Args:
+            scenario_id: Scenario configuration to use
+            ai_id: AI to test
+
+        Returns:
+            {fight: <fight_id>} - Use get_fight() to retrieve results
+        """
+        response = self._client.post(
+            "/ai/test-scenario",
+            headers=self._headers(),
+            data={"scenario_id": scenario_id, "ai_id": ai_id},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def create_test_leek(self, name: str) -> dict[str, Any]:
+        """Create a custom test leek with configurable stats.
+
+        Returns:
+            {id: <leek_id>, data: <leek_config>}
+        """
+        response = self._client.post(
+            "/test-leek/new",
+            headers=self._headers(),
+            data={"name": name},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def update_test_leek(self, leek_id: int, data: dict) -> dict[str, Any]:
+        """Update test leek configuration (stats, chips, weapons).
+
+        Args:
+            leek_id: Test leek to update
+            data: Full leek config dict - will be JSON stringified
+        """
+        import json
+        response = self._client.post(
+            "/test-leek/update",
+            headers=self._headers(),
+            data={"id": leek_id, "data": json.dumps(data)},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def create_test_map(self, name: str) -> dict[str, Any]:
+        """Create a custom test map."""
+        response = self._client.post(
+            "/test-map/new",
+            headers=self._headers(),
+            data={"name": name},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def update_test_map(self, map_id: int, data: dict) -> dict[str, Any]:
+        """Update test map configuration.
+
+        Args:
+            map_id: Map to update
+            data: Map config with obstacles, team positions
+        """
+        import json
+        response = self._client.post(
+            "/test-map/update",
+            headers=self._headers(),
+            data={"id": map_id, "data": json.dumps(data)},
+        )
+        response.raise_for_status()
+        return response.json()
+
     def close(self):
         """Close HTTP client."""
         self._client.close()
