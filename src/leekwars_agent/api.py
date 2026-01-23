@@ -225,7 +225,130 @@ class LeekWarsAPI:
 
     def get_market(self) -> dict[str, Any]:
         """Get market items and prices."""
-        response = self._client.get("/market/get-items", headers=self._headers())
+        response = self._client.get("/market/get-item-templates", headers=self._headers())
+        response.raise_for_status()
+        return response.json()
+
+    def buy_item(self, item_id: int, quantity: int = 1) -> dict[str, Any]:
+        """Buy an item from the market with habs.
+
+        Args:
+            item_id: The item template ID (e.g., 6 for chip_flash)
+            quantity: Number to buy (default 1)
+
+        Returns:
+            Purchase result with new item data
+        """
+        headers = self._headers()
+        headers["Content-Type"] = "application/json; charset=UTF-8"
+        response = self._client.post(
+            "/market/buy-habs-quantity",
+            headers=headers,
+            json={"item_id": item_id, "quantity": quantity},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    # Inventory & Crafting
+    def get_inventory(self) -> dict[str, Any]:
+        """Get farmer's inventory (all items, resources, components).
+
+        Inventory is part of farmer data from get-from-token endpoint.
+
+        Returns dict with inventory lists:
+        - weapons, chips, potions, hats, resources, components, schemes
+        Each item has: id, template, quantity, time
+        """
+        response = self._client.get("/farmer/get-from-token", headers=self._headers())
+        response.raise_for_status()
+        data = response.json()
+        farmer = data.get("farmer", data)
+
+        # Extract inventory categories
+        return {
+            "weapons": farmer.get("weapons", []),
+            "chips": farmer.get("chips", []),
+            "potions": farmer.get("potions", []),
+            "hats": farmer.get("hats", []),
+            "resources": farmer.get("resources", []),
+            "components": farmer.get("components", []),
+            "schemes": farmer.get("schemes", []),
+            "habs": farmer.get("habs", 0),
+            "crystals": farmer.get("crystals", 0),
+        }
+
+    def craft_item(self, scheme_id: int) -> dict[str, Any]:
+        """Craft an item using a scheme (recipe).
+
+        Args:
+            scheme_id: The recipe ID (1-60, see schemes.ts for full list)
+
+        Returns:
+            Crafted item data: {id, template, time, quantity}
+
+        Raises:
+            HTTPStatusError: If missing ingredients or other error
+        """
+        response = self._client.post(
+            "/item/craft",
+            headers=self._headers(),
+            data={"scheme_id": scheme_id},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def get_schemes(self) -> dict[str, Any]:
+        """Get all crafting schemes (recipes).
+
+        Returns dict with 'schemes' containing recipe definitions.
+        Each scheme has: id, items (ingredients), result, quantity
+        """
+        response = self._client.get("/item/get-schemes", headers=self._headers())
+        response.raise_for_status()
+        return response.json()
+
+    def get_items(self) -> dict[str, Any]:
+        """Get all item templates (weapons, chips, resources, etc).
+
+        Returns dict with item template definitions.
+        """
+        response = self._client.get("/item/get-templates", headers=self._headers())
+        response.raise_for_status()
+        return response.json()
+
+    # Leek equipment
+    def add_chip(self, leek_id: int, chip_id: int) -> dict[str, Any]:
+        """Equip a chip to a leek.
+
+        Args:
+            leek_id: The leek to equip
+            chip_id: The chip item ID (from inventory, not template)
+        """
+        response = self._client.post(
+            "/leek/add-chip",
+            headers=self._headers(),
+            data={"leek_id": leek_id, "chip_id": chip_id},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def remove_chip(self, leek_id: int, chip_id: int) -> dict[str, Any]:
+        """Remove a chip from a leek."""
+        response = self._client.post(
+            "/leek/remove-chip",
+            headers=self._headers(),
+            data={"leek_id": leek_id, "chip_id": chip_id},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def add_weapon(self, leek_id: int, weapon_id: int) -> dict[str, Any]:
+        """Equip a weapon to a leek."""
+        response = self._client.post(
+            "/leek/add-weapon",
+            headers=self._headers(),
+            data={"leek_id": leek_id, "weapon_id": weapon_id},
+        )
         response.raise_for_status()
         return response.json()
 
