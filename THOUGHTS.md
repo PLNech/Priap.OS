@@ -8,13 +8,55 @@
 ## TODOs (Next Session)
 
 1. ✅ ~~**FIX SIMULATOR CHIP SUPPORT** (#0111)~~ - Fixed! debug_fight.py was missing DEFAULT_CHIPS
-2. 🔴 **Fight DB Scraper** (#0307) - Full history like krranalyser.fr (Tagadai's guidance: 10 req/s, 429 backoff)
-3. 🔴 **Battle Royale automation** - 10 free fights/day unused!
-4. 🟡 **Buy magnum** (#0407) - Need 7,510 habs (have ~4,752)
-5. 🟡 **Test mathematician AI** - Deploy for prime cell farming
-6. 🟢 **Hunt clovers** - Click when they appear for lucky/eagle trophies
-7. 🟢 **Crack XII trophy** - "12 12 12 12 12 operations" mystery
-8. 🟢 **Crack lost trophy** - LOST numbers: 4 8 15 16 23 42?
+2. ✅ ~~**Test Scenario API** (#0118)~~ - CRITICAL FIND: Unlimited server-side fights!
+3. 🔴 **Fight DB Scraper** (#0307) - Full history like krranalyser.fr (Tagadai's guidance: 10 req/s, 429 backoff)
+4. 🟠 **Battle Royale automation** (#0509) - 10 free fights/day, needs WebSocket
+5. 🟡 **Buy magnum** (#0407) - Need 7,510 habs (have ~4,752)
+6. 🟡 **Test mathematician AI** - Deploy for prime cell farming
+7. 🟢 **Hunt clovers** - Click when they appear for lucky/eagle trophies
+8. 🟢 **Crack XII trophy** - "12 12 12 12 12 operations" mystery
+9. 🟢 **Crack lost trophy** - LOST numbers: 4 8 15 16 23 42?
+
+---
+
+## Session 16 Test Scenario API Discovery (2026-01-23)
+
+**Theme:** Discovered UNLIMITED server-side fights via test scenario API!
+
+### Critical Discovery 🔥
+
+LeekWars has a hidden test fight system with **NO daily limit**:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST ai/test-scenario` | Run test fight → returns fight_id |
+| `GET test-scenario/get-all` | List saved scenarios |
+| `POST test-scenario/new` | Create scenario |
+| `POST test-leek/new` | Create custom test leek |
+
+### Three-Tier Testing Pyramid (NEW!)
+
+| Tier | Tool | Speed | Limit | Use Case |
+|------|------|-------|-------|----------|
+| **1. Local** | Java simulator | 21.5/sec | Unlimited | Quick AI logic tests |
+| **2. Server Test** | `leek test run` | ~3sec | **UNLIMITED** | Real server validation |
+| **3. Garden** | `leek fight run` | ~3sec | 50/day | Talent/XP gain |
+
+### CLI Commands Added
+
+```bash
+leek test list           # Show 7 saved scenarios
+leek test run 37863      # Run test fight (NO quota burn!)
+leek test create "Name"  # Create new scenario
+leek test add-leek ...   # Add leek to scenario
+```
+
+### Impact on Flywheel
+
+**Before:** Local sim (approximate) → Garden fights (precious, 50/day)
+**After:** Local sim → **Server test (unlimited, real)** → Garden fights
+
+This means we can validate AI changes on the REAL server before burning daily fights!
 
 ---
 
