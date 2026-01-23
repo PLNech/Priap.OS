@@ -124,6 +124,38 @@ Current research docs:
 - Fix: Dynamic API loading with cache fallback
 - Tests: `TestWeaponDestroyerRegression` in `tests/test_market.py`
 
+## Grounding Protocol (MANDATORY)
+
+> **Claude**: You have hallucinated game values before. ALWAYS verify from ground truth.
+
+### Before ANY Combat Math
+1. **READ** `docs/GROUND_TRUTH.md` for equipment costs and TP budget
+2. **SUM** TP costs before proposing action sequences
+3. **VERIFY** totals ≤ available TP (usually 9-10 at L34)
+4. **CHECK** chip cooldowns and max_uses (FLAME = 3/turn max!)
+
+### Before Referencing Game Values
+**Ground truth priority**: Submodules > API exports > Our code
+
+| Data Type | Authoritative Source |
+|-----------|---------------------|
+| Weapons | `tools/leek-wars/src/model/weapons.ts` |
+| Chips | `tools/leek-wars/src/model/chips.ts` |
+| Constants | `tools/leek-wars-generator/.../FightConstants.java` |
+| Our equipment | `docs/GROUND_TRUTH.md` (derived from above) |
+
+### Red Flags (STOP AND VERIFY)
+- "costs about X TP" → WRONG, look up exact value
+- "I think the range is..." → WRONG, look up exact value
+- Math doesn't add up → STOP, recalculate with real values
+- "setWeapon() is free" → WRONG, it costs 1 TP!
+
+### Hidden Costs to Remember
+| Action | TP Cost | Notes |
+|--------|---------|-------|
+| `setWeapon()` | 1 | Often forgotten! |
+| `say()` | 1 | Use `debug()` instead (free) |
+
 ## Project Structure
 ```
 src/leekwars_agent/    # Core library

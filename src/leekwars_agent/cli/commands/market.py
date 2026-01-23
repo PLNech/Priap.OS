@@ -85,7 +85,7 @@ def buy(ctx: click.Context, item_id: int, quantity: int, dry_run: bool) -> None:
 
     Examples:
         leek market buy 6      # Buy chip_flash
-        leek market buy 40     # Buy weapon_magnum
+        leek market buy 45     # Buy weapon_magnum (NOT 40 - that's destroyer!)
         leek market buy 1 -n 2 # Buy 2x chip_shock
     """
     item = get_item(item_id)

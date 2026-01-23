@@ -509,7 +509,13 @@ def generate_fight_report(fight_data: dict[str, Any]) -> FightReport:
 
         elif action_type == ACTION_SET_WEAPON:
             weapon_id = action[1] if len(action) > 1 else -1
-            weapon_names = {37: "Pistol", 38: "Machine Gun", 39: "Double Gun", 41: "Shotgun"}
+            # Weapon names from FightConstants.java (item IDs, not template IDs!)
+            weapon_names = {
+                37: "Pistol", 38: "Machine Gun", 39: "Double Gun",
+                40: "Destroyer", 41: "Shotgun", 42: "Laser",
+                43: "Grenade Launcher", 44: "Electrisor", 45: "Magnum",
+                46: "Flame Thrower", 47: "M-Laser", 48: "Gazor",
+            }
             weapon_name = weapon_names.get(weapon_id, f"Weapon#{weapon_id}")
             report.action_log.append(f"    {name} takes weapon {weapon_name} (1 TP)")
             if name in report.entity_stats:
