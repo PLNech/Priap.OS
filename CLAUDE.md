@@ -89,6 +89,16 @@ Oracle Eye pyramid with leek as pupil - see `docs/public/images/logo/`
 - **Invest in tooling early** - Time spent on good tools pays compound interest
 - **Composable primitives** - Small, focused tools that combine well
 
+### Research Outputs (NEVER LOSE)
+**Rule**: All research, analysis, and data insights MUST be saved to `docs/research/`.
+- Chip stats, fight analysis, meta observations → markdown files
+- Research compounds - future sessions build on past discoveries
+- If you run analysis, write it to a file before responding
+
+Current research docs:
+- `docs/research/chip_stats.md` - Chip stats, costs, effects
+- `docs/research/fight_meta_analysis.md` - 10k fight analysis, duration vs win rate
+
 ### When Adding New Features
 1. First: curl/browser test the endpoint/interaction manually
 2. Second: Write a minimal probe script that captures the response
@@ -132,20 +142,20 @@ docs/                  # Living documentation
 - Account: PriapOS (Farmer ID: 124831)
 - Leek: IAdonis (ID: 131321)
 
-## Current State (Session 9 - 2026-01-23)
-- **Level**: 27 (was 25)
-- **Rank**: Climbing (fighting L25-L27 opponents)
+## Current State (Session 11 - 2026-01-23)
+- **Level**: 34 (was 27)
+- **Rank**: Climbing (fighting L30-L34 opponents)
 - **Win rate**: 38% raw / 48% excluding draws (unchanged)
 - **Build**: STR=234, AGI=10
 - **AI Deployed**: fighter_v8.leek "Architect"
-- **Chips**: 0/6 equipped (**PRIORITY** - no API, manual craft)
-- **Habs**: 48,038 (after buying fight pack)
-- **Fights**: 150/150 (GitHub Actions auto-bought pack!)
-- **Components**: 12+ resources for crafting
+- **Chips**: 0/6 equipped (**PRIORITY** - buy from market!)
+- **Weapons**: 0 owned (need to buy)
+- **Habs**: 75,112 (ready to spend on equipment)
+- **Fights**: GitHub Actions running 3x daily
 - **Website**: https://plnech.github.io/Priap.OS/
-- **Priority Bug**: 21% draw rate from kite stalemates (first GH fight = DRAW)
+- **Priority Bug**: 21% draw rate from kite stalemates
 - **GitHub Actions**: ✅ Live, 3x daily (17:00, 20:00, 22:30 UTC)
-- **Data Pipeline**: ✅ Fights now saved to `data/fights.db`
+- **Research**: See `docs/research/` for chip stats & fight meta analysis
 
 ### Active Learnings
 **See `THOUGHTS.md`** for session analysis, hypotheses, and discoveries.
@@ -203,19 +213,43 @@ docs/                  # Living documentation
 - `GET /fight/get/<fight_id>` - Full fight replay data
 - No bulk fight history API - must scrape `/leek/131321/history` or track locally
 
-## Commands
+## Commands - `leek` CLI (Primary Tool)
+
+**Always prefer the `leek` CLI** - it supports `--json` for Claude automation.
+
 ```bash
-# Run any script
-poetry run python scripts/<script>.py
+# Info commands
+leek info garden              # Fight status (fights remaining)
+leek info leek                # Leek stats
+leek info farmer              # Farmer stats + habs
 
-# Run online fights
-poetry run python scripts/run_fights.py 50
+# Craft commands
+leek craft inventory          # List owned resources/components
+leek craft list               # Show craftable recipes
+leek craft make <scheme_id>   # Craft an item
 
-# Compare AI versions (TODO)
+# Fight commands
+leek fight status             # Fights remaining + talent
+leek fight run -n 5           # Run 5 fights
+leek fight history            # Recent fight results
+
+# JSON output (for Claude automation)
+leek --json craft inventory   # Returns parseable JSON
+leek --json fight status      # Machine-readable status
+```
+
+### Offline Simulation Scripts (local Java generator)
+```bash
+# A/B test AI versions offline (21.5 fights/sec)
 poetry run python scripts/compare_ais.py v1.leek v2.leek -n 1000
 
-# Test build variants (TODO)
-poetry run python scripts/test_builds.py --stat strength --range 90-110
+# Debug single fight
+poetry run python scripts/debug_fight.py v8.leek v6.leek
+```
+
+### Automation Scripts
+```bash
+poetry run python scripts/auto_daily_fights.py  # GitHub Actions cron
 ```
 
 ## Local Validation (Java)
