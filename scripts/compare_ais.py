@@ -17,6 +17,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from leekwars_agent.simulator import Simulator, EntityConfig, ScenarioConfig, GENERATOR_PATH
 
+# Default chips matching our leek (from GROUND_TRUTH.md)
+# CURE=4, FLAME=5, FLASH=6, PROTEIN=8, BOOTS=14, MOTIVATION=15
+DEFAULT_CHIPS = [4, 5, 6, 8, 14, 15]
+
 
 def extract_includes(source: Path) -> list[Path]:
     """Extract include() statements from a LeekScript file.
@@ -105,6 +109,8 @@ def compare_ais(
     chips2: list[int] | None = None,
     # First-mover control
     attacker: int = 0,  # 0=random, 1=AI1 always first, 2=AI2 always first
+    # Debug
+    verbose: bool = False,
 ) -> dict:
     """Run N fights between two AIs and return stats."""
 
@@ -122,18 +128,25 @@ def compare_ais(
     ai2_name, ai2_files = copy_ai_to_generator(ai2_path, f"test_ai2_{ai2_path.name}")
     all_copied_files = ai1_files + ai2_files
 
-    chips1 = chips1 or []
-    chips2 = chips2 or []
+    # Default to our standard chips if none specified
+    chips1 = chips1 if chips1 is not None else DEFAULT_CHIPS
+    chips2 = chips2 if chips2 is not None else DEFAULT_CHIPS
 
+    # Print config
+    chips1_display = chips1 if chips1 else "none"
+    chips2_display = chips2 if chips2 else "none"
     print(f"AI 1: {ai1_path.name}")
     print(f"  Stats: STR={strength1} AGI={agility1} FREQ={frequency1} WIS={wisdom1} RES={resistance1} SCI={science1} MAG={magic1}")
-    print(f"  Base:  LIFE={life1} TP={tp1} MP={mp1} chips={chips1}")
+    print(f"  Base:  LIFE={life1} TP={tp1} MP={mp1} chips={chips1_display}")
     print(f"AI 2: {ai2_path.name}")
     print(f"  Stats: STR={strength2} AGI={agility2} FREQ={frequency2} WIS={wisdom2} RES={resistance2} SCI={science2} MAG={magic2}")
-    print(f"  Base:  LIFE={life2} TP={tp2} MP={mp2} chips={chips2}")
+    print(f"  Base:  LIFE={life2} TP={tp2} MP={mp2} chips={chips2_display}")
     attacker_str = {0: "random", 1: "AI1", 2: "AI2"}.get(attacker, "random")
     print(f"First mover: {attacker_str}")
-    print(f"Running {n_fights} fights at level {level}...\n")
+    print(f"Running {n_fights} fights at level {level}...")
+    if verbose:
+        print(f"[verbose] Chips loaded: AI1={len(chips1)} chips, AI2={len(chips2)} chips")
+    print()
 
     sim = Simulator()
 
@@ -337,18 +350,30 @@ def main():
     parser.add_argument("--life2", type=int, default=100, help="AI2 base life")
     parser.add_argument("--tp2", type=int, default=10, help="AI2 turn points")
     parser.add_argument("--mp2", type=int, default=3, help="AI2 move points")
-    # Equipment
-    parser.add_argument("--chips1", type=str, default="", help="AI1 chips (comma-separated IDs)")
-    parser.add_argument("--chips2", type=str, default="", help="AI2 chips (comma-separated IDs)")
+    # Equipment (defaults to our standard chips if not specified)
+    parser.add_argument("--chips1", type=str, default=None,
+                        help=f"AI1 chips (comma-separated IDs). Default: {DEFAULT_CHIPS}. Use 'none' for no chips.")
+    parser.add_argument("--chips2", type=str, default=None,
+                        help=f"AI2 chips (comma-separated IDs). Default: {DEFAULT_CHIPS}. Use 'none' for no chips.")
     # First-mover control
     parser.add_argument("--attacker", type=int, default=0, choices=[0, 1, 2],
                         help="Who attacks first: 0=random, 1=AI1, 2=AI2")
+    # Debug options
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="Show verbose output including chip detection")
 
     args = parser.parse_args()
 
-    # Parse chips
-    chips1 = [int(c) for c in args.chips1.split(",") if c.strip()] if args.chips1 else []
-    chips2 = [int(c) for c in args.chips2.split(",") if c.strip()] if args.chips2 else []
+    # Parse chips (None = use default, 'none' or empty = no chips)
+    def parse_chips(chips_arg):
+        if chips_arg is None:
+            return None  # Will use DEFAULT_CHIPS
+        if chips_arg.lower() == 'none' or chips_arg.strip() == '':
+            return []  # Explicitly no chips
+        return [int(c) for c in chips_arg.split(",") if c.strip()]
+
+    chips1 = parse_chips(args.chips1)
+    chips2 = parse_chips(args.chips2)
 
     compare_ais(
         args.ai1,
@@ -382,6 +407,8 @@ def main():
         chips2=chips2,
         # First-mover
         attacker=args.attacker,
+        # Debug
+        verbose=args.verbose,
     )
 
 

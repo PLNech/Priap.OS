@@ -1,11 +1,17 @@
 """Simulation commands - test AIs offline with real specs."""
 
 import json
+import subprocess
+import sys
 import click
 from pathlib import Path
 from ..output import output_json, success, error, console
 from ..constants import LEEK_ID
 from leekwars_agent.auth import login_api
+
+# Default chips (from GROUND_TRUTH.md)
+DEFAULT_CHIPS = [4, 5, 6, 8, 14, 15]  # CURE, FLAME, FLASH, PROTEIN, BOOTS, MOTIVATION
+CHIP_NAMES = {4: "CURE", 5: "FLAME", 6: "FLASH", 8: "PROTEIN", 14: "BOOTS", 15: "MOTIVATION"}
 
 
 @click.group()
@@ -202,3 +208,30 @@ def debug_fight(ctx: click.Context, ai1: str, ai2: str, real_specs: bool) -> Non
     if result.returncode != 0:
         error("Debug fight failed")
         raise SystemExit(1)
+
+
+@sim.command("chips")
+@click.option("-v", "--verbose", is_flag=True, help="Show detailed chip loading info")
+@click.pass_context
+def test_chips(ctx: click.Context, verbose: bool) -> None:
+    """Test that chips load correctly in the simulator.
+
+    Validates that getChips() returns the expected chips during offline simulation.
+    This is a diagnostic tool to verify the simulator setup.
+
+    Examples:
+        leek sim chips           # Quick validation
+        leek sim chips --verbose # Detailed output
+    """
+    cmd = [sys.executable, "scripts/test_chips.py"]
+    if verbose:
+        cmd.append("--verbose")
+
+    console.print("[bold]Testing chip loading in simulator...[/bold]\n")
+    result = subprocess.run(cmd, capture_output=False)
+
+    if result.returncode != 0:
+        error("Chip test failed - see output above")
+        raise SystemExit(1)
+    else:
+        success("Chip loading validated!")
