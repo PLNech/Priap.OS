@@ -1,0 +1,47 @@
+/**
+ * TROPHY: Patient (ID: 78) - 2,500 habs
+ * GOAL: Win a fight in more than 60 turns
+ *
+ * Strategy: Maximum kiting and survival. Chip away slowly.
+ * Only attack when safe, prioritize distance.
+ */
+
+function maintainDistance() {
+    var enemy = getNearestEnemy();
+    if (enemy == null) return;
+
+    var dist = getDistanceTo(enemy);
+    var safeDistance = 8;  // Stay far
+
+    // Always prioritize distance
+    while (getMP() > 0 && dist < safeDistance) {
+        moveAwayFrom(enemy);
+        dist = getDistanceTo(enemy);
+    }
+
+    debug("🐢 Distance maintained: " + dist + " cells");
+}
+
+function pokeIfSafe() {
+    var enemy = getNearestEnemy();
+    if (enemy == null) return;
+
+    var dist = getDistanceTo(enemy);
+
+    // Only attack if we have distance advantage
+    if (dist >= 5 && dist <= 7 && getTP() >= 3) {
+        useWeapon(enemy);
+        debug("Poke! Enemy HP: " + getLife(enemy));
+    }
+}
+
+// Main loop - PATIENCE IS KEY
+debug("🐢 PATIENT MODE - Turn " + getTurn() + "/64");
+
+maintainDistance();
+pokeIfSafe();
+maintainDistance();  // Re-kite after attack
+
+if (getTurn() >= 60) {
+    debug("🏆 60+ turns reached! Now win it!");
+}

@@ -1,0 +1,28 @@
+/**
+ * TROPHY: Pacifist (ID: 23) - 10,000 habs
+ * GOAL: Win a fight without dealing any damage
+ *
+ * Strategy: Use summons, poison, or let enemy timeout/self-destruct.
+ * Very hard without specific chips. May need bulbs to do damage for you.
+ *
+ * Alternative: Find a weak enemy that times out.
+ */
+
+function surviveOnly() {
+    var enemy = getNearestEnemy();
+    if (enemy == null) return;
+
+    // Just run away - don't attack!
+    while (getMP() > 0) {
+        moveAwayFrom(enemy);
+    }
+
+    debug("☮️ PACIFIST - Running away. Enemy HP: " + getLife(enemy));
+}
+
+// NO ATTACKING - just survive
+debug("☮️ PACIFIST MODE - Turn " + getTurn());
+surviveOnly();
+
+// Could summon bulbs here if available:
+// useChip(CHIP_PUNY_BULB, getCell());  // Bulbs can attack for you

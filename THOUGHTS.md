@@ -8,12 +8,66 @@
 ## TODOs (Next Session)
 
 1. 🔴 **FIX SIMULATOR CHIP SUPPORT** (#0111) - getChips() returns empty!
-2. ✅ ~~SPEND 76 CAPITAL~~ - Done! STR: 234 → 310
-3. ✅ ~~DEPLOY v10~~ - Done! v10 "Phoenix" deployed (uses chips)
-4. 🟡 **Buy magnum** (#0407) - Need 7,510 habs (check current balance)
-5. 🟡 **Test v10 online** - Now deployed, monitor fights
-6. 🟡 **Add stalemate fix to v10** - v9's force_engage needs bundling
-7. 🟢 **Create AI bundler** - Multi-file AIs fail on LeekWars
+2. 🟡 **Buy magnum** (#0407) - Need 7,510 habs (have 4,752)
+3. 🟡 **Test mathematician AI** - Deploy for prime cell farming
+4. 🟢 **Hunt clovers** - Click when they appear for lucky/eagle trophies
+5. 🟢 **Crack XII trophy** - "12 12 12 12 12 operations" mystery
+6. 🟢 **Crack lost trophy** - LOST numbers: 4 8 15 16 23 42?
+
+---
+
+## Session 15 Trophy Hunting (2026-01-23)
+
+**Theme:** Discovered trophy enigmas = free habs! Built trophy hunting infrastructure.
+
+### Quick Wins Unlocked 💰
+| Trophy | Method | Reward |
+|--------|--------|--------|
+| **konami** (#113) | ↑↑↓↓←→←→BA anywhere | 40,000 habs ✅ |
+| **you_can_see_me** (#234) | Toggle SFW mode in /settings | 2,500 habs ✅ |
+
+**Total earned: 42,500 habs**
+
+### Trophy Enigmas Discovered (via API inspection)
+
+| Trophy | Habs | Description | Players |
+|--------|------|-------------|---------|
+| **lost** (#323) | 810,000 | `"???"` | Only 37! |
+| **xii** (#188) | 810,000 | "Consume 12 12 12 12 12 operations" | Only 73! |
+| **9_34** (#231) | 360,000 | `"???"` Platform 9¾ | 209 |
+| **mathematician** (#87) | 250,000 | "Walk on 50 prime cells" | ~30 |
+| **shhh** (#187) | 250,000 | `"???"` Secret | ~300 |
+| **lucky** (#92) | 90,000 | Click clovers | ~30 |
+
+**Available habs from enigmas: ~2.6M**
+
+### Infrastructure Built
+
+1. **`leek trophy status`** - CLI command to check enigma progress
+2. **`ais/trophy_hunters/`** - Specialized AIs:
+   - `mathematician.leek` - Routes through prime cells (2,3,5,7,11...)
+   - `wanderer.leek` - 100m in one fight
+   - `executor.leek` - Win in <5 turns
+   - `patient.leek` - Win in >60 turns
+   - `static.leek` - Win without moving
+   - `pacifist.leek` - Win without damage
+   - `xii_ops.leek` - Experimental ops counter
+
+### Key Learnings
+
+#### Trophy API Endpoints
+- `GET /trophy/get-farmer-trophies/{id}/en` - Full trophy status with descriptions
+- `GET /trophy-template/get/{code}/en` - Single trophy details
+- `POST /trophy/unlock` - UI-triggered unlocks (konami, SFW, etc.)
+
+#### Enigma Patterns
+- `"???"` description = secret/puzzle trophy
+- Very low player counts = hard puzzles worth investigating
+- XII trophy description reveals exact mechanics (ops counting)
+
+#### Prime Cells for Mathematician
+Arena is 18x18 (cells 0-323). Primes: 2,3,5,7,11,13,17,19,23,29,31,37,41,43,47...
+Need 50 total across all fights (cumulative).
 
 ---
 

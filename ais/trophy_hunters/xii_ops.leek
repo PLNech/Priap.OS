@@ -1,0 +1,45 @@
+/**
+ * TROPHY: XII (ID: 188) - 810,000 habs
+ * GOAL: "Consume 12 12 12 12 12 operations in one fight"
+ *
+ * This likely means: Use exactly 1,212,121,212 operations total in a fight.
+ * Or it could mean: Have 5 consecutive 12-something patterns.
+ *
+ * EXPERIMENTAL: This AI tries to consume a precise amount of operations.
+ *
+ * NOTE: Each function call costs operations. We need to figure out
+ * the exact target and calibrate.
+ *
+ * Hypothesis: The number 12121212 (12 repeated) or similar pattern.
+ */
+
+global opsUsed = 0;
+
+// Burn operations by doing cheap calculations
+function burnOps(count) {
+    for (var i = 0; i < count; i++) {
+        var x = i * 2;  // Simple math burns ops
+        opsUsed++;
+    }
+}
+
+function doCombat() {
+    var enemy = getNearestEnemy();
+    if (enemy == null) return;
+
+    moveToward(enemy);
+
+    if (getTP() >= 3) {
+        useWeapon(enemy);
+    }
+}
+
+// Main execution
+debug("XII OPS HUNTER - Turn " + getTurn());
+doCombat();
+
+// Try to hit a magic number of operations
+// This is experimental - need to calibrate based on actual ops counting
+// burnOps(1000);  // Uncomment to burn extra ops
+
+debug("Estimated ops this turn: " + opsUsed);

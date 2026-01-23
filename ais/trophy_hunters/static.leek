@@ -1,0 +1,28 @@
+/**
+ * TROPHY: Static (ID: 76) - 10,000 habs
+ * GOAL: Win without moving at all
+ *
+ * Strategy: Stand still, let enemy come to you, shoot them.
+ * Requires good range weapon and some luck with spawn position.
+ */
+
+function standAndFight() {
+    var enemy = getNearestEnemy();
+    if (enemy == null) return;
+
+    var dist = getDistanceTo(enemy);
+
+    // NO MOVEMENT - just attack if in range
+    if (dist <= 7 && getTP() >= 3) {
+        while (getTP() >= 3) {
+            var result = useWeapon(enemy);
+            if (result != USE_SUCCESS) break;
+        }
+    }
+
+    debug("🗿 STATIC - Not moving. Enemy dist: " + dist + ", HP: " + getLife(enemy));
+}
+
+// DO NOT MOVE
+debug("🗿 STATIC MODE - Turn " + getTurn() + " - Cell: " + getCell());
+standAndFight();

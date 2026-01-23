@@ -1,0 +1,48 @@
+/**
+ * TROPHY: Wanderer (ID: 80) - 2,500 habs
+ * GOAL: Travel 100 meters (cells) in ONE fight
+ *
+ * Strategy: Maximize movement every turn. Kite around the arena.
+ * With 3 MP base and ~64 turns max, we can hit 192 cells.
+ * Just need to ensure we keep moving and don't die!
+ */
+
+global totalMoved = 0;
+
+function moveMax() {
+    var startCell = getCell();
+
+    // Move as much as possible
+    while (getMP() > 0) {
+        var enemy = getNearestEnemy();
+        if (enemy == null) break;
+
+        // Kite away from enemy to maximize survival + movement
+        moveAwayFrom(enemy);
+    }
+
+    var endCell = getCell();
+    var moved = getCellDistance(startCell, endCell);
+    totalMoved += moved;
+
+    debug("🚶 Moved " + moved + " cells this turn (total: " + totalMoved + "/100)");
+}
+
+function doCombat() {
+    var enemy = getNearestEnemy();
+    if (enemy == null) return;
+
+    // Quick poke if in range, but prioritize survival
+    if (getTP() >= 3 && getDistanceTo(enemy) <= 7) {
+        useWeapon(enemy);
+    }
+}
+
+// Main loop
+moveMax();
+doCombat();
+
+// Status
+if (totalMoved >= 100) {
+    debug("🏆 WANDERER ACHIEVED! Total: " + totalMoved);
+}

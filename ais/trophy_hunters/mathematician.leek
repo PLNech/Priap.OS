@@ -1,0 +1,103 @@
+/**
+ * TROPHY: Mathematician (ID: 87) - 250,000 habs
+ * GOAL: Walk on 50 prime-numbered cells across all fights
+ *
+ * Strategy: After combat actions, use remaining MP to step on prime cells.
+ * Prime cells on standard arena: 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47...
+ *
+ * NOTE: Arena is 18x18 = 324 cells (0-323). Primes up to 323:
+ * 2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,
+ * 101,103,107,109,113,127,131,137,139,149,151,157,163,167,173,179,181,191,
+ * 193,197,199,211,223,227,229,233,239,241,251,257,263,269,271,277,281,283,293,307,311,313,317
+ */
+
+// Prime lookup - cells that count for mathematician trophy
+global PRIMES = [
+    2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,
+    101,103,107,109,113,127,131,137,139,149,151,157,163,167,173,179,181,191,
+    193,197,199,211,223,227,229,233,239,241,251,257,263,269,271,277,281,283,
+    293,307,311,313,317
+];
+
+// Fast prime check using set (converted to map for O(1) lookup)
+global PRIME_SET = [:];
+for (var p in PRIMES) {
+    PRIME_SET[p] = true;
+}
+
+function isPrime(cell) {
+    return cell in PRIME_SET;
+}
+
+function findNearestPrimeCell() {
+    var myCell = getCell();
+    var bestCell = null;
+    var bestDist = 999;
+
+    for (var prime in PRIMES) {
+        if (!isEmptyCell(prime)) continue;
+        var dist = getCellDistance(myCell, prime);
+        if (dist < bestDist && dist > 0) {
+            bestDist = dist;
+            bestCell = prime;
+        }
+    }
+    return bestCell;
+}
+
+function doCombat() {
+    var enemy = getNearestEnemy();
+    if (enemy == null) return;
+
+    // Simple combat - move toward and attack
+    if (getMP() > 0) {
+        moveToward(enemy);
+    }
+
+    // Attack if in range
+    if (getTP() >= 3) {
+        useWeapon(enemy);
+    }
+}
+
+function huntPrimeCells() {
+    // After combat, use remaining MP to visit prime cells
+    var visited = 0;
+
+    while (getMP() > 0 && visited < 5) {
+        var currentCell = getCell();
+
+        // Check if we're already on a prime
+        if (isPrime(currentCell)) {
+            debug("📐 On prime cell: " + currentCell);
+        }
+
+        // Find nearest prime cell we can reach
+        var targetPrime = findNearestPrimeCell();
+        if (targetPrime == null) {
+            debug("No reachable prime cells");
+            break;
+        }
+
+        var dist = getCellDistance(currentCell, targetPrime);
+        if (dist > getMP()) {
+            // Move toward it anyway for next turn
+            moveTowardCell(targetPrime);
+            debug("Moving toward prime " + targetPrime + " (dist: " + dist + ")");
+            break;
+        }
+
+        // Move to the prime cell
+        moveTowardCell(targetPrime);
+        visited++;
+        debug("✅ Stepped on prime: " + targetPrime);
+    }
+}
+
+// Main AI loop
+doCombat();
+huntPrimeCells();
+
+// End turn status
+var myCell = getCell();
+debug("Turn end on cell " + myCell + " (prime: " + isPrime(myCell) + ")");

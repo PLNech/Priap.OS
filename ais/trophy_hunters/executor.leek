@@ -1,0 +1,39 @@
+/**
+ * TROPHY: Executor (ID: 77) - 400 habs
+ * GOAL: Win a fight in less than 5 turns
+ *
+ * Strategy: Maximum aggression. Rush in and burst damage.
+ * Alpha strike approach - all damage, no kiting.
+ */
+
+function alphStrike() {
+    var enemy = getNearestEnemy();
+    if (enemy == null) return;
+
+    // RUSH - use all MP to close distance
+    while (getMP() > 0 && getDistanceTo(enemy) > 1) {
+        moveToward(enemy);
+    }
+
+    // BURST - dump all TP into damage
+    while (getTP() >= 3) {
+        var result = useWeapon(enemy);
+        if (result != USE_SUCCESS) break;
+
+        // Re-target if enemy died
+        enemy = getNearestEnemy();
+        if (enemy == null) break;
+    }
+
+    // Use any remaining chips for damage
+    // useChip(CHIP_SPARK, enemy);  // Uncomment if you have damage chips
+}
+
+// Execute the alpha strike
+debug("⚔️ EXECUTOR MODE - Turn " + getTurn());
+alphStrike();
+
+var enemy = getNearestEnemy();
+if (enemy != null) {
+    debug("Enemy HP remaining: " + getLife(enemy));
+}
