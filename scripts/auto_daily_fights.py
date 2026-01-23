@@ -162,6 +162,9 @@ def run_fights(api: LeekWarsAPI, count: int) -> dict:
 
             # Store fight in database for analysis
             try:
+                # Ensure fight has ID (sometimes nested differently)
+                if "id" not in fight:
+                    fight["id"] = fight_id
                 store_fight(fight)
             except Exception as db_err:
                 log(f"  [{i+1}/{count}] DB save failed: {db_err}")
