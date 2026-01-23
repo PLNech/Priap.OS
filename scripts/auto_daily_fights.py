@@ -2,6 +2,7 @@
 """Automated daily fight runner - ensures we never waste fights.
 
 Designed for cron/GitHub Actions to guarantee daily fight usage.
+AUTOMATICALLY BUYS 50-fight packs to maximize daily capacity (150/day).
 
 Usage:
     # Run all remaining fights (23:30 fallback)
@@ -12,6 +13,9 @@ Usage:
 
     # Run if more than N fights remaining
     poetry run python scripts/auto_daily_fights.py --min-remaining 50
+
+    # Skip buying fights (just run what we have)
+    poetry run python scripts/auto_daily_fights.py --no-buy
 
     # Dry run (check status only)
     poetry run python scripts/auto_daily_fights.py --dry-run
@@ -31,7 +35,7 @@ import sys
 import os
 import argparse
 import json
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -42,6 +46,7 @@ from leekwars_agent.auth import login_api
 # Config
 LEEK_ID = 131321
 LOG_FILE = Path(__file__).parent.parent / "logs" / "auto_fights.log"
+STATE_FILE = Path(__file__).parent.parent / "data" / "daily_state.json"
 
 
 def log(msg: str, also_print: bool = True):
@@ -53,6 +58,62 @@ def log(msg: str, also_print: bool = True):
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(LOG_FILE, "a") as f:
         f.write(line + "\n")
+
+
+def load_state() -> dict:
+    """Load daily state from file."""
+    if STATE_FILE.exists():
+        return json.loads(STATE_FILE.read_text())
+    return {}
+
+
+def save_state(state: dict):
+    """Save daily state to file."""
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text(json.dumps(state, indent=2))
+
+
+def buy_fight_pack(api: LeekWarsAPI, state: dict) -> bool:
+    """Buy 50-fight pack if not done today and affordable.
+
+    Returns True if pack was bought or already done, False if failed.
+    """
+    task = "buy_fights"
+    today = date.today().isoformat()
+
+    # Check if already done today
+    last_run = state.get(task, {}).get("last_date")
+    if last_run == today:
+        log(f"[{task}] Already purchased today, skipping")
+        return True
+
+    try:
+        result = api.buy_fights(quantity=1)
+        log(f"[{task}] Bought 50-fight pack! Result: {result}")
+        state[task] = {
+            "last_date": today,
+            "result": "success",
+            "timestamp": datetime.now().isoformat(),
+        }
+        save_state(state)
+        return True
+    except Exception as e:
+        error_msg = str(e)
+        if "402" in error_msg or "not enough" in error_msg.lower():
+            log(f"[{task}] Not enough habs to buy pack (will retry later)")
+            return False
+        elif "400" in error_msg:
+            log(f"[{task}] Already at max fights or limit reached")
+            state[task] = {
+                "last_date": today,
+                "result": "limit_reached",
+                "timestamp": datetime.now().isoformat(),
+            }
+            save_state(state)
+            return True  # Not an error, just capped
+        else:
+            log(f"[{task}] Error buying pack: {e}")
+            return False
 
 
 def get_status(api: LeekWarsAPI) -> dict:
@@ -84,7 +145,7 @@ def run_fights(api: LeekWarsAPI, count: int) -> dict:
                 break
 
             target = opponents[0]
-            result = api.start_fight(leek_id, target["id"])
+            result = api.start_solo_fight(leek_id, target["id"])
 
             if "fight" not in result:
                 log(f"  [{i+1}/{count}] Fight failed: {result}")
@@ -145,6 +206,8 @@ def main():
                         help="Maximum fights to run (0 = no limit)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Check status only, don't fight")
+    parser.add_argument("--no-buy", action="store_true",
+                        help="Skip buying fight packs (just use available)")
     args = parser.parse_args()
 
     log("=" * 50)
@@ -157,6 +220,11 @@ def main():
     except Exception as e:
         log(f"LOGIN FAILED: {e}")
         sys.exit(1)
+
+    # Buy fight pack if needed (ensures 150/day capacity)
+    if not args.no_buy and not args.dry_run:
+        state = load_state()
+        buy_fight_pack(api, state)
 
     # Get status
     status = get_status(api)
