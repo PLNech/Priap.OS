@@ -7,12 +7,14 @@
 
 ## TODOs (Next Session)
 
-1. 🔴 **FIX SIMULATOR CHIP SUPPORT** (#0111) - getChips() returns empty!
-2. 🟡 **Buy magnum** (#0407) - Need 7,510 habs (have 4,752)
-3. 🟡 **Test mathematician AI** - Deploy for prime cell farming
-4. 🟢 **Hunt clovers** - Click when they appear for lucky/eagle trophies
-5. 🟢 **Crack XII trophy** - "12 12 12 12 12 operations" mystery
-6. 🟢 **Crack lost trophy** - LOST numbers: 4 8 15 16 23 42?
+1. ✅ ~~**FIX SIMULATOR CHIP SUPPORT** (#0111)~~ - Fixed! debug_fight.py was missing DEFAULT_CHIPS
+2. 🔴 **Fight DB Scraper** (#0307) - Full history like krranalyser.fr (Tagadai's guidance: 10 req/s, 429 backoff)
+3. 🔴 **Battle Royale automation** - 10 free fights/day unused!
+4. 🟡 **Buy magnum** (#0407) - Need 7,510 habs (have ~4,752)
+5. 🟡 **Test mathematician AI** - Deploy for prime cell farming
+6. 🟢 **Hunt clovers** - Click when they appear for lucky/eagle trophies
+7. 🟢 **Crack XII trophy** - "12 12 12 12 12 operations" mystery
+8. 🟢 **Crack lost trophy** - LOST numbers: 4 8 15 16 23 42?
 
 ---
 
