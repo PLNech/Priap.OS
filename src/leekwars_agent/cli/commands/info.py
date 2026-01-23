@@ -30,6 +30,12 @@ def leek_info(ctx: click.Context, leek_id: int) -> None:
         if ctx.obj.get("json"):
             output_json(leek)
         else:
+            # Format chips and weapons
+            chips = leek.get("chips", [])
+            weapons = leek.get("weapons", [])
+            chip_ids = [str(c.get("template", c.get("id", "?"))) for c in chips]
+            weapon_ids = [str(w.get("template", w.get("id", "?"))) for w in weapons]
+
             output_kv({
                 "Name": leek.get("name"),
                 "Level": leek.get("level"),
@@ -45,6 +51,8 @@ def leek_info(ctx: click.Context, leek_id: int) -> None:
                 "Life": leek.get("life"),
                 "TP": leek.get("tp"),
                 "MP": leek.get("mp"),
+                "Chips": f"{len(chips)} ({', '.join(chip_ids)})" if chips else "0",
+                "Weapons": f"{len(weapons)} ({', '.join(weapon_ids)})" if weapons else "0",
             }, title=f"Leek #{leek_id}")
     finally:
         api.close()
