@@ -16,6 +16,43 @@
 
 ---
 
+## Session 11 Equipment & Testing (2026-01-23)
+
+**Theme:** Bought chips, learned about dynamic data, added regression tests.
+
+### The Weapon Destroyer Incident 🔥
+| What | Impact |
+|------|--------|
+| Hardcoded ID 40 as "magnum" | It's actually "destroyer" (L85!) |
+| Bought wrong weapon | Wasted 7,510 habs, couldn't equip |
+| Root cause | Manual item ID mapping = human error |
+
+**Fix:** Dynamic item loader with fallback chain:
+```
+API (fresh) → Cache (recent) → File (items.ts) → Hardcoded (emergency)
+```
+
+### Equipment Progress
+| Before | After |
+|--------|-------|
+| 0/6 chips | **6/6 chips** ✅ |
+| 0 weapons | Still pistol (need habs for magnum) |
+| 75k habs | 4,752 habs |
+
+**Chips equipped:** flash, spark, flame, cure, leather_boots, protein
+
+### Key Rule Added
+> **"Whoops = Unit Test"** - Every bug deserves a regression test.
+
+11 tests in `tests/test_market.py` now guard against item ID confusion.
+
+### Scraping Tip (tagadai)
+- 10 req/sec max, wait 10s on 429
+- Full fights DB in hours
+- Already on GitHub
+
+---
+
 ## Session 10 CLI & Crafting (2026-01-23)
 
 **Theme:** Built unified CLI tool, discovered crafting API works!
