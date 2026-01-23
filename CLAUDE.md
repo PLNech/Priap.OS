@@ -99,13 +99,30 @@ Current research docs:
 - `docs/research/chip_stats.md` - Chip stats, costs, effects
 - `docs/research/fight_meta_analysis.md` - 10k fight analysis, duration vs win rate
 
+### API Discovery Protocol (MANDATORY)
+**NEVER guess API endpoints.** Always verify from frontend source:
+1. Search `tools/leek-wars/src/` for endpoint: `grep -rn "LeekWars.post.*endpoint" tools/leek-wars/src`
+2. Check params and response format in the `.vue` or `.ts` file
+3. Document source location in api.py docstring
+
+**Example**: `ai/new` was wrong → frontend uses `ai/new-name` with `version` param.
+
+### CLI-First Development (MANDATORY)
+**NEVER make raw API calls in scripts or ad-hoc Python.** Always:
+1. Add/fix the method in `api.py` first
+2. Expose it via `leek` CLI command
+3. Use the CLI for the actual operation
+
+This ensures reusable tooling, not throwaway scripts. The CLI is the canonical interface.
+
 ### When Adding New Features
-1. First: curl/browser test the endpoint/interaction manually
-2. Second: Write a minimal probe script that captures the response
-3. Third: Document findings in relevant docs/*.md
-4. Fourth: Implement proper client method with error handling
-5. Fifth: Add to test suite
-6. **Sixth: Git commit after each successful milestone**
+1. First: **Check frontend source** for correct endpoint (`tools/leek-wars/src/`)
+2. Second: curl/browser test the endpoint manually
+3. Third: Write a minimal probe script that captures the response
+4. Fourth: Document findings in relevant docs/*.md
+5. Fifth: Implement proper client method with error handling (cite source in docstring)
+6. Sixth: Add to test suite
+7. **Seventh: Git commit after each successful milestone**
 
 ### Git Discipline
 - **Commit after each success** - Small, atomic commits after each working feature

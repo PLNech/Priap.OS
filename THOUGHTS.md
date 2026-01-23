@@ -8,11 +8,53 @@
 ## TODOs (Next Session)
 
 1. 🔴 **FIX SIMULATOR CHIP SUPPORT** (#0111) - getChips() returns empty!
-2. 🔴 **SPEND 76 CAPITAL** - All on STR (leek build spend str 76)
-3. 🔴 **DEPLOY v10 OR v9** - v6 doesn't use chips, v9 has stalemate fix
-4. 🟡 **Buy magnum** (#0407) - Need 7,510 habs (have 4,752)
-5. 🟡 **Test v10 online** - Chips work online even if sim broken
-6. 🟢 **FIX KITE STALEMATES** (#0201) - v9 has force_engage
+2. ✅ ~~SPEND 76 CAPITAL~~ - Done! STR: 234 → 310
+3. ✅ ~~DEPLOY v10~~ - Done! v10 "Phoenix" deployed (uses chips)
+4. 🟡 **Buy magnum** (#0407) - Need 7,510 habs (check current balance)
+5. 🟡 **Test v10 online** - Now deployed, monitor fights
+6. 🟡 **Add stalemate fix to v10** - v9's force_engage needs bundling
+7. 🟢 **Create AI bundler** - Multi-file AIs fail on LeekWars
+
+---
+
+## Session 14 Deploy Infrastructure (2026-01-23)
+
+**Theme:** Fix deploy pipeline, get v10 online with chips.
+
+### Accomplished
+1. ✅ **Spent 76 capital** → STR 310 (+32% damage)
+2. ✅ **Fixed `leek ai deploy`** - Multi-file support with dependency tracking
+3. ✅ **Fixed API endpoint** - `ai/new` → `ai/new-name` (verified from frontend)
+4. ✅ **Deployed v10 "Phoenix"** - Self-contained, uses chips via getChips()
+
+### Key Learnings
+
+#### LeekWars Multi-File AI Limitation
+**Each AI file is compiled SEPARATELY** - includes are resolved at runtime, not compile time.
+- v9's modular architecture (5 files with inter-dependencies) → FAILS
+- Each module tries to call functions from other modules → "undefined function"
+- **Solutions:**
+  1. Self-contained AIs (v10 approach)
+  2. Bundle modules into one file
+  3. Careful dependency ordering with forward declarations
+
+#### API Discovery Protocol (Added to CLAUDE.md)
+**NEVER guess endpoints** - always check frontend source first:
+```bash
+grep -rn "LeekWars.post.*endpoint" tools/leek-wars/src
+```
+Then cite source in api.py docstring.
+
+#### CLI-First Development (Added to CLAUDE.md)
+Never raw API calls → always improve CLI first, then use it.
+
+### Current State
+| Metric | Value |
+|--------|-------|
+| STR | **310** (was 234) |
+| AI | **v10 "Phoenix"** (was v6) |
+| Chips | Uses FLAME, FLASH, CURE, PROTEIN, BOOTS, MOTIVATION |
+| Fights | 0/50 (waiting for refill) |
 
 ---
 

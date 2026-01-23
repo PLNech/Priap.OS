@@ -1,6 +1,7 @@
-// Fighter v10 "Phoenix" - Burst Aggro with Chips
+// Fighter v10 "Phoenix" - Burst Aggro with Chips + Stalemate Fix
 // =============================================================================
 // Philosophy: Dead enemies deal no damage. Commit fully, burst hard.
+// v10.1: Added force_engage mode for stalemate breaking
 //
 // Our equipped chips (verified from source):
 //   CHIP_CURE (4)   - 4 TP, CD 2, heal 38±8
@@ -17,6 +18,12 @@
 global turn_count = 0
 global total_damage_dealt = 0
 global my_start_hp = 0
+global turns_no_damage = 0
+global force_engage = false
+
+// Stalemate thresholds
+global STALEMATE_TURN = 25
+global LOW_DAMAGE_THRESHOLD = 100
 
 // Chip references (populated from getChips())
 global chip_cure = null
@@ -50,6 +57,22 @@ var turn_start_enemy_hp = getLife(enemy)
 
 debug("═══ T" + turn_count + " Phoenix ═══")
 debug("  HP: " + getLife() + "/" + my_start_hp + " vs " + getLife(enemy))
+if (force_engage) debug("  🔥 FORCE ENGAGE MODE")
+
+// =============================================================================
+// FORCE ENGAGE: All-in when stalemate detected
+// =============================================================================
+
+if (force_engage) {
+    executeForceEngage(enemy)
+    // Track damage after force engage
+    var turn_damage = turn_start_enemy_hp - getLife(enemy)
+    total_damage_dealt = total_damage_dealt + turn_damage
+    if (turn_damage == 0) { turns_no_damage++ } else { turns_no_damage = 0 }
+    debug("  Damage: " + turn_damage + " (total: " + total_damage_dealt + ")")
+    detectStalemate()
+    return;
+}
 
 // =============================================================================
 // PHASE 1: BUFFS (turn 1 only)
@@ -105,8 +128,66 @@ executeBurst(enemy)
 // Track damage
 var turn_damage = turn_start_enemy_hp - getLife(enemy)
 total_damage_dealt = total_damage_dealt + turn_damage
+
+// Track consecutive turns with no damage
+if (turn_damage == 0) {
+    turns_no_damage++
+} else {
+    turns_no_damage = 0
+}
+
 debug("  Damage: " + turn_damage + " (total: " + total_damage_dealt + ")")
 debug("  Remaining: TP=" + getTP() + " MP=" + getMP())
+
+// Stalemate detection for NEXT turn
+detectStalemate()
+
+// =============================================================================
+// STALEMATE DETECTION
+// =============================================================================
+
+function detectStalemate() {
+    force_engage = false
+
+    // Signal 1: High turns + low total damage
+    if (turn_count >= STALEMATE_TURN && total_damage_dealt < LOW_DAMAGE_THRESHOLD) {
+        force_engage = true
+        debug("  ⚠ STALEMATE: Low damage after " + turn_count + " turns")
+        return;
+    }
+
+    // Signal 2: 5+ consecutive turns with no damage
+    if (turns_no_damage >= 5) {
+        force_engage = true
+        debug("  ⚠ STALEMATE: " + turns_no_damage + " turns no damage")
+    }
+}
+
+// =============================================================================
+// FORCE ENGAGE - All-in strategy when stalemate detected
+// =============================================================================
+
+function executeForceEngage(enemy) {
+    debug("  ALL-IN: No retreat, pure aggro")
+
+    // Close gap completely
+    while (getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break;
+    }
+
+    // Burst everything
+    executeBurst(enemy)
+
+    // Keep closing with any leftover MP
+    while (getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break;
+    }
+
+    // Final burst
+    executeBurst(enemy)
+}
 
 // =============================================================================
 // CHIP INITIALIZATION - Find chips by iterating getChips()

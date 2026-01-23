@@ -190,12 +190,20 @@ class LeekWarsAPI:
         response.raise_for_status()
         return response.json()
 
-    def create_ai(self, name: str = "NewAI", folder_id: int = 0) -> dict[str, Any]:
-        """Create a new AI."""
+    def create_ai(self, name: str = "NewAI", folder_id: int = 0, version: int = 4) -> dict[str, Any]:
+        """Create a new AI.
+
+        Args:
+            name: AI name
+            folder_id: Parent folder ID (0 = root)
+            version: LeekScript version (4 = LS4, current)
+
+        Note: Endpoint discovered from tools/leek-wars/src/component/editor/editor-explorer.vue:351
+        """
         response = self._client.post(
-            "/ai/new",
+            "/ai/new-name",
             headers=self._headers(),
-            data={"name": name, "folder_id": folder_id},
+            data={"name": name, "folder_id": folder_id, "version": version},
         )
         response.raise_for_status()
         return response.json()
