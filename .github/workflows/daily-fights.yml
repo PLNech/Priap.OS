@@ -53,22 +53,22 @@ jobs:
           LEEKWARS_PASS: ${{ secrets.LEEKWARS_PASS }}
         run: |
           # Determine percent based on trigger
+          HOUR=$(date -u +%H)
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # Manual trigger: use inputs
             PERCENT="${{ github.event.inputs.percent || '100' }}"
             DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+            echo "Manual trigger: $PERCENT% (dry_run=$DRY_RUN) [UTC hour: $HOUR]"
           else
-            # Scheduled: progressive percentages
-            HOUR=$(date -u +%H)
+            # Scheduled: progressive percentages based on UTC hour
             if [ "$HOUR" = "17" ] || [ "$HOUR" = "20" ]; then
               PERCENT=35  # Early batches: partial
             else
               PERCENT=100  # Final sweep: all remaining
             fi
             DRY_RUN="false"
+            echo "Scheduled run: $PERCENT% at UTC hour $HOUR"
           fi
-
-          echo "Running $PERCENT% of available fights (hour=$HOUR)"
 
           if [ "$DRY_RUN" = "true" ]; then
             poetry run python scripts/auto_daily_fights.py --percent $PERCENT --dry-run
