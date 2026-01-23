@@ -1,7 +1,9 @@
 """Info commands - view leek and farmer data."""
 
+import json
 import click
-from ..output import output_json, output_kv, console
+from pathlib import Path
+from ..output import output_json, output_kv, success, console
 from ..constants import LEEK_ID, FARMER_ID
 from leekwars_agent.auth import login_api
 
@@ -95,5 +97,56 @@ def garden_info(ctx: click.Context) -> None:
             max_fights = garden.get("max_fights", 100)
             console.print(f"[bold]Garden Status[/bold]")
             console.print(f"  Fights: [green]{fights}[/green] / {max_fights}")
+    finally:
+        api.close()
+
+
+@info.command("constants")
+@click.option("--save/--no-save", default=False, help="Save to data/ directory")
+@click.pass_context
+def constants_info(ctx: click.Context, save: bool) -> None:
+    """Fetch game constants (weapons, chips, functions).
+
+    Examples:
+        leek info constants           # Display summary
+        leek info constants --save    # Save to data/*.json
+        leek --json info constants    # Full JSON output
+    """
+    api = login_api()
+    try:
+        data_dir = Path("data")
+
+        console.print("[bold]Fetching game constants...[/bold]")
+
+        weapons = api.get_weapons()
+        chips = api.get_chips()
+        constants = api.get_constants()
+        functions = api.get_functions()
+
+        weapon_count = len(weapons.get("weapons", weapons))
+        chip_count = len(chips.get("chips", chips))
+        func_count = len(functions.get("functions", functions))
+
+        if save:
+            data_dir.mkdir(exist_ok=True)
+            (data_dir / "weapons.json").write_text(json.dumps(weapons, indent=2))
+            (data_dir / "chips.json").write_text(json.dumps(chips, indent=2))
+            (data_dir / "constants.json").write_text(json.dumps(constants, indent=2))
+            (data_dir / "functions.json").write_text(json.dumps(functions, indent=2))
+            success(f"Saved to data/")
+
+        if ctx.obj.get("json"):
+            output_json({
+                "weapons": weapons,
+                "chips": chips,
+                "constants": constants,
+                "functions": functions,
+            })
+            return
+
+        console.print(f"  Weapons: {weapon_count}")
+        console.print(f"  Chips: {chip_count}")
+        console.print(f"  Functions: {func_count}")
+
     finally:
         api.close()
