@@ -39,6 +39,14 @@ global enemy_closing_count = 0    // turns enemy moved toward us
 global enemy_retreating_count = 0 // turns enemy moved away
 
 // ============================================================
+// STALEMATE DETECTION
+// ============================================================
+global stalemate_threshold = 25    // Turn threshold for stalemate check
+global low_damage_threshold = 50   // Min expected damage by threshold
+global force_engage = false        // Override flag for forced commitment
+global turns_no_damage = 0         // Consecutive idle turns
+
+// ============================================================
 // POSITION CACHING
 // ============================================================
 global cached_my_accessible = null
@@ -74,6 +82,9 @@ function updateState(enemy) {
 
     if (dmg_dealt > 0) {
         total_damage_dealt = total_damage_dealt + dmg_dealt
+        turns_no_damage = 0  // Reset streak on damage
+    } else {
+        turns_no_damage = turns_no_damage + 1  // Increment idle streak
     }
     if (dmg_taken > 0) {
         total_damage_taken = total_damage_taken + dmg_taken
@@ -150,10 +161,36 @@ function detectPhase() {
 }
 
 // ============================================================
+// STALEMATE DETECTION
+// ============================================================
+function detectStalemate() {
+    force_engage = false
+
+    // Signal 1: High turns + low total damage
+    // If we've been fighting for 25+ turns and barely dealt damage, something's wrong
+    if (turn_count >= stalemate_threshold && total_damage_dealt < low_damage_threshold) {
+        force_engage = true
+        debug("  STALEMATE: Low damage over " + turn_count + " turns (dealt: " + total_damage_dealt + ")")
+        return;
+    }
+
+    // Signal 2: 5+ consecutive turns with no damage dealt
+    // Both kiters dancing, nobody committing
+    if (turns_no_damage >= 5) {
+        force_engage = true
+        debug("  STALEMATE: " + turns_no_damage + " consecutive turns with no damage")
+        return;
+    }
+}
+
+// ============================================================
 // DEBUG OUTPUT
 // ============================================================
 function debugState() {
     debug("T" + turn_count + " Phase:" + fight_phase + " HP:" + getLife() + "/" + my_start_hp)
     debug("  TTK: me=" + my_ttk + " vs enemy=" + enemy_ttk + " winning=" + winning_race)
     debug("  Pattern: " + enemy_pattern + " (close:" + enemy_closing_count + " retreat:" + enemy_retreating_count + ")")
+    if (turns_no_damage > 0) {
+        debug("  NoDmg streak: " + turns_no_damage)
+    }
 }

@@ -1,0 +1,173 @@
+// Fighter v5 "Tactician" - TTK-aware combat decisions
+// NO FUNCTIONS - LeekScript functions can't access globals!
+
+// Globals for cross-block visibility
+global dist
+global PISTOL_MIN
+global PISTOL_MAX
+global PISTOL_COST
+global turn_count
+global my_start_hp
+global damage_dealt
+global damage_taken
+global last_enemy_hp
+global last_my_hp
+global my_ttk
+global enemy_ttk
+global winning_race
+global shots_this_turn  // NEW: track shots per turn
+global start_dist       // NEW: distance at turn start
+global first_shot_result // v5.2: track first useWeapon result code
+
+// Get enemy
+var enemy = getNearestEnemy()
+if (enemy == null) return
+
+// Pistol stats
+PISTOL_MIN = 1
+PISTOL_MAX = 7
+PISTOL_COST = 3
+
+// State init (first turn only)
+if (turn_count == null) {
+    turn_count = 0
+    my_start_hp = getLife()
+    damage_dealt = 0
+    damage_taken = 0
+    last_enemy_hp = getLife(enemy)
+    last_my_hp = getLife()
+    my_ttk = 999
+    enemy_ttk = 999
+    winning_race = true
+}
+
+// Track damage from last turn
+var enemy_hp = getLife(enemy)
+var my_hp = getLife()
+var dmg_this_turn = last_enemy_hp - enemy_hp  // Damage dealt SINCE last turn
+var taken_this_turn = last_my_hp - my_hp       // Damage taken SINCE last turn
+if (dmg_this_turn > 0) damage_dealt = damage_dealt + dmg_this_turn
+if (taken_this_turn > 0) damage_taken = damage_taken + taken_this_turn
+last_enemy_hp = enemy_hp
+last_my_hp = my_hp
+turn_count = turn_count + 1
+shots_this_turn = 0  // Reset per-turn counter
+first_shot_result = -1  // Reset: -1 = no attempt, 0+ = result code
+start_dist = getCellDistance(getCell(), getCell(enemy))
+
+// TTK calculation (after turn 1)
+if (turn_count > 1 && damage_dealt > 0) {
+    var dpt = damage_dealt / (turn_count - 1)
+    my_ttk = ceil(enemy_hp / dpt)
+}
+if (turn_count > 1 && damage_taken > 0) {
+    var ept = damage_taken / (turn_count - 1)
+    enemy_ttk = ceil(my_hp / ept)
+}
+
+// Am I winning the damage race?
+winning_race = my_ttk <= enemy_ttk
+
+// Equip pistol once
+if (getWeapon() != WEAPON_PISTOL) {
+    setWeapon(WEAPON_PISTOL)
+}
+
+// Get initial distance
+dist = getCellDistance(getCell(), getCell(enemy))
+
+// ============================================================
+// STRATEGY SELECTION based on TTK
+// ============================================================
+var my_hp_pct = my_hp * 100 / my_start_hp
+var endgame = my_hp_pct < 40
+var should_kite = !winning_race && endgame
+
+if (!should_kite) {
+    // ========== AGGRESSIVE ENGAGE ==========
+    // PHASE 1: Rush to get in range
+    while (dist > PISTOL_MAX && getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break
+        dist = getCellDistance(getCell(), getCell(enemy))
+    }
+
+    // PHASE 2: Shoot everything
+    while (getTP() >= PISTOL_COST && dist >= PISTOL_MIN && dist <= PISTOL_MAX) {
+        var result = useWeapon(enemy)
+        if (first_shot_result == -1) first_shot_result = result  // Track first attempt
+        if (result != USE_SUCCESS) break
+        shots_this_turn = shots_this_turn + 1
+        dist = getCellDistance(getCell(), getCell(enemy))
+    }
+
+    // PHASE 3: Close more if MP left
+    while (dist > PISTOL_MAX && getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break
+        dist = getCellDistance(getCell(), getCell(enemy))
+    }
+
+    // PHASE 4: Shoot again
+    while (getTP() >= PISTOL_COST && dist >= PISTOL_MIN && dist <= PISTOL_MAX) {
+        var result = useWeapon(enemy)
+        if (first_shot_result == -1) first_shot_result = result
+        if (result != USE_SUCCESS) break
+        shots_this_turn = shots_this_turn + 1
+        dist = getCellDistance(getCell(), getCell(enemy))
+    }
+} else {
+    // ========== KITE ENGAGE ==========
+    // PHASE 1: If too close, retreat first
+    while (dist < PISTOL_MAX && getMP() > 0) {
+        var moved = moveAwayFrom(enemy)
+        if (moved == 0) break
+        dist = getCellDistance(getCell(), getCell(enemy))
+    }
+
+    // PHASE 2: Shoot from safety
+    while (getTP() >= PISTOL_COST && dist >= PISTOL_MIN && dist <= PISTOL_MAX) {
+        var result = useWeapon(enemy)
+        if (first_shot_result == -1) first_shot_result = result
+        if (result != USE_SUCCESS) break
+        shots_this_turn = shots_this_turn + 1
+        dist = getCellDistance(getCell(), getCell(enemy))
+    }
+
+    // PHASE 3: If out of range, close just enough
+    while (dist > PISTOL_MAX && getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break
+        dist = getCellDistance(getCell(), getCell(enemy))
+    }
+
+    // PHASE 4: Shoot again
+    while (getTP() >= PISTOL_COST && dist >= PISTOL_MIN && dist <= PISTOL_MAX) {
+        var result = useWeapon(enemy)
+        if (first_shot_result == -1) first_shot_result = result
+        if (result != USE_SUCCESS) break
+        shots_this_turn = shots_this_turn + 1
+        dist = getCellDistance(getCell(), getCell(enemy))
+    }
+
+    // PHASE 5: Retreat if MP left (save distance for next turn)
+    while (dist < PISTOL_MAX && getMP() > 0) {
+        var moved = moveAwayFrom(enemy)
+        if (moved == 0) break
+        dist = getCellDistance(getCell(), getCell(enemy))
+    }
+}
+
+debug("T" + turn_count + " HP:" + my_hp + "/" + my_start_hp + " TTK:" + my_ttk + "/" + enemy_ttk + " Kite:" + should_kite + " Shots:" + shots_this_turn)
+
+// === REGISTRY DEBUG (pulls via API after fight) ===
+// Save turn state for post-fight analysis
+// v5.2 Format: "turn|myHP|enemyHP|dmgDealt|dmgTaken|shots|startDist|endDist|kite|shotResult"
+// dmgDealt/dmgTaken = damage THIS turn (not cumulative)
+// shotResult: -1=no attempt, 0=USE_SUCCESS, 1=USE_FAILED, 2=USE_INVALID_POSITION, etc
+var dmg_out = last_enemy_hp - getLife(enemy)  // Damage dealt this turn (after our shots)
+var reg_val = turn_count + "|" + my_hp + "|" + enemy_hp + "|" + dmg_out + "|" + taken_this_turn + "|" + shots_this_turn + "|" + start_dist + "|" + dist + "|" + should_kite + "|" + first_shot_result
+setRegister("v5_t" + turn_count, reg_val)
+
+// Save final state summary (overwrites each turn, last one persists)
+setRegister("v5_last", reg_val)

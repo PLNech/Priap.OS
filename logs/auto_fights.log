@@ -1,0 +1,620 @@
+[2026-01-23 18:59:24] ==================================================
+[2026-01-23 18:59:24] AUTO DAILY FIGHTS - Starting
+[2026-01-23 18:59:24] Logged in as PriapOS
+[2026-01-23 18:59:24] Status: 100/100 fights | L27 IAdonis | Talent: 79
+[2026-01-23 18:59:24] Plan: Run 100 fights (100% of 100)
+[2026-01-23 18:59:24] DRY RUN - Would run but not executing
+[2026-01-23 20:00:02] ==================================================
+[2026-01-23 20:00:02] AUTO DAILY FIGHTS - Starting
+[2026-01-23 20:00:02] Logged in as PriapOS
+[2026-01-23 20:00:02] [buy_fights] Error buying pack: Client error '401 Unauthorized' for url 'https://leekwars.com/api/market/buy-habs-quantity'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401
+[2026-01-23 20:00:02] Status: 148/148 fights | L27 IAdonis | Talent: 71
+[2026-01-23 20:00:02] Plan: Run 148 fights (100% of 148)
+[2026-01-23 20:00:06]   [1/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:06]   [1/148] D vs paul1
+[2026-01-23 20:00:09]   [2/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:09]   [2/148] D vs kuuhaku
+[2026-01-23 20:00:13]   [3/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:13]   [3/148] D vs Giilbert
+[2026-01-23 20:00:17]   [4/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:17]   [4/148] D vs onmappellepasmdr
+[2026-01-23 20:00:20]   [5/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:20]   [5/148] D vs Pompotopom
+[2026-01-23 20:00:24]   [6/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:24]   [6/148] D vs Yory
+[2026-01-23 20:00:28]   [7/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:28]   [7/148] D vs TomatoHater
+[2026-01-23 20:00:31]   [8/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:31]   [8/148] D vs CheveuxBalarris
+[2026-01-23 20:00:35]   [9/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:35]   [9/148] D vs M4gickk
+[2026-01-23 20:00:38]   [10/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:38]   [10/148] D vs AntoineGsr
+[2026-01-23 20:00:42]   [11/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:42]   [11/148] D vs  PokePoireauNaRi
+[2026-01-23 20:00:46]   [12/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:46]   [12/148] D vs coucoulili
+[2026-01-23 20:00:49]   [13/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:49]   [13/148] D vs djo
+[2026-01-23 20:00:53]   [14/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:53]   [14/148] D vs poiaarth
+[2026-01-23 20:00:57]   [15/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:57]   [15/148] D vs çamarche
+[2026-01-23 20:01:00]   [16/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:00]   [16/148] D vs LeCuby
+[2026-01-23 20:01:04]   [17/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:04]   [17/148] D vs SeverusSnape
+[2026-01-23 20:01:08]   [18/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:08]   [18/148] D vs tarzan
+[2026-01-23 20:01:11]   [19/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:11]   [19/148] D vs Saporix
+[2026-01-23 20:01:15]   [20/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:15]   [20/148] D vs clemx8
+[2026-01-23 20:01:19]   [21/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:19]   [21/148] D vs Babidi
+[2026-01-23 20:01:22]   [22/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:22]   [22/148] D vs picpacpoireau
+[2026-01-23 20:01:26]   [23/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:26]   [23/148] D vs MRichart
+[2026-01-23 20:01:30]   [24/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:30]   [24/148] D vs dingoleek
+[2026-01-23 20:01:33]   [25/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:33]   [25/148] D vs barboku
+[2026-01-23 20:01:37]   [26/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:37]   [26/148] D vs GrubDesBois
+[2026-01-23 20:01:41]   [27/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:41]   [27/148] D vs Leeky131
+[2026-01-23 20:01:44]   [28/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:44]   [28/148] D vs RueHeart
+[2026-01-23 20:01:48]   [29/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:48]   [29/148] D vs pavoiraveau
+[2026-01-23 20:01:52]   [30/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:52]   [30/148] D vs Babyki
+[2026-01-23 20:01:55]   [31/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:55]   [31/148] D vs Whisper
+[2026-01-23 20:01:59]   [32/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:59]   [32/148] D vs Poironice
+[2026-01-23 20:02:03]   [33/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:03]   [33/148] D vs BioRx
+[2026-01-23 20:02:06]   [34/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:06]   [34/148] D vs ashlefarmer
+[2026-01-23 20:02:10]   [35/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:10]   [35/148] D vs Kamasutar
+[2026-01-23 20:02:14]   [36/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:14]   [36/148] D vs Parantaja
+[2026-01-23 20:02:17]   [37/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:17]   [37/148] D vs Obéleeks
+[2026-01-23 20:02:21]   [38/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:21]   [38/148] D vs risitas
+[2026-01-23 20:02:25]   [39/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:25]   [39/148] D vs Poireaushadal
+[2026-01-23 20:02:28]   [40/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:28]   [40/148] D vs alopex
+[2026-01-23 20:02:32]   [41/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:32]   [41/148] D vs Poironou
+[2026-01-23 20:02:36]   [42/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:36]   [42/148] D vs afusa
+[2026-01-23 20:02:40]   [43/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:40]   [43/148] D vs Blakus
+[2026-01-23 20:02:43]   [44/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:43]   [44/148] D vs bzhofficiel
+[2026-01-23 20:02:47]   [45/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:47]   [45/148] D vs dekthanos
+[2026-01-23 20:02:51]   [46/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:51]   [46/148] D vs Mangle
+[2026-01-23 20:02:54]   [47/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:54]   [47/148] D vs polkopop
+[2026-01-23 20:02:58]   [48/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:58]   [48/148] D vs JackyMichel2b
+[2026-01-23 20:03:02]   [49/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:02]   [49/148] D vs TheGreatLeek
+[2026-01-23 20:03:05]   [50/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:05]   [50/148] D vs CanardLeek
+[2026-01-23 20:03:09]   [51/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:09]   [51/148] D vs EckerLeek
+[2026-01-23 20:03:13]   [52/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:13]   [52/148] D vs wariorpoireau12
+[2026-01-23 20:03:17]   [53/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:17]   [53/148] D vs Petitpois
+[2026-01-23 20:03:20]   [54/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:20]   [54/148] D vs Mapa
+[2026-01-23 20:03:24]   [55/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:24]   [55/148] D vs Bounty
+[2026-01-23 20:03:28]   [56/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:28]   [56/148] D vs CourgetteTomate
+[2026-01-23 20:00:02] ==================================================
+[2026-01-23 20:00:02] AUTO DAILY FIGHTS - Starting
+[2026-01-23 20:00:02] Logged in as PriapOS
+[2026-01-23 20:00:02] [buy_fights] Error buying pack: Client error '401 Unauthorized' for url 'https://leekwars.com/api/market/buy-habs-quantity'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401
+[2026-01-23 20:00:02] Status: 148/148 fights | L27 IAdonis | Talent: 71
+[2026-01-23 20:00:02] Plan: Run 148 fights (100% of 148)
+[2026-01-23 20:00:06]   [1/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:06]   [1/148] D vs paul1
+[2026-01-23 20:00:09]   [2/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:09]   [2/148] D vs kuuhaku
+[2026-01-23 20:00:13]   [3/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:13]   [3/148] D vs Giilbert
+[2026-01-23 20:00:17]   [4/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:17]   [4/148] D vs onmappellepasmdr
+[2026-01-23 20:00:20]   [5/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:20]   [5/148] D vs Pompotopom
+[2026-01-23 20:00:24]   [6/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:24]   [6/148] D vs Yory
+[2026-01-23 20:00:28]   [7/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:28]   [7/148] D vs TomatoHater
+[2026-01-23 20:00:31]   [8/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:31]   [8/148] D vs CheveuxBalarris
+[2026-01-23 20:00:35]   [9/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:35]   [9/148] D vs M4gickk
+[2026-01-23 20:00:38]   [10/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:38]   [10/148] D vs AntoineGsr
+[2026-01-23 20:00:42]   [11/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:42]   [11/148] D vs  PokePoireauNaRi
+[2026-01-23 20:00:46]   [12/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:46]   [12/148] D vs coucoulili
+[2026-01-23 20:00:49]   [13/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:49]   [13/148] D vs djo
+[2026-01-23 20:00:53]   [14/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:53]   [14/148] D vs poiaarth
+[2026-01-23 20:00:57]   [15/148] DB save failed: table fights has no column named status
+[2026-01-23 20:00:57]   [15/148] D vs çamarche
+[2026-01-23 20:01:00]   [16/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:00]   [16/148] D vs LeCuby
+[2026-01-23 20:01:04]   [17/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:04]   [17/148] D vs SeverusSnape
+[2026-01-23 20:01:08]   [18/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:08]   [18/148] D vs tarzan
+[2026-01-23 20:01:11]   [19/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:11]   [19/148] D vs Saporix
+[2026-01-23 20:01:15]   [20/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:15]   [20/148] D vs clemx8
+[2026-01-23 20:01:19]   [21/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:19]   [21/148] D vs Babidi
+[2026-01-23 20:01:22]   [22/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:22]   [22/148] D vs picpacpoireau
+[2026-01-23 20:01:26]   [23/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:26]   [23/148] D vs MRichart
+[2026-01-23 20:01:30]   [24/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:30]   [24/148] D vs dingoleek
+[2026-01-23 20:01:33]   [25/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:33]   [25/148] D vs barboku
+[2026-01-23 20:01:37]   [26/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:37]   [26/148] D vs GrubDesBois
+[2026-01-23 20:01:41]   [27/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:41]   [27/148] D vs Leeky131
+[2026-01-23 20:01:44]   [28/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:44]   [28/148] D vs RueHeart
+[2026-01-23 20:01:48]   [29/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:48]   [29/148] D vs pavoiraveau
+[2026-01-23 20:01:52]   [30/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:52]   [30/148] D vs Babyki
+[2026-01-23 20:01:55]   [31/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:55]   [31/148] D vs Whisper
+[2026-01-23 20:01:59]   [32/148] DB save failed: table fights has no column named status
+[2026-01-23 20:01:59]   [32/148] D vs Poironice
+[2026-01-23 20:02:03]   [33/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:03]   [33/148] D vs BioRx
+[2026-01-23 20:02:06]   [34/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:06]   [34/148] D vs ashlefarmer
+[2026-01-23 20:02:10]   [35/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:10]   [35/148] D vs Kamasutar
+[2026-01-23 20:02:14]   [36/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:14]   [36/148] D vs Parantaja
+[2026-01-23 20:02:17]   [37/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:17]   [37/148] D vs Obéleeks
+[2026-01-23 20:02:21]   [38/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:21]   [38/148] D vs risitas
+[2026-01-23 20:02:25]   [39/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:25]   [39/148] D vs Poireaushadal
+[2026-01-23 20:02:28]   [40/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:28]   [40/148] D vs alopex
+[2026-01-23 20:02:32]   [41/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:32]   [41/148] D vs Poironou
+[2026-01-23 20:02:36]   [42/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:36]   [42/148] D vs afusa
+[2026-01-23 20:02:40]   [43/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:40]   [43/148] D vs Blakus
+[2026-01-23 20:02:43]   [44/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:43]   [44/148] D vs bzhofficiel
+[2026-01-23 20:02:47]   [45/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:47]   [45/148] D vs dekthanos
+[2026-01-23 20:02:51]   [46/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:51]   [46/148] D vs Mangle
+[2026-01-23 20:02:54]   [47/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:54]   [47/148] D vs polkopop
+[2026-01-23 20:02:58]   [48/148] DB save failed: table fights has no column named status
+[2026-01-23 20:02:58]   [48/148] D vs JackyMichel2b
+[2026-01-23 20:03:02]   [49/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:02]   [49/148] D vs TheGreatLeek
+[2026-01-23 20:03:05]   [50/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:05]   [50/148] D vs CanardLeek
+[2026-01-23 20:03:09]   [51/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:09]   [51/148] D vs EckerLeek
+[2026-01-23 20:03:13]   [52/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:13]   [52/148] D vs wariorpoireau12
+[2026-01-23 20:03:17]   [53/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:17]   [53/148] D vs Petitpois
+[2026-01-23 20:03:20]   [54/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:20]   [54/148] D vs Mapa
+[2026-01-23 20:03:24]   [55/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:24]   [55/148] D vs Bounty
+[2026-01-23 20:03:28]   [56/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:28]   [56/148] D vs CourgetteTomate
+[2026-01-23 20:03:31]   [57/148] DB save failed: table fights has no column named status[2026-01-23 20:03:31]   [57/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:31]   [57/148] D vs Bubba
+[2026-01-23 20:03:35]   [58/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:35]   [58/148] D vs Woohoo
+[2026-01-23 20:03:39]   [59/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:39]   [59/148] D vs TrashBoy
+[2026-01-23 20:03:42]   [60/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:42]   [60/148] D vs Pouick
+[2026-01-23 20:03:46]   [61/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:46]   [61/148] D vs Quiqui
+[2026-01-23 20:03:50]   [62/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:50]   [62/148] D vs Aberduc
+[2026-01-23 20:03:54]   [63/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:54]   [63/148] D vs Leek@59396
+[2026-01-23 20:03:57]   [64/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:57]   [64/148] D vs pointeurSurKezia
+[2026-01-23 20:04:01]   [65/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:01]   [65/148] D vs elPorro
+[2026-01-23 20:04:05]   [66/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:05]   [66/148] D vs leekingBoat
+[2026-01-23 20:04:08]   [67/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:08]   [67/148] D vs Soey
+[2026-01-23 20:04:12]   [68/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:12]   [68/148] D vs kallysten
+[2026-01-23 20:04:16]   [69/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:16]   [69/148] D vs ComaETthyleek
+[2026-01-23 20:04:20]   [70/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:20]   [70/148] D vs BshowPoireau
+[2026-01-23 20:04:23]   [71/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:23]   [71/148] D vs Leek@94777
+[2026-01-23 20:04:27]   [72/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:27]   [72/148] D vs Leek@94781
+[2026-01-23 20:04:31]   [73/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:31]   [73/148] D vs things
+[2026-01-23 20:04:35]   [74/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:35]   [74/148] D vs Haida
+[2026-01-23 20:04:38]   [75/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:38]   [75/148] D vs Leek@94805
+[2026-01-23 20:04:42]   [76/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:42]   [76/148] D vs T800
+[2026-01-23 20:04:46]   [77/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:46]   [77/148] D vs PabloLePoiro
+[2026-01-23 20:04:49]   [78/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:49]   [78/148] D vs SamuelNoe
+[2026-01-23 20:04:53]   [79/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:53]   [79/148] D vs roger
+[2026-01-23 20:04:57]   [80/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:57]   [80/148] D vs Leek@94804
+[2026-01-23 20:05:01]   [81/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:01]   [81/148] D vs Leek@51132
+[2026-01-23 20:05:04]   [82/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:04]   [82/148] D vs aureleek
+[2026-01-23 20:05:08]   [83/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:08]   [83/148] D vs Chloe
+[2026-01-23 20:05:12]   [84/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:12]   [84/148] D vs Bebette
+[2026-01-23 20:05:16]   [85/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:16]   [85/148] D vs Spinoza
+[2026-01-23 20:05:19]   [86/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:19]   [86/148] D vs WilsonLePoireaux
+[2026-01-23 20:05:23]   [87/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:23]   [87/148] D vs trompetteCnam
+[2026-01-23 20:05:27]   [88/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:27]   [88/148] D vs TERMINATOR666
+[2026-01-23 20:05:31]   [89/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:31]   [89/148] D vs Simpleeks
+[2026-01-23 20:05:34]   [90/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:34]   [90/148] D vs Gargantua
+[2026-01-23 20:05:38]   [91/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:38]   [91/148] D vs PainBeurre987
+[2026-01-23 20:05:42]   [92/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:42]   [92/148] D vs rhaleek
+[2026-01-23 20:05:46]   [93/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:46]   [93/148] D vs YANNLARY
+[2026-01-23 20:05:49]   [94/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:49]   [94/148] D vs JeanLucBiniou
+[2026-01-23 20:05:53]   [95/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:53]   [95/148] D vs YameteOniSenpai
+[2026-01-23 20:05:57]   [96/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:57]   [96/148] D vs Kira
+[2026-01-23 20:06:01]   [97/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:01]   [97/148] D vs DiabolicaTrix
+[2026-01-23 20:06:04]   [98/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:04]   [98/148] D vs Erialc
+[2026-01-23 20:06:08]   [99/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:08]   [99/148] D vs Noobus
+[2026-01-23 20:06:12]   [100/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:12]   [100/148] D vs PoireaunitorV2
+[2026-01-23 20:06:16]   [101/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:16]   [101/148] D vs XKILL9R
+[2026-01-23 20:06:19]   [102/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:19]   [102/148] D vs Alcobileek
+[2026-01-23 20:06:23]   [103/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:23]   [103/148] D vs Fransosiche
+[2026-01-23 20:06:27]   [104/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:27]   [104/148] D vs HaleekPottereau
+[2026-01-23 20:06:31]   [105/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:31]   [105/148] D vs Llauron
+[2026-01-23 20:06:35]   [106/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:35]   [106/148] D vs Necrophileek
+[2026-01-23 20:06:38]   [107/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:38]   [107/148] D vs PetitVert
+[2026-01-23 20:06:42]   [108/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:42]   [108/148] D vs Rewind
+[2026-01-23 20:06:46]   [109/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:46]   [109/148] D vs Urzhul
+[2026-01-23 20:06:50]   [110/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:50]   [110/148] D vs eeeMush
+[2026-01-23 20:06:53]   [111/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:53]   [111/148] D vs proscoper69blazeIt
+[2026-01-23 20:06:57]   [112/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:57]   [112/148] D vs Osefdeux
+[2026-01-23 20:07:01]   [113/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:01]   [113/148] D vs Primax
+[2026-01-23 20:07:05]   [114/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:05]   [114/148] D vs STENAKLEPOIRO
+[2026-01-23 20:07:08]   [115/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:08]   [115/148] D vs poupine
+[2026-01-23 20:07:12]   [116/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:12]   [116/148] D vs myLeek
+
+[2026-01-23 20:03:31]   [57/148] D vs Bubba
+[2026-01-23 20:03:35]   [58/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:35]   [58/148] D vs Woohoo
+[2026-01-23 20:03:39]   [59/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:39]   [59/148] D vs TrashBoy
+[2026-01-23 20:03:42]   [60/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:42]   [60/148] D vs Pouick
+[2026-01-23 20:03:46]   [61/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:46]   [61/148] D vs Quiqui
+[2026-01-23 20:03:50]   [62/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:50]   [62/148] D vs Aberduc
+[2026-01-23 20:03:54]   [63/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:54]   [63/148] D vs Leek@59396
+[2026-01-23 20:03:57]   [64/148] DB save failed: table fights has no column named status
+[2026-01-23 20:03:57]   [64/148] D vs pointeurSurKezia
+[2026-01-23 20:04:01]   [65/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:01]   [65/148] D vs elPorro
+[2026-01-23 20:04:05]   [66/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:05]   [66/148] D vs leekingBoat
+[2026-01-23 20:04:08]   [67/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:08]   [67/148] D vs Soey
+[2026-01-23 20:04:12]   [68/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:12]   [68/148] D vs kallysten
+[2026-01-23 20:04:16]   [69/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:16]   [69/148] D vs ComaETthyleek
+[2026-01-23 20:04:20]   [70/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:20]   [70/148] D vs BshowPoireau
+[2026-01-23 20:04:23]   [71/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:23]   [71/148] D vs Leek@94777
+[2026-01-23 20:04:27]   [72/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:27]   [72/148] D vs Leek@94781
+[2026-01-23 20:04:31]   [73/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:31]   [73/148] D vs things
+[2026-01-23 20:04:35]   [74/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:35]   [74/148] D vs Haida
+[2026-01-23 20:04:38]   [75/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:38]   [75/148] D vs Leek@94805
+[2026-01-23 20:04:42]   [76/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:42]   [76/148] D vs T800
+[2026-01-23 20:04:46]   [77/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:46]   [77/148] D vs PabloLePoiro
+[2026-01-23 20:04:49]   [78/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:49]   [78/148] D vs SamuelNoe
+[2026-01-23 20:04:53]   [79/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:53]   [79/148] D vs roger
+[2026-01-23 20:04:57]   [80/148] DB save failed: table fights has no column named status
+[2026-01-23 20:04:57]   [80/148] D vs Leek@94804
+[2026-01-23 20:05:01]   [81/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:01]   [81/148] D vs Leek@51132
+[2026-01-23 20:05:04]   [82/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:04]   [82/148] D vs aureleek
+[2026-01-23 20:05:08]   [83/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:08]   [83/148] D vs Chloe
+[2026-01-23 20:05:12]   [84/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:12]   [84/148] D vs Bebette
+[2026-01-23 20:05:16]   [85/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:16]   [85/148] D vs Spinoza
+[2026-01-23 20:05:19]   [86/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:19]   [86/148] D vs WilsonLePoireaux
+[2026-01-23 20:05:23]   [87/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:23]   [87/148] D vs trompetteCnam
+[2026-01-23 20:05:27]   [88/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:27]   [88/148] D vs TERMINATOR666
+[2026-01-23 20:05:31]   [89/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:31]   [89/148] D vs Simpleeks
+[2026-01-23 20:05:34]   [90/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:34]   [90/148] D vs Gargantua
+[2026-01-23 20:05:38]   [91/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:38]   [91/148] D vs PainBeurre987
+[2026-01-23 20:05:42]   [92/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:42]   [92/148] D vs rhaleek
+[2026-01-23 20:05:46]   [93/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:46]   [93/148] D vs YANNLARY
+[2026-01-23 20:05:49]   [94/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:49]   [94/148] D vs JeanLucBiniou
+[2026-01-23 20:05:53]   [95/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:53]   [95/148] D vs YameteOniSenpai
+[2026-01-23 20:05:57]   [96/148] DB save failed: table fights has no column named status
+[2026-01-23 20:05:57]   [96/148] D vs Kira
+[2026-01-23 20:06:01]   [97/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:01]   [97/148] D vs DiabolicaTrix
+[2026-01-23 20:06:04]   [98/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:04]   [98/148] D vs Erialc
+[2026-01-23 20:06:08]   [99/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:08]   [99/148] D vs Noobus
+[2026-01-23 20:06:12]   [100/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:12]   [100/148] D vs PoireaunitorV2
+[2026-01-23 20:06:16]   [101/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:16]   [101/148] D vs XKILL9R
+[2026-01-23 20:06:19]   [102/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:19]   [102/148] D vs Alcobileek
+[2026-01-23 20:06:23]   [103/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:23]   [103/148] D vs Fransosiche
+[2026-01-23 20:06:27]   [104/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:27]   [104/148] D vs HaleekPottereau
+[2026-01-23 20:06:31]   [105/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:31]   [105/148] D vs Llauron
+[2026-01-23 20:06:35]   [106/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:35]   [106/148] D vs Necrophileek
+[2026-01-23 20:06:38]   [107/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:38]   [107/148] D vs PetitVert
+[2026-01-23 20:06:42]   [108/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:42]   [108/148] D vs Rewind
+[2026-01-23 20:06:46]   [109/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:46]   [109/148] D vs Urzhul
+[2026-01-23 20:06:50]   [110/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:50]   [110/148] D vs eeeMush
+[2026-01-23 20:06:53]   [111/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:53]   [111/148] D vs proscoper69blazeIt
+[2026-01-23 20:06:57]   [112/148] DB save failed: table fights has no column named status
+[2026-01-23 20:06:57]   [112/148] D vs Osefdeux
+[2026-01-23 20:07:01]   [113/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:01]   [113/148] D vs Primax
+[2026-01-23 20:07:05]   [114/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:05]   [114/148] D vs STENAKLEPOIRO
+[2026-01-23 20:07:08]   [115/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:08]   [115/148] D vs poupine
+[2026-01-23 20:07:12]   [116/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:12]   [116/148] D vs myLeek
+[2026-01-23 20:07:16]   [117/148] DB save failed: table fights has no column named status[2026-01-23 20:07:16]   [117/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:16]   [117/148] D vs Leencre
+[2026-01-23 20:07:20]   [118/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:20]   [118/148] D vs EvilPwaro
+[2026-01-23 20:07:24]   [119/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:24]   [119/148] D vs 5406
+[2026-01-23 20:07:27]   [120/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:27]   [120/148] D vs Hasagi
+[2026-01-23 20:07:31]   [121/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:31]   [121/148] D vs leekDpolins
+[2026-01-23 20:07:35]   [122/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:35]   [122/148] D vs ChaperonVert
+[2026-01-23 20:07:39]   [123/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:39]   [123/148] D vs Saiizar
+[2026-01-23 20:07:43]   [124/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:43]   [124/148] D vs TARDIS
+[2026-01-23 20:07:46]   [125/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:46]   [125/148] D vs ducduvivier
+[2026-01-23 20:07:50]   [126/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:50]   [126/148] D vs Falleek
+[2026-01-23 20:07:54]   [127/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:54]   [127/148] D vs biden
+[2026-01-23 20:07:58]   [128/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:58]   [128/148] D vs Lauch
+[2026-01-23 20:08:02]   [129/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:02]   [129/148] D vs Leoleo
+[2026-01-23 20:08:05]   [130/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:05]   [130/148] D vs Genau
+[2026-01-23 20:08:09]   [131/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:09]   [131/148] D vs Tfouarlekoum
+[2026-01-23 20:08:13]   [132/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:13]   [132/148] D vs Bibii
+[2026-01-23 20:08:17]   [133/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:17]   [133/148] D vs Gr0spoireau
+[2026-01-23 20:08:21]   [134/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:21]   [134/148] D vs thibaut
+[2026-01-23 20:08:24]   [135/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:24]   [135/148] D vs ToutPourPapa
+[2026-01-23 20:08:28]   [136/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:28]   [136/148] D vs aimbot31
+[2026-01-23 20:08:32]   [137/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:32]   [137/148] D vs Darkvor
+[2026-01-23 20:08:36]   [138/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:36]   [138/148] D vs maxence
+[2026-01-23 20:08:40]   [139/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:40]   [139/148] D vs Ratatouillette
+[2026-01-23 20:08:43]   [140/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:43]   [140/148] D vs JohnHWatson
+[2026-01-23 20:08:47]   [141/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:47]   [141/148] D vs ethan972
+[2026-01-23 20:08:51]   [142/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:51]   [142/148] D vs taratata
+[2026-01-23 20:08:55]   [143/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:55]   [143/148] D vs Tonio
+[2026-01-23 20:08:59]   [144/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:59]   [144/148] D vs poirnux
+[2026-01-23 20:09:02]   [145/148] DB save failed: table fights has no column named status
+[2026-01-23 20:09:02]   [145/148] D vs stryantos
+[2026-01-23 20:09:06]   [146/148] DB save failed: table fights has no column named status
+[2026-01-23 20:09:06]   [146/148] D vs DCPoir
+[2026-01-23 20:09:10]   [147/148] DB save failed: table fights has no column named status
+[2026-01-23 20:09:10]   [147/148] D vs UrinaryLeekage
+[2026-01-23 20:09:14]   [148/148] DB save failed: table fights has no column named status
+[2026-01-23 20:09:14]   [148/148] D vs Tipois
+[2026-01-23 20:09:14] Results: 0W-0L-148D (0.0% WR) | 0 crashes
+[2026-01-23 20:09:14] Final: 0 fights remaining | L27 | Talent: 71
+[2026-01-23 20:09:14] AUTO DAILY FIGHTS - Complete
+[2026-01-23 20:09:14] ==================================================
+
+[2026-01-23 20:07:16]   [117/148] D vs Leencre
+[2026-01-23 20:07:20]   [118/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:20]   [118/148] D vs EvilPwaro
+[2026-01-23 20:07:24]   [119/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:24]   [119/148] D vs 5406
+[2026-01-23 20:07:27]   [120/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:27]   [120/148] D vs Hasagi
+[2026-01-23 20:07:31]   [121/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:31]   [121/148] D vs leekDpolins
+[2026-01-23 20:07:35]   [122/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:35]   [122/148] D vs ChaperonVert
+[2026-01-23 20:07:39]   [123/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:39]   [123/148] D vs Saiizar
+[2026-01-23 20:07:43]   [124/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:43]   [124/148] D vs TARDIS
+[2026-01-23 20:07:46]   [125/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:46]   [125/148] D vs ducduvivier
+[2026-01-23 20:07:50]   [126/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:50]   [126/148] D vs Falleek
+[2026-01-23 20:07:54]   [127/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:54]   [127/148] D vs biden
+[2026-01-23 20:07:58]   [128/148] DB save failed: table fights has no column named status
+[2026-01-23 20:07:58]   [128/148] D vs Lauch
+[2026-01-23 20:08:02]   [129/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:02]   [129/148] D vs Leoleo
+[2026-01-23 20:08:05]   [130/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:05]   [130/148] D vs Genau
+[2026-01-23 20:08:09]   [131/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:09]   [131/148] D vs Tfouarlekoum
+[2026-01-23 20:08:13]   [132/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:13]   [132/148] D vs Bibii
+[2026-01-23 20:08:17]   [133/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:17]   [133/148] D vs Gr0spoireau
+[2026-01-23 20:08:21]   [134/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:21]   [134/148] D vs thibaut
+[2026-01-23 20:08:24]   [135/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:24]   [135/148] D vs ToutPourPapa
+[2026-01-23 20:08:28]   [136/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:28]   [136/148] D vs aimbot31
+[2026-01-23 20:08:32]   [137/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:32]   [137/148] D vs Darkvor
+[2026-01-23 20:08:36]   [138/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:36]   [138/148] D vs maxence
+[2026-01-23 20:08:40]   [139/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:40]   [139/148] D vs Ratatouillette
+[2026-01-23 20:08:43]   [140/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:43]   [140/148] D vs JohnHWatson
+[2026-01-23 20:08:47]   [141/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:47]   [141/148] D vs ethan972
+[2026-01-23 20:08:51]   [142/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:51]   [142/148] D vs taratata
+[2026-01-23 20:08:55]   [143/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:55]   [143/148] D vs Tonio
+[2026-01-23 20:08:59]   [144/148] DB save failed: table fights has no column named status
+[2026-01-23 20:08:59]   [144/148] D vs poirnux
+[2026-01-23 20:09:02]   [145/148] DB save failed: table fights has no column named status
+[2026-01-23 20:09:02]   [145/148] D vs stryantos
+[2026-01-23 20:09:06]   [146/148] DB save failed: table fights has no column named status
+[2026-01-23 20:09:06]   [146/148] D vs DCPoir
+[2026-01-23 20:09:10]   [147/148] DB save failed: table fights has no column named status
+[2026-01-23 20:09:10]   [147/148] D vs UrinaryLeekage
+[2026-01-23 20:09:14]   [148/148] DB save failed: table fights has no column named status
+[2026-01-23 20:09:14]   [148/148] D vs Tipois
+[2026-01-23 20:09:14] Results: 0W-0L-148D (0.0% WR) | 0 crashes
+[2026-01-23 20:09:14] Final: 0 fights remaining | L27 | Talent: 71
+[2026-01-23 20:09:14] AUTO DAILY FIGHTS - Complete
+[2026-01-23 20:09:14] ==================================================

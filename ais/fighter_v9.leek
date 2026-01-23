@@ -1,0 +1,305 @@
+// Fighter v9 "Arbiter" - Stalemate Resolution
+// =============================================================================
+// Evolution: Adds force-engage to break kite stalemates
+//
+// Modules:
+// - v8_state: Cross-turn persistence, TTK tracking, phase detection, STALEMATE DETECTION
+// - v8_accessible_cells: BFS flood-fill for reachability
+// - v8_danger_map: Cell danger scoring based on enemy reach
+// - v8_hide_seek: Safe cell computation for positioning
+// - v8_combat: Multi-weapon rotation with usage limits
+// =============================================================================
+
+include("v8_state.leek")
+include("v8_accessible_cells.leek")
+include("v8_danger_map.leek")
+include("v8_hide_seek.leek")
+include("v8_combat.leek")
+
+// =============================================================================
+// MAIN ENTRY POINT
+// =============================================================================
+
+var enemy = getNearestEnemy()
+if (enemy == null) return;
+
+// =============================================================================
+// INITIALIZATION (First Turn Only)
+// =============================================================================
+if (turn_count == 0) {
+    initNeighborCache()
+    initState(enemy)
+}
+
+// =============================================================================
+// UPDATE STATE
+// =============================================================================
+updateState(enemy)
+detectPhase()
+detectStalemate()  // NEW: Check for stalemate conditions
+resetCombatState()
+
+// Equip primary weapon once (avoids repeated setWeapon calls)
+if (getWeapon() == null) {
+    var weapons = getWeapons()
+    if (count(weapons) > 0) {
+        setWeapon(weapons[0])
+        current_weapon = weapons[0]
+    }
+}
+
+// =============================================================================
+// COMPUTE SPATIAL AWARENESS (ops-conscious)
+// =============================================================================
+var my_mp = getMP()
+var enemy_mp = getMP(enemy)
+
+// Always compute our accessible cells (needed for movement)
+cached_my_accessible = getAccessibleCells(getCell(), my_mp)
+
+// Only compute enemy accessible in non-opening (expensive!)
+if (fight_phase != "opening") {
+    cached_enemy_accessible = getAccessibleCells(getCell(enemy), enemy_mp)
+} else {
+    cached_enemy_accessible = [:]  // Empty in opening - we don't need it
+}
+
+// Compute danger map - VERY expensive, use quick version by default
+// Only use full danger in endgame when positioning matters most
+var use_full_danger = (fight_phase == "endgame" && getOperations() < 200000)
+if (use_full_danger) {
+    cached_danger_map = computeDangerMap(cached_my_accessible, enemy, enemy_mp)
+} else {
+    cached_danger_map = computeQuickDanger(cached_my_accessible, enemy)
+}
+
+// Get weapon range for positioning
+var range_info = getMyWeaponRange()
+var weapon_min = range_info[0]
+var weapon_max = range_info[1]
+
+// =============================================================================
+// STRATEGY DISPATCH
+// =============================================================================
+
+var strategy_name = "standard"
+
+// NEW: Force-engage overrides other strategies when stalemate detected
+if (force_engage && fight_phase != "opening") {
+    strategy_name = "force_engage"
+    executeForceEngageStrategy(enemy, weapon_max)
+} else if (fight_phase == "opening") {
+    strategy_name = "opening"
+    executeOpeningStrategy(enemy, weapon_max)
+} else if (enemy_pattern == "kiting" && winning_race) {
+    strategy_name = "counter-kite"
+    executeCounterKiteStrategy(enemy)
+} else if (!winning_race && fight_phase == "endgame") {
+    strategy_name = "kite"
+    executeKiteStrategy(enemy, weapon_min, weapon_max)
+} else {
+    executeStandardStrategy(enemy, weapon_min, weapon_max)
+}
+
+debug("  Strategy: " + strategy_name + " | Range: " + weapon_min + "-" + weapon_max)
+
+// =============================================================================
+// DEBUG OUTPUT
+// =============================================================================
+debugState()
+debug("  Accessible: me=" + countAccessible(cached_my_accessible) + " enemy=" + countAccessible(cached_enemy_accessible))
+debugDangerMap(cached_danger_map)
+debug("  Ops: " + getOperations())
+
+// =============================================================================
+// STRATEGY IMPLEMENTATIONS
+// =============================================================================
+
+// NEW: Force-engage strategy for breaking stalemates
+function executeForceEngageStrategy(enemy, weapon_max) {
+    // ALL-IN: Close gap, attack, NO RETREAT
+    // When both leeks are dancing, someone has to commit
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    // Phase 1: Close to weapon range
+    while (dist > weapon_max && getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break;
+        dist = getCellDistance(getCell(), getCell(enemy))
+    }
+
+    // Phase 2: Attack
+    executeAttacks(enemy)
+
+    // Phase 3: Close MORE with remaining MP (don't flee!)
+    while (getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break;
+    }
+
+    // Phase 4: Final attack dump
+    executeAttacks(enemy)
+}
+
+function executeOpeningStrategy(enemy, weapon_max) {
+    // Opening: Aggressive close + shoot
+    // Goal: Establish damage, get data for TTK estimation
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    // Close gap to weapon range
+    while (dist > weapon_max && getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break;
+        dist = getCellDistance(getCell(), getCell(enemy))
+    }
+
+    // Dump all attacks
+    executeAttacks(enemy)
+
+    // Use remaining MP to close further (prepare for next turn)
+    while (getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break;
+    }
+}
+
+function executeStandardStrategy(enemy, weapon_min, weapon_max) {
+    // Standard: Position -> Attack -> Reposition
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    // Find best attack position considering danger
+    var attack_cell = getBestAttackCell(cached_my_accessible, enemy, cached_danger_map, weapon_min, weapon_max)
+
+    if (attack_cell != -1 && attack_cell != getCell()) {
+        // Move to attack position
+        moveTowardCell(attack_cell)
+    } else if (dist > weapon_max) {
+        // No good attack position - just close gap
+        while (dist > weapon_max && getMP() > 0) {
+            var moved = moveToward(enemy)
+            if (moved == 0) break;
+            dist = getCellDistance(getCell(), getCell(enemy))
+        }
+    }
+
+    // Attack
+    executeAttacks(enemy)
+
+    // Reposition with remaining MP (retreat to safer cell)
+    if (getMP() > 0) {
+        var retreat_cell = getBestRetreatCell(cached_my_accessible, cached_enemy_accessible, cached_danger_map)
+        if (retreat_cell != -1 && retreat_cell != getCell()) {
+            moveTowardCell(retreat_cell)
+        }
+    }
+}
+
+function executeKiteStrategy(enemy, weapon_min, weapon_max) {
+    // Kiting: Maintain distance, hit-and-run
+    // Used when losing damage race in endgame
+
+    // Find safest attack position at max range
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    // First: If too close, retreat
+    if (dist < weapon_max - 1) {
+        var retreat_cell = getBestRetreatCell(cached_my_accessible, cached_enemy_accessible, cached_danger_map)
+        if (retreat_cell != -1) {
+            moveTowardCell(retreat_cell)
+        }
+    }
+
+    // Then attack from safe distance
+    executeAttacks(enemy)
+
+    // Use remaining MP to maximize distance
+    while (getMP() > 0) {
+        var moved = moveAwayFrom(enemy)
+        if (moved == 0) break;
+    }
+}
+
+function executeCounterKiteStrategy(enemy) {
+    // Counter-kite: Burn ALL MP then attack
+    // Don't stop to shoot mid-chase - commit fully
+
+    // ALL MP to close gap
+    while (getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break;
+    }
+
+    // Now dump all attacks
+    executeAttacks(enemy)
+}
+
+// =============================================================================
+// MOVEMENT HELPERS
+// =============================================================================
+
+function moveTowardCell(target_cell) {
+    var current = getCell()
+    if (current == target_cell) return 0
+
+    // Use path-based movement
+    var path = getPath(current, target_cell)
+    if (path == null || count(path) == 0) {
+        // Fallback: move toward target coordinates
+        return moveTowardCellDirect(target_cell)
+    }
+
+    var moved = 0
+    for (var i = 0; i < count(path) && getMP() > 0; i++) {
+        var next = path[i]
+        if (!isEmptyCell(next)) break;
+
+        var result = moveTowardCell(next)
+        if (result > 0) {
+            moved = moved + result
+        } else {
+            break;
+        }
+    }
+
+    return moved
+}
+
+function moveTowardCellDirect(target_cell) {
+    // Simple directional movement toward target
+    var moved = 0
+    var current = getCell()
+    var max_attempts = getMP()
+
+    for (var i = 0; i < max_attempts && getMP() > 0; i++) {
+        var cx = cellX(current)
+        var cy = cellY(current)
+        var tx = cellX(target_cell)
+        var ty = cellY(target_cell)
+
+        var best_neighbor = -1
+        var best_dist = getCellDistance(current, target_cell)
+
+        // Check cardinal neighbors
+        var neighbors = getCardinalNeighbors(current)
+        for (var n in neighbors) {
+            if (!isEmptyCell(n)) continue;
+            var d = getCellDistance(n, target_cell)
+            if (d < best_dist) {
+                best_dist = d
+                best_neighbor = n
+            }
+        }
+
+        if (best_neighbor == -1) break;
+
+        var result = moveTowardCell(best_neighbor)
+        if (result > 0) {
+            moved = moved + result
+            current = best_neighbor
+        } else {
+            break;
+        }
+    }
+
+    return moved
+}

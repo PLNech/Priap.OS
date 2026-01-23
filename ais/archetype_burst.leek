@@ -1,0 +1,37 @@
+// Archetype: BURST - High damage, fragile, all-in first strike
+// Counter: Survive initial burst, then win damage race
+// Purpose: Test if our AI handles high-damage opponents
+// Note: Burst relies on stats (high STR), behavior is pure aggro
+
+var enemy = getNearestEnemy()
+if (enemy == null) return
+setWeapon(WEAPON_PISTOL)
+var dist = getCellDistance(getCell(), getCell(enemy))
+
+// ALL-IN: Rush to range 1 (min range) for maximum accuracy
+while (dist > 1 && getMP() > 0) {
+var m = moveToward(enemy)
+if (m == 0) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// DUMP ALL TP: shoot until empty
+while (getTP() >= 3 && dist <= 7 && dist >= 1) {
+var r = useWeapon(enemy)
+if (r != USE_SUCCESS) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// Continue closing if out of range
+while (dist > 7 && getMP() > 0) {
+var m = moveToward(enemy)
+if (m == 0) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// Final shots
+while (getTP() >= 3 && dist <= 7 && dist >= 1) {
+var r = useWeapon(enemy)
+if (r != USE_SUCCESS) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}

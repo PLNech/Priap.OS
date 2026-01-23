@@ -1,0 +1,45 @@
+// PriapOS Fighter v4 - Data-Driven Aggressive
+// Based on 10k fight analysis:
+// - Move-first = 70% WR (aggressive closing wins)
+// - Winners deal 2x damage/turn
+// - Winners use LESS ops (efficient AI wins)
+// - Kiting LOSES at low damage levels
+//
+// Strategy: Close FAST, maximize shots, stay aggressive
+//
+// NOTE: Must use 'global dist' and compute distance BEFORE getWeapon()
+// due to LeekScript interpreter quirk in local simulator
+
+global dist
+var enemy = getNearestEnemy()
+if (enemy == null) return
+
+// CRITICAL: Compute distance BEFORE getWeapon (interpreter quirk)
+dist = getCellDistance(getCell(), getCell(enemy))
+
+// Equip weapon once (costs 1 TP)
+if (getWeapon() != WEAPON_PISTOL) {
+    setWeapon(WEAPON_PISTOL)
+}
+
+// Weapon: pistol range 1-7, cost 3 TP
+var W_MAX = 7
+var W_COST = 3
+
+// PHASE 1: Close distance with ALL MP if out of range
+while (dist > W_MAX && getMP() > 0) {
+    if (moveToward(enemy) == 0) break
+    dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// PHASE 2: Unload all shots
+while (getTP() >= W_COST && dist <= W_MAX) {
+    if (useWeapon(enemy) != USE_SUCCESS) break
+    dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// PHASE 3: Use remaining MP to close for next turn
+// Closer = first shot advantage next turn
+while (getMP() > 0) {
+    if (moveToward(enemy) == 0) break
+}

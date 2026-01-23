@@ -3,37 +3,8 @@
 import click
 from ..output import output_json, success, error, console
 from ..constants import LEEK_ID
+from ..items_loader import get_market_items, get_item, ITEM_TYPE_CHIP, ITEM_TYPE_WEAPON
 from leekwars_agent.auth import login_api
-
-# Item data extracted from tools/leek-wars/src/model/items.ts
-# Format: {id: {name, type, level, price}}
-# type: 1=weapon, 2=chip
-MARKET_ITEMS = {
-    # Chips (type 2) - sorted by level
-    1: {"name": "chip_shock", "type": 2, "level": 2, "price": 1780},
-    3: {"name": "chip_bandage", "type": 2, "level": 3, "price": 2000},
-    7: {"name": "chip_pebble", "type": 2, "level": 4, "price": 3290},
-    8: {"name": "chip_protein", "type": 2, "level": 6, "price": 3520},
-    2: {"name": "chip_ice", "type": 2, "level": 9, "price": 1830},
-    9: {"name": "chip_helmet", "type": 2, "level": 10, "price": 2200},
-    10: {"name": "chip_rock", "type": 2, "level": 13, "price": 7400},
-    11: {"name": "chip_motivation", "type": 2, "level": 14, "price": 3560},
-    12: {"name": "chip_stretching", "type": 2, "level": 17, "price": 6000},
-    13: {"name": "chip_wall", "type": 2, "level": 18, "price": 8700},
-    14: {"name": "chip_spark", "type": 2, "level": 19, "price": 2910},
-    4: {"name": "chip_cure", "type": 2, "level": 20, "price": 3710},
-    15: {"name": "chip_leather_boots", "type": 2, "level": 22, "price": 3800},
-    6: {"name": "chip_flash", "type": 2, "level": 24, "price": 4890},
-    5: {"name": "chip_flame", "type": 2, "level": 29, "price": 5560},
-    16: {"name": "chip_knowledge", "type": 2, "level": 32, "price": 14890},
-    # Weapons (type 1)
-    37: {"name": "weapon_pistol", "type": 1, "level": 1, "price": 900},
-    38: {"name": "weapon_machine_gun", "type": 1, "level": 8, "price": 3080},
-    41: {"name": "weapon_neutrino", "type": 1, "level": 12, "price": 8250},
-    39: {"name": "weapon_shotgun", "type": 1, "level": 16, "price": 6800},
-    40: {"name": "weapon_magnum", "type": 1, "level": 27, "price": 7510},
-    42: {"name": "weapon_broadsword", "type": 1, "level": 30, "price": 9950},
-}
 
 
 @click.group()
@@ -61,16 +32,18 @@ def list_items(ctx: click.Context, item_type: str, max_level: int | None) -> Non
         if max_level is None:
             max_level = level
 
-        # Filter items
-        items = []
-        for item_id, item in MARKET_ITEMS.items():
-            if item["level"] > max_level:
-                continue
-            if item_type == "chips" and item["type"] != 2:
-                continue
-            if item_type == "weapons" and item["type"] != 1:
-                continue
-            items.append({"id": item_id, **item, "affordable": item["price"] <= habs})
+        # Get items from dynamic loader
+        type_filter = None
+        if item_type == "chips":
+            type_filter = ITEM_TYPE_CHIP
+        elif item_type == "weapons":
+            type_filter = ITEM_TYPE_WEAPON
+
+        market_items = get_market_items(max_level=max_level, item_type=type_filter)
+        items = [
+            {"id": item_id, **item, "affordable": item["price"] <= habs}
+            for item_id, item in market_items.items()
+        ]
 
         items.sort(key=lambda x: (x["type"], x["level"]))
 
@@ -115,11 +88,10 @@ def buy(ctx: click.Context, item_id: int, quantity: int, dry_run: bool) -> None:
         leek market buy 40     # Buy weapon_magnum
         leek market buy 1 -n 2 # Buy 2x chip_shock
     """
-    if item_id not in MARKET_ITEMS:
+    item = get_item(item_id)
+    if not item:
         error(f"Unknown item #{item_id}. Use 'leek market list' to see available items.")
         raise SystemExit(1)
-
-    item = MARKET_ITEMS[item_id]
     total_price = item["price"] * quantity
 
     api = login_api()
@@ -191,8 +163,9 @@ def equip(ctx: click.Context, item_id: int) -> None:
         if ctx.obj.get("json"):
             output_json(result)
         else:
-            template = found.get("template", "?")
-            name = MARKET_ITEMS.get(template, {}).get("name", f"item_{template}")
+            template = found.get("template", 0)
+            item_data = get_item(template)
+            name = item_data["name"] if item_data else f"item_{template}"
             success(f"Equipped {name} to leek!")
 
     finally:

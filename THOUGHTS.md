@@ -7,11 +7,44 @@
 
 ## TODOs (Next Session)
 
-1. 🔴 **FIX KITE STALEMATES** (#0201) - First GH Actions fight was a DRAW!
-2. 🔴 **CRAFT CHIPS** (#0401) - No API, manual only: /market → Inventory
-3. 🟡 **Implement garden API** (#0109) - Passive income endpoints found
-4. 🟡 **Implement tournament API** (#0110) - Registration endpoints found
+1. ✅ **BUY CHIPS FROM MARKET** (#0401) - 6/6 chips equipped! Weapon pending (low habs)
+2. 🔴 **FIX KITE STALEMATES** (#0201) - 21% draw rate kills win rate
+3. 🟡 **Implement garden API** (#0109) - Passive income endpoints
+4. 🟡 **Implement tournament API** (#0110) - Registration endpoints
 5. 🟢 **Archetype testing** (#0203) - Offline A/B
+6. 🟢 **Scrape full fights DB** - See tip below
+
+---
+
+## Session 10 CLI & Crafting (2026-01-23)
+
+**Theme:** Built unified CLI tool, discovered crafting API works!
+
+### `leek` CLI Built (#0104 ✅)
+| Command | Purpose |
+|---------|---------|
+| `leek info garden/leek/farmer` | Status checks |
+| `leek craft inventory` | List resources |
+| `leek craft list` | Show craftable recipes |
+| `leek craft make <id>` | Craft items! |
+| `leek fight status/run/history` | Fight operations |
+| `leek --json <cmd>` | Machine output for Claude |
+
+### Key Discoveries
+| Finding | Impact |
+|---------|--------|
+| Crafting API EXISTS | `POST /api/item/craft {scheme_id}` works! |
+| Inventory in farmer data | `/farmer/get-from-token` has everything |
+| 0 chips, 0 weapons owned | Explains crippled damage! |
+| Chips = market purchase | Not crafted - need to BUY |
+| 60 recipes in schemes.ts | Components craftable, chips buyable |
+
+### Crafting Test
+```
+Before: sand x3, earth x10, fire x13
+Craft: `leek craft make 60` (sand recipe)
+After: sand x4, earth x6, fire x9 ✅
+```
 
 ---
 
@@ -101,6 +134,19 @@ if (turn_count > 30 && total_damage_dealt < 100) {
 - 191, 193, 194, 195 (common)
 - 203, 204, 206, 207 (materials)
 - 231, 232, 233, 236 (special)
+
+---
+
+## Scraping Tip (from tagadai)
+
+**Full fights DB scraper** - 10 req/sec max, wait 10s on 429:
+```
+- Already on GitHub (tagadai's repo)
+- With regulator: full DB in a few hours
+- Dashboard included (crude but functional)
+```
+
+Rate limit: 10 req/sec → wait 10s on HTTP 429
 
 ---
 

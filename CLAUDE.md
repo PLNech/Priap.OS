@@ -113,6 +113,17 @@ Current research docs:
 - **Clean history** - Each commit should be a logical unit of work
 - **Feature branches** - New features on branches, merge when stable
 
+### Testing Philosophy: "Whoops = Unit Test"
+**Rule**: Every "whoops" moment deserves a regression test.
+- If hardcoded data caused a bug → dynamic loading + validation test
+- If an API call failed unexpectedly → test the error path
+- If user input was mishandled → input validation test
+
+**Example**: The "weapon_destroyer incident" (2026-01-23)
+- Bug: Hardcoded ID 40 as "weapon_magnum" when it's "weapon_destroyer"
+- Fix: Dynamic API loading with cache fallback
+- Tests: `TestWeaponDestroyerRegression` in `tests/test_market.py`
+
 ## Project Structure
 ```
 src/leekwars_agent/    # Core library

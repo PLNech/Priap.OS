@@ -1,0 +1,36 @@
+// Archetype: RUSHER - All-in aggro, never retreat
+// Counter: Kiting, outrange
+// Purpose: Test if our AI handles aggressive pressure
+
+var enemy = getNearestEnemy()
+if (enemy == null) return
+setWeapon(WEAPON_PISTOL)
+var dist = getCellDistance(getCell(), getCell(enemy))
+
+// PHASE 1: Rush - use ALL MP to close
+while (dist > 7 && getMP() > 0) {
+var m = moveToward(enemy)
+if (m == 0) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// PHASE 2: Shoot everything
+while (getTP() >= 3 && dist <= 7 && dist >= 1) {
+var r = useWeapon(enemy)
+if (r != USE_SUCCESS) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// PHASE 3: Close MORE (never retreat)
+while (getMP() > 0) {
+var m = moveToward(enemy)
+if (m == 0) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+// PHASE 4: Shoot again if in range
+while (getTP() >= 3 && dist <= 7 && dist >= 1) {
+var r = useWeapon(enemy)
+if (r != USE_SUCCESS) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}

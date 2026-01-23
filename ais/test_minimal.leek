@@ -1,0 +1,5 @@
+// Minimal test
+var enemy = getNearestEnemy()
+if (enemy == null) return
+var hp = getLife()
+debug("HP: " + hp)

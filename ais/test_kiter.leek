@@ -1,0 +1,16 @@
+// Test Kiter AI - Prioritizes shooting from range then retreating
+// Used to test v5 TTK logic: v5 should commit harder vs a kiter
+
+var enemy = getNearestEnemy();
+if (enemy == null) { return; }
+setWeapon(WEAPON_PISTOL);
+var dist = getCellDistance(getCell(), getCell(enemy));
+while (getTP() >= 3 && dist <= 7 && dist >= 1) {
+var r = useWeapon(enemy);
+if (r != USE_SUCCESS) { break; }
+dist = getCellDistance(getCell(), getCell(enemy));
+}
+while (getMP() > 0) {
+var m = moveAwayFrom(enemy);
+if (m == 0) { break; }
+}

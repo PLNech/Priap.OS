@@ -1,0 +1,44 @@
+// Archetype: TANK - High HP, defensive, timeout abuse
+// Counter: High burst damage, don't let timeout help them
+// Purpose: Test if our AI can close kills before timeout
+// Note: Tank works via stats (high LIFE), not AI behavior
+//       This AI is conservative - retreats when hurt
+
+global hp_pct
+
+var enemy = getNearestEnemy()
+if (enemy == null) return
+setWeapon(WEAPON_PISTOL)
+var dist = getCellDistance(getCell(), getCell(enemy))
+hp_pct = getLife() * 100 / 100  // Baseline HP
+
+// Conservative: retreat if hurt (<70% HP)
+if (hp_pct < 70) {
+// RETREAT PHASE: back away first
+while (dist < 7 && getMP() > 0) {
+var m = moveAwayFrom(enemy)
+if (m == 0) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+// Shoot from safety
+while (getTP() >= 3 && dist <= 7 && dist >= 1) {
+var r = useWeapon(enemy)
+if (r != USE_SUCCESS) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+} else {
+// NORMAL PHASE: cautious approach
+// Only close to max range, stay at distance
+while (dist > 7 && getMP() > 0) {
+var m = moveToward(enemy)
+if (m == 0) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+// Shoot
+while (getTP() >= 3 && dist <= 7 && dist >= 1) {
+var r = useWeapon(enemy)
+if (r != USE_SUCCESS) break
+dist = getCellDistance(getCell(), getCell(enemy))
+}
+// Don't close further - stay at max range
+}

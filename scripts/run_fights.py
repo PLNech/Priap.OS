@@ -86,10 +86,17 @@ def main():
                 print(f"[{i+1}] Failed: {result}")
                 continue
 
-            time.sleep(1.5)
-            fight = api.get_fight(fight_id)
-            winner = fight.get("winner")
-            report = fight.get("report", {})
+            # Poll until fight completes (status=1 or report exists)
+            fight = {}
+            for _ in range(15):  # Max 15 attempts (30 seconds)
+                time.sleep(2)
+                fight_data = api.get_fight(fight_id)
+                fight = fight_data if fight_data else {}
+                if fight.get("report") is not None or fight.get("winner", -1) != -1:
+                    break
+
+            winner = fight.get("winner", 0)
+            report = fight.get("report") or {}
 
             if winner == 1:
                 wins += 1
