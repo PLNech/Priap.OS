@@ -22,8 +22,10 @@ def status(ctx: click.Context) -> None:
     """Show current fight status (fights remaining, talent, etc)."""
     api = login_api()
     try:
-        garden = api.get_garden().get("garden", {})
-        leek = api.get_leek(LEEK_ID).get("leek", {})
+        garden_data = api.get_garden()
+        garden = garden_data.get("garden", garden_data)
+        leek_data = api.get_leek(LEEK_ID)
+        leek = leek_data.get("leek", leek_data)
 
         data = {
             "fights_available": garden.get("fights", 0),
