@@ -42,6 +42,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from leekwars_agent.api import LeekWarsAPI
 from leekwars_agent.auth import login_api
+from leekwars_agent.db import store_fight, init_db
 
 # Config
 LEEK_ID = 131321
@@ -158,6 +159,13 @@ def run_fights(api: LeekWarsAPI, count: int) -> dict:
 
             fight_data = api.get_fight(fight_id)
             fight = fight_data.get("fight", {})
+
+            # Store fight in database for analysis
+            try:
+                store_fight(fight)
+            except Exception as db_err:
+                log(f"  [{i+1}/{count}] DB save failed: {db_err}")
+
             winner = fight.get("winner", 0)
             my_team = 1  # We're always team 1 when attacking
 
@@ -212,6 +220,9 @@ def main():
 
     log("=" * 50)
     log("AUTO DAILY FIGHTS - Starting")
+
+    # Initialize fight database
+    init_db()
 
     # Login via centralized auth (reads LEEKWARS_USER/LEEKWARS_PASS env vars)
     try:
