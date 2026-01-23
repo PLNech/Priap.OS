@@ -16,6 +16,43 @@
 
 ---
 
+## Session 13 Ground Truth Grounding (2026-01-23)
+
+**Theme:** Stop Claude hallucinating game values with systematic grounding.
+
+### Problem Identified
+User feedback: Claude was making math errors and inventing values:
+- "4+4+3 = 11 TP but you only have 10" - planned impossible actions
+- Confused pistol (3TP) with magnum (5TP)
+- Forgot `setWeapon()` costs 1 TP
+
+### Root Cause
+Ground truth EXISTS in submodules but wasn't being consulted:
+- `tools/leek-wars/src/model/weapons.ts` - 40 weapons
+- `tools/leek-wars/src/model/chips.ts` - 174 chips
+- `tools/leek-wars-generator/.../FightConstants.java` - constants
+
+### Solution Implemented (#0112 ✅)
+1. **`docs/GROUND_TRUTH.md`** - Quick reference for equipment stats + TP budget
+2. **Grounding Protocol in CLAUDE.md** - Mandatory verification before combat math
+3. **`scripts/parse_ground_truth.py`** - Parser for submodule data
+4. **Bug fixes**:
+   - `market.py:88` - Fixed comment (ID 40 is destroyer, not magnum)
+   - `visualizer.py:512` - Added 8 more weapons to mapping
+
+### Key Values to Remember
+| Item | TP Cost | Notes |
+|------|---------|-------|
+| Pistol | 3 | max 4/turn |
+| Magnum | 5 | max 2/turn, need to buy |
+| `setWeapon()` | 1 | HIDDEN COST! |
+| FLAME | 4 | max 3/turn |
+| FLASH | 3 | AOE, CD=1 |
+
+**Rule**: Trust submodules > API exports > our code
+
+---
+
 ## Session 12 AI Rebuild & Simulator Gap (2026-01-23)
 
 **Theme:** First-principles AI rebuild, discovered simulator doesn't support chips.
