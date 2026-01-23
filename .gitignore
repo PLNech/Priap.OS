@@ -46,3 +46,4 @@ data/
 # Cloned tools (local development only)
 tools/leek-wars-generator/
 tools/leek-wars/
+tools/tagadai/
