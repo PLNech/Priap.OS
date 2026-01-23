@@ -7,10 +7,47 @@
 
 ## TODOs (Next Session)
 
-1. 🔴 **FIX KITE STALEMATES** (21% draw rate!) → Add turn_count > 30 → force_engage
-2. 🟡 **Craft chips** from 12+ components → Manual UI: /market → Inventory
-3. 🟢 **Archetype testing** vs rusher/tank/burst → Offline A/B
-4. 🟢 **Validate danger map** influences positioning → Add debug logging
+1. 🔴 **FIX KITE STALEMATES** (#0201) - First GH Actions fight was a DRAW!
+2. 🔴 **CRAFT CHIPS** (#0401) - No API, manual only: /market → Inventory
+3. 🟡 **Implement garden API** (#0109) - Passive income endpoints found
+4. 🟡 **Implement tournament API** (#0110) - Registration endpoints found
+5. 🟢 **Archetype testing** (#0203) - Offline A/B
+
+---
+
+## Session 9 Infrastructure Blitz (2026-01-23)
+
+**Theme:** Fixed the broken grind, connected the data pipeline.
+
+### Critical Fixes
+| Issue | Fix | Impact |
+|-------|-----|--------|
+| Cron dead 29 days | GitHub Actions 3x daily | Reliable grind |
+| main/master mismatch | Force push master→main | Workflow deploys |
+| Poetry 1.7 vs 2.0 | Updated to 2.0.1 | PEP 621 support |
+| Missing README | `--no-root` flag | Install works |
+| No DB saving | Added `store_fight()` | Data pipeline connected |
+
+### API Discoveries (Frontend Study)
+| Feature | Endpoint | Status |
+|---------|----------|--------|
+| Garden fights | `/garden/start-solo-fight/...` | Found, not implemented |
+| Tournament reg | `/leek/register-tournament/...` | Found, not implemented |
+| Chip crafting | None | Browser-only, no API |
+
+### Current State
+- **Level:** 27 (was 25)
+- **Fights:** 150/150 (bought pack via GH Actions!)
+- **Talent:** 79
+- **First GH Actions fight:** DRAW vs Sukamushu (stalemate confirmed)
+
+### Task System Established
+42 tasks across 5 pillars:
+- #0100 Infrastructure (7 tasks)
+- #0200 AI Strategy (5 tasks)
+- #0300 Data & Analysis (6 tasks)
+- #0400 Game Mechanics (6 tasks)
+- #0500 Operations (8 tasks)
 
 ---
 

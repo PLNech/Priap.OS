@@ -132,17 +132,20 @@ docs/                  # Living documentation
 - Account: PriapOS (Farmer ID: 124831)
 - Leek: IAdonis (ID: 131321)
 
-## Current State (Session 8 - 2026-01-18)
-- **Level**: 25 (was 20, +5 this session!)
-- **Rank**: Climbing (fighting L20-L25 opponents)
-- **Win rate**: 38% raw / 48% excluding draws
+## Current State (Session 9 - 2026-01-23)
+- **Level**: 27 (was 25)
+- **Rank**: Climbing (fighting L25-L27 opponents)
+- **Win rate**: 38% raw / 48% excluding draws (unchanged)
 - **Build**: STR=234, AGI=10
 - **AI Deployed**: fighter_v8.leek "Architect"
-- **Chips**: 0/6 equipped (need to craft - see below)
-- **Habs**: 51,515+
+- **Chips**: 0/6 equipped (**PRIORITY** - no API, manual craft)
+- **Habs**: 48,038 (after buying fight pack)
+- **Fights**: 150/150 (GitHub Actions auto-bought pack!)
 - **Components**: 12+ resources for crafting
 - **Website**: https://plnech.github.io/Priap.OS/
-- **Priority Bug**: 21% draw rate from kite stalemates
+- **Priority Bug**: 21% draw rate from kite stalemates (first GH fight = DRAW)
+- **GitHub Actions**: ✅ Live, 3x daily (17:00, 20:00, 22:30 UTC)
+- **Data Pipeline**: ✅ Fights now saved to `data/fights.db`
 
 ### Active Learnings
 **See `THOUGHTS.md`** for session analysis, hypotheses, and discoveries.
