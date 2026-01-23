@@ -1,10 +1,12 @@
-name: Daily Fights Fallback
+name: Daily Fights
 
-# Run at 22:30 UTC (23:30 Paris winter time) as last-chance fallback
-# Also allows manual trigger for testing
+# Spread 150 fights across 3 runs per day (UTC times)
+# Progressive: 35% + 35% + 100% of remaining = guaranteed full usage
 on:
   schedule:
-    - cron: '30 22 * * *'  # 22:30 UTC = 23:30 CET
+    - cron: '0 17 * * *'   # 17:00 UTC = 18:00 CET (batch 1: ~35%)
+    - cron: '0 20 * * *'   # 20:00 UTC = 21:00 CET (batch 2: ~35%)
+    - cron: '30 22 * * *'  # 22:30 UTC = 23:30 CET (final sweep: 100%)
   workflow_dispatch:  # Manual trigger
     inputs:
       percent:
@@ -30,9 +32,17 @@ jobs:
           python-version: '3.11'
 
       - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.7.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
 
       - name: Install dependencies
         run: poetry install --no-interaction
@@ -42,9 +52,23 @@ jobs:
           LEEKWARS_USER: ${{ secrets.LEEKWARS_USER }}
           LEEKWARS_PASS: ${{ secrets.LEEKWARS_PASS }}
         run: |
-          # Use inputs if manual, otherwise defaults
-          PERCENT="${{ github.event.inputs.percent || '100' }}"
-          DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+          # Determine percent based on trigger
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manual trigger: use inputs
+            PERCENT="${{ github.event.inputs.percent || '100' }}"
+            DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+          else
+            # Scheduled: progressive percentages
+            HOUR=$(date -u +%H)
+            if [ "$HOUR" = "17" ] || [ "$HOUR" = "20" ]; then
+              PERCENT=35  # Early batches: partial
+            else
+              PERCENT=100  # Final sweep: all remaining
+            fi
+            DRY_RUN="false"
+          fi
+
+          echo "Running $PERCENT% of available fights (hour=$HOUR)"
 
           if [ "$DRY_RUN" = "true" ]; then
             poetry run python scripts/auto_daily_fights.py --percent $PERCENT --dry-run

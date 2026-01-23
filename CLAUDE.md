@@ -2,6 +2,21 @@
 
 > **Claude**: Keep `THOUGHTS.md` in context (Read at session start) and up-to-date (Edit as you learn). Track learnings, questions, hypotheses to test there - not here.
 
+## Task Hierarchy (Source of Truth: Claude Code Tasks)
+
+Strategic planning lives in the task system. High-level structure:
+
+| Task | Pillar | Purpose |
+|------|--------|---------|
+| #0001 | 🏆 North Star | Reach Top 10 Leaderboard |
+| #0100 | 🔧 Infrastructure | Tooling, flywheel, simulation |
+| #0200 | 🧠 AI Strategy | Combat logic, archetypes, stalemate fixes |
+| #0300 | 📊 Data & Analysis | Fight parsing, pattern detection, metrics |
+| #0400 | 🎮 Game Mechanics | Build, chips, stats, equipment |
+| #0500 | ⚙️ Operations | Daily fights, automation, maintenance |
+
+Sub-tasks use notation like #0201, #0202 under their pillar.
+
 ## Project Overview
 Automated LeekWars agent aiming for **top 10 ladder**. The strategy: build infrastructure that lets us iterate faster than anyone else.
 
