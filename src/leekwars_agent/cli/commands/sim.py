@@ -235,3 +235,118 @@ def test_chips(ctx: click.Context, verbose: bool) -> None:
         raise SystemExit(1)
     else:
         success("Chip loading validated!")
+
+
+@sim.command("replay")
+@click.argument("fight_id", type=int)
+@click.option("--ai", "-a", default="fighter_v11.leek", help="AI to use for both sides")
+@click.option("--ai1", help="AI for team 1 (overrides --ai)")
+@click.option("--ai2", help="AI for team 2 (overrides --ai)")
+@click.option("--seed-override", type=int, help="Override original seed (for what-if testing)")
+@click.option("--runs", "-n", type=int, default=1, help="Number of simulation runs")
+@click.option("--verbose", "-v", is_flag=True, help="Show detailed output per run")
+@click.pass_context
+def replay(ctx: click.Context, fight_id: int, ai: str, ai1: str, ai2: str,
+           seed_override: int, runs: int, verbose: bool) -> None:
+    """Replay a historical fight with the same conditions.
+
+    Fetches fight data, reconstructs map/stats/positions/seed, then runs
+    the simulation with your AI. Since we don't have the opponent's AI code,
+    results may differ, but the CONDITIONS are identical.
+
+    Use cases:
+    - Determinism testing: Run N times with same seed, verify identical results
+    - What-if analysis: Override seed or use different AI to explore alternatives
+    - Bug reproduction: Replay a losing fight to debug your AI
+
+    Examples:
+        leek sim replay 50886948                    # Replay with v11 AI
+        leek sim replay 50886948 -n 10              # Run 10 times (determinism check)
+        leek sim replay 50886948 --seed-override 0  # Different RNG path
+        leek sim replay 50886948 --ai1 v11.leek --ai2 v8.leek  # Different AIs
+    """
+    from leekwars_agent.simulator import Simulator, replay_fight_scenario
+
+    # Fetch fight data
+    console.print(f"[bold]Replaying fight #{fight_id}[/bold]\n")
+    api = login_api()
+    try:
+        fight_data = api.get_fight(fight_id)
+        fight = fight_data.get("fight", fight_data)
+    finally:
+        api.close()
+
+    # Show original fight info
+    winner = fight.get("winner", 0)
+    winner_str = "Team 1" if winner == 1 else ("Draw" if winner == 0 else "Team 2")
+    seed = fight.get("seed", "N/A")
+
+    leeks1 = fight.get("leeks1", [])
+    leeks2 = fight.get("leeks2", [])
+    t1_names = [l.get("name", "?") for l in leeks1]
+    t2_names = [l.get("name", "?") for l in leeks2]
+
+    console.print(f"[dim]Original result: {winner_str}[/dim]")
+    console.print(f"[dim]Team 1: {', '.join(t1_names)}[/dim]")
+    console.print(f"[dim]Team 2: {', '.join(t2_names)}[/dim]")
+    console.print(f"[dim]Seed: {seed}[/dim]")
+    if seed_override is not None:
+        console.print(f"[yellow]Using seed override: {seed_override}[/yellow]")
+    console.print()
+
+    # Create scenario
+    ai1_path = ai1 or ai
+    ai2_path = ai2 or ai
+    scenario = replay_fight_scenario(fight, ai1_path, ai2_path, seed_override)
+
+    # Run simulations
+    sim = Simulator()
+    results = {"W": 0, "L": 0, "D": 0}
+    turns_list = []
+
+    for i in range(runs):
+        outcome = sim.run_scenario(scenario)
+
+        # Team 1 = our perspective
+        if outcome.winner == 1:
+            results["W"] += 1
+            result_char = "[green]W[/green]"
+        elif outcome.winner == 2:
+            results["L"] += 1
+            result_char = "[red]L[/red]"
+        else:
+            results["D"] += 1
+            result_char = "[yellow]D[/yellow]"
+
+        turns_list.append(outcome.turns)
+
+        if verbose or runs == 1:
+            console.print(f"  Run {i+1}: {result_char} in {outcome.turns} turns")
+
+    # Summary
+    total = results["W"] + results["L"] + results["D"]
+    wr = results["W"] / (results["W"] + results["L"]) * 100 if (results["W"] + results["L"]) > 0 else 0
+    avg_turns = sum(turns_list) / len(turns_list) if turns_list else 0
+
+    console.print(f"\n[bold]Replay Results ({runs} runs):[/bold]")
+    console.print(f"  {results['W']}W-{results['L']}L-{results['D']}D ({wr:.1f}% WR)")
+    console.print(f"  Avg turns: {avg_turns:.1f}")
+
+    # Determinism check
+    if runs > 1 and seed_override is None:
+        unique_outcomes = len(set(zip([r for r in "WLD" for _ in range(results[r])], turns_list)))
+        if unique_outcomes == 1:
+            console.print("[green]✓ Deterministic: All runs identical[/green]")
+        else:
+            console.print(f"[yellow]⚠ Non-deterministic: {unique_outcomes} unique outcomes[/yellow]")
+
+    if ctx.obj.get("json"):
+        output_json({
+            "fight_id": fight_id,
+            "original_winner": winner,
+            "runs": runs,
+            "results": results,
+            "win_rate": wr,
+            "avg_turns": avg_turns,
+            "seed_used": seed_override or seed,
+        })

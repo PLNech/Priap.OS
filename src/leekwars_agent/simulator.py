@@ -273,6 +273,41 @@ class EntityConfig:
             # cell omitted - uses map.team1/team2 spawn arrays
         }
 
+    @classmethod
+    def from_replay_entity(cls, entity: dict, ai_path: str, team: int) -> "EntityConfig":
+        """Create EntityConfig from fight.data.leeks[] entry.
+
+        Args:
+            entity: A leek entry from fight.data.leeks (has stats, weapons, chips)
+            ai_path: Path to AI file to use (we don't have opponent's original AI)
+            team: Which team this entity is on (1 or 2)
+
+        Returns:
+            Fully configured EntityConfig ready for simulation
+        """
+        return cls(
+            id=entity.get("id", 0),
+            name=entity.get("name", "Unknown"),
+            ai=ai_path,
+            level=entity.get("level", 1),
+            life=entity.get("life", 100),
+            tp=entity.get("tp", 10),
+            mp=entity.get("mp", 3),
+            strength=entity.get("strength", 0),
+            agility=entity.get("agility", 0),
+            wisdom=entity.get("wisdom", 0),
+            resistance=entity.get("resistance", 0),
+            science=entity.get("science", 0),
+            magic=entity.get("magic", 0),
+            frequency=entity.get("frequency", 100),
+            cores=1,  # Not in replay data, use default
+            ram=100,  # Not in replay data, use default
+            farmer=entity.get("farmer", 1),
+            team=team,
+            weapons=entity.get("weapons", []),
+            chips=entity.get("chips", []),
+        )
+
 
 @dataclass
 class ScenarioConfig:
@@ -349,6 +384,97 @@ class FightOutcome:
     @property
     def is_draw(self) -> bool:
         return self.winner == 0
+
+
+def detect_starter_team(fight_data: dict) -> int:
+    """Determine which team moved first from fight data.
+
+    The API returns fight.starter as a farmer ID, not a team number.
+    We need to check which team that farmer belongs to.
+
+    Args:
+        fight_data: Full fight API response (has leeks1, leeks2, starter)
+
+    Returns:
+        1 if team 1 started, 2 if team 2 started
+    """
+    starter_farmer = fight_data.get("starter")
+    if starter_farmer is None:
+        return 0  # Unknown, use frequency-based
+
+    # Check if starter farmer is in team 1
+    for leek in fight_data.get("leeks1", []):
+        if leek.get("farmer") == starter_farmer:
+            return 1
+
+    # Check team 2
+    for leek in fight_data.get("leeks2", []):
+        if leek.get("farmer") == starter_farmer:
+            return 2
+
+    return 0  # Fallback to frequency-based
+
+
+def replay_fight_scenario(
+    fight_data: dict,
+    ai1_path: str,
+    ai2_path: str | None = None,
+    seed_override: int | None = None,
+) -> ScenarioConfig:
+    """Create a ScenarioConfig that replicates a historical fight's conditions.
+
+    This extracts map, entity stats, positions, seed, and starter team from a
+    historical fight, allowing you to replay under identical conditions.
+
+    Note: Uses provided AI paths since we don't have access to opponent's original AI.
+    The simulation will use the same map, stats, positions, and RNG seed, but
+    different AI logic means results may differ from the original fight.
+
+    Args:
+        fight_data: Full fight API response (contains data.leeks, data.map, seed, starter)
+        ai1_path: AI file path for team 1 entities
+        ai2_path: AI file path for team 2 entities (defaults to ai1_path if None)
+        seed_override: Optional seed to use instead of original (for what-if testing)
+
+    Returns:
+        ScenarioConfig ready to run with Simulator.run_scenario()
+
+    Example:
+        >>> fight = api.get_fight(50886948)
+        >>> scenario = replay_fight_scenario(fight, "fighter_v11.leek")
+        >>> outcome = sim.run_scenario(scenario)
+    """
+    if ai2_path is None:
+        ai2_path = ai1_path
+
+    # The fight data structure: fight_data has nested "data" with leeks/map
+    data = fight_data.get("data", fight_data)
+    leeks = data.get("leeks", [])
+
+    # Split entities by team (team field is 1 or 2)
+    team1_entities = [e for e in leeks if e.get("team") == 1]
+    team2_entities = [e for e in leeks if e.get("team") == 2]
+
+    # Build entity configs with appropriate AI
+    team1 = [EntityConfig.from_replay_entity(e, ai1_path, 1) for e in team1_entities]
+    team2 = [EntityConfig.from_replay_entity(e, ai2_path, 2) for e in team2_entities]
+
+    # Reconstruct map from fight data
+    map_config = MapConfig.from_fight_data(data)
+
+    # Get seed (use override if provided)
+    seed = seed_override if seed_override is not None else fight_data.get("seed")
+
+    # Determine who started first
+    starter = detect_starter_team(fight_data)
+
+    return ScenarioConfig(
+        team1=team1,
+        team2=team2,
+        map_config=map_config,
+        seed=seed,
+        starter_team=starter,
+    )
 
 
 class Simulator:
