@@ -7,15 +7,68 @@
 
 ## TODOs (Next Session)
 
-1. ✅ ~~**FIX SIMULATOR CHIP SUPPORT** (#0111)~~ - Fixed! debug_fight.py was missing DEFAULT_CHIPS
-2. ✅ ~~**Test Scenario API** (#0118)~~ - CRITICAL FIND: Unlimited server-side fights!
-3. 🔴 **Fight DB Scraper** (#0307) - Full history like krranalyser.fr (Tagadai's guidance: 10 req/s, 429 backoff)
-4. 🟠 **Battle Royale automation** (#0509) - 10 free fights/day, needs WebSocket
-5. 🟡 **Buy magnum** (#0407) - Need 7,510 habs (have ~4,752)
-6. 🟡 **Test mathematician AI** - Deploy for prime cell farming
-7. 🟢 **Hunt clovers** - Click when they appear for lucky/eagle trophies
-8. 🟢 **Crack XII trophy** - "12 12 12 12 12 operations" mystery
-9. 🟢 **Crack lost trophy** - LOST numbers: 4 8 15 16 23 42?
+1. ✅ ~~**FIX SIMULATOR CHIP SUPPORT** (#0111)~~ - Fixed!
+2. ✅ ~~**Test Scenario API** (#0118)~~ - Unlimited server-side fights!
+3. ✅ ~~**Fight DB Scraper** (#0308)~~ - 2400+ fights scraped, BFS graph traversal!
+4. ✅ ~~**Meta Analysis CLI** (#0303)~~ - `leek analyze meta/level/stats`
+5. 🔴 **Fix kite stalemates** (#0201) - Our 6.5% draw rate is OK but could improve
+6. 🟠 **Battle Royale automation** (#0509) - 10 free fights/day, needs WebSocket
+7. 🟡 **Buy magnum** (#0407) - Need 7,510 habs
+8. 🟢 **Continue scraping** - Queue ready, run `leek scrape discover && leek scrape run`
+
+---
+
+## Session 17 Fight Scraper & Meta Analysis (2026-01-24)
+
+**Theme:** Built full fight scraper with BFS graph traversal, analyzed 2400+ fights.
+
+### Infrastructure Built
+
+| Component | Description |
+|-----------|-------------|
+| **Scraper** | BFS graph traversal of leek-fight bipartite graph |
+| **FightDB** | SQLite + WAL mode, priority queue, observations |
+| **Analyze CLI** | `leek analyze meta/level/stats` |
+| **Retry** | Exponential backoff in auth + scraper (429 recovery) |
+
+### CLI Commands Added
+```bash
+leek scrape discover -l 100    # BFS discovery from observed leeks
+leek scrape run -n 500         # Process queue
+leek analyze meta              # Full L25-100 analysis
+leek analyze level 34          # Level-specific deep dive
+leek analyze stats             # Database statistics
+```
+
+### Key Meta Findings (2417 fights, 12K leeks)
+
+| Metric | Value | Insight |
+|--------|-------|---------|
+| First-mover | 50% vs 44% | Slight advantage, not dominant |
+| Draw rate | 6.5% | Our ~21% was anomalous, now closer to meta |
+| STR dominance | 45% WR | Wins everywhere except L40-49 transition |
+| AGI weakness | 25% WR | Pure AGI fails at low levels |
+| L90+ AGI | 71% WR | High-level AGI viable (small sample) |
+
+### Optimal STR by Level (from data)
+
+| Level | Avg STR | Optimal Range | Win Rate |
+|-------|---------|---------------|----------|
+| L29-39 | 179 | 200-249 | 56% |
+| L40-49 | 56 | Hybrid zone | 45% |
+| L50-59 | 211 | 200+ | 42% |
+| L90-99 | 205 | AGI viable | 71%* |
+
+**Our STR (234) is in the optimal range for L34!**
+
+### Database Stats
+- **2,417 fights** | **11,712 observations** | **48 MB**
+- Queue persists to disk (interrupt-safe)
+- BFS tracks scraped leeks to avoid duplicates
+
+### API Endpoint Fix
+`history/get-leek-history/{id}` (was using wrong path)
+- Source: `tools/leek-wars/src/component/history/history.vue:163`
 
 ---
 
