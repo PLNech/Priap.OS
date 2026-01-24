@@ -29,6 +29,13 @@ Automated LeekWars agent aiming for **top 10 ladder**. The strategy: build infra
 
 **Principle**: Never test online what we can test offline. Every online fight is for data collection, not experimentation.
 
+### Online Testing Protocol (MANDATORY)
+**NEVER run multiple online fights without explicit user permission.** Online fights are SCARCE (50/day free).
+- Deploy → Run **1 fight** → Analyze result → Debug if needed
+- **ASK before running >1 fight** - even for "data collection"
+- Only scale up after user confirms intent
+- 10 wasted fights = 20% of daily budget gone
+
 ### The Flywheel
 ```
 Fight Online → Collect Data → Analyze Losses → Improve AI Offline
@@ -98,6 +105,20 @@ Oracle Eye pyramid with leek as pupil - see `docs/public/images/logo/`
 Current research docs:
 - `docs/research/chip_stats.md` - Chip stats, costs, effects
 - `docs/research/fight_meta_analysis.md` - 10k fight analysis, duration vs win rate
+- `docs/research/strategy_path_to_top10.md` - Three-phase strategy to #1
+- `docs/research/meta_analysis_l25_50.md` - STR dominance, first-mover stats
+
+### Data Modeling (Pydantic-First)
+**Build lightweight Pydantic models incrementally** as you discover data structures:
+1. When you encounter new API response formats → add to `src/leekwars_agent/models/`
+2. Start minimal, add fields as you need them
+3. Trust your models - don't re-parse raw JSON when models exist
+4. Test models against real data as you go
+
+**Current models** (`src/leekwars_agent/models/`):
+- `fight.py` - Fight, FightReplayData, ReplayEntity, LeekObservation
+
+**Why this matters**: CLI showed "D" as "Draw" when it meant "Defender". Proper typing catches these misinterpretations early.
 
 ### API Discovery Protocol (MANDATORY)
 **NEVER guess API endpoints.** Always verify from frontend source:
@@ -202,20 +223,24 @@ docs/                  # Living documentation
 - Account: PriapOS (Farmer ID: 124831)
 - Leek: IAdonis (ID: 131321)
 
-## Current State (Session 11 - 2026-01-23)
-- **Level**: 34 (was 27)
-- **Rank**: Climbing (fighting L30-L34 opponents)
-- **Win rate**: 38% raw / 48% excluding draws (unchanged)
-- **Build**: STR=234, AGI=10
+## Current State (Session 18 - 2026-01-24)
+- **Level**: 34
+- **Talent**: 38
+- **Win rate**: 38% raw / 48% excluding draws
+- **Build**: STR=310, AGI=10
 - **AI Deployed**: fighter_v8.leek "Architect"
-- **Chips**: 0/6 equipped (**PRIORITY** - buy from market!)
-- **Weapons**: 0 owned (need to buy)
-- **Habs**: 75,112 (ready to spend on equipment)
+- **Chips**: 6/6 equipped ✓ (PROTEIN, MOTIVATION, CURE, BOOTS, FLASH, FLAME)
+- **Weapons**: 1/2 (Pistol equipped)
 - **Fights**: GitHub Actions running 3x daily
 - **Website**: https://plnech.github.io/Priap.OS/
-- **Priority Bug**: 21% draw rate from kite stalemates
-- **GitHub Actions**: ✅ Live, 3x daily (17:00, 20:00, 22:30 UTC)
-- **Research**: See `docs/research/` for chip stats & fight meta analysis
+- **Priority Bug**: 21% draw rate from kite stalemates → v10 fix ready to deploy
+- **Scraper**: 2,417 fights, 11,712 observations (L25-100 meta data)
+- **Research**: See `docs/research/` for strategy, chip stats, meta analysis
+
+### Phase 1 Focus (This Week)
+1. Validate v10 offline (#58)
+2. Deploy v10 (#59)
+3. Measure draw rate < 10% (#60)
 
 ### Active Learnings
 **See `THOUGHTS.md`** for session analysis, hypotheses, and discoveries.
@@ -223,6 +248,7 @@ docs/                  # Living documentation
 ### AI Versions
 | Version | Codename | Key Feature | Status |
 |---------|----------|-------------|--------|
+| v10 | Phoenix | Stalemate fix (force_engage turn 30) | Ready to validate |
 | v8 | Architect | 5-module subsystems, ops-optimized | **DEPLOYED** |
 | v6 | Oracle | TTK + counter-kiter | Baseline |
 

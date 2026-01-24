@@ -70,10 +70,11 @@ jobs:
             echo "Scheduled run: $PERCENT% at UTC hour $HOUR"
           fi
 
+          # --no-buy: Only use free 50/day, don't spend habs on extra packs
           if [ "$DRY_RUN" = "true" ]; then
-            poetry run python scripts/auto_daily_fights.py --percent $PERCENT --dry-run
+            poetry run python scripts/auto_daily_fights.py --percent $PERCENT --no-buy --dry-run
           else
-            poetry run python scripts/auto_daily_fights.py --percent $PERCENT
+            poetry run python scripts/auto_daily_fights.py --percent $PERCENT --no-buy
           fi
 
       - name: Upload logs
