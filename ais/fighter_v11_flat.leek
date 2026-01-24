@@ -1,0 +1,1508 @@
+// Fighter v11 "Hydra" - FLATTENED for online deployment
+// Generated from multi-file version
+// =============================================================================
+
+// === v8_state.leek ===
+// v8_state.leek - Cross-turn persistence and fight phase detection
+// Fighter v8 "Architect" - Module 1/5
+
+// ============================================================
+// TURN TRACKING
+// ============================================================
+global turn_count = 0
+global fight_phase = "opening"  // opening, midgame, endgame
+
+// ============================================================
+// HP TRACKING
+// ============================================================
+global my_start_hp = 0
+global enemy_start_hp = 0
+global last_enemy_hp = 0
+global last_my_hp = 0
+
+// ============================================================
+// DAMAGE TRACKING
+// ============================================================
+global total_damage_dealt = 0
+global total_damage_taken = 0
+global my_dpt = 0   // damage per turn average
+global enemy_dpt = 0
+
+// ============================================================
+// TTK (Time To Kill) CALCULATIONS
+// ============================================================
+global my_ttk = 999    // turns to kill enemy
+global enemy_ttk = 999 // turns for enemy to kill us
+global winning_race = true
+
+// ============================================================
+// ENEMY BEHAVIOR DETECTION
+// ============================================================
+global last_enemy_dist = 0
+global enemy_pattern = "unknown"  // aggressive, kiting, passive
+global enemy_closing_count = 0    // turns enemy moved toward us
+global enemy_retreating_count = 0 // turns enemy moved away
+
+// ============================================================
+// STALEMATE DETECTION
+// ============================================================
+global stalemate_threshold = 25    // Turn threshold for stalemate check
+global low_damage_threshold = 50   // Min expected damage by threshold
+global force_engage = false        // Override flag for forced commitment
+global turns_no_damage = 0         // Consecutive idle turns
+
+// ============================================================
+// POSITION CACHING
+// ============================================================
+global cached_my_accessible = null
+global cached_enemy_accessible = null
+global cached_danger_map = null
+
+// ============================================================
+// STATE INITIALIZATION
+// ============================================================
+function initState(enemy) {
+    my_start_hp = getLife()
+    enemy_start_hp = getLife(enemy)
+    last_enemy_hp = enemy_start_hp
+    last_my_hp = my_start_hp
+    last_enemy_dist = getCellDistance(getCell(), getCell(enemy))
+    enemy_pattern = "unknown"
+    enemy_closing_count = 0
+    enemy_retreating_count = 0
+    fight_phase = "opening"
+}
+
+// ============================================================
+// TURN UPDATE
+// ============================================================
+function updateState(enemy) {
+    var my_hp = getLife()
+    var enemy_hp = getLife(enemy)
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    // Track damage from last turn
+    var dmg_dealt = last_enemy_hp - enemy_hp
+    var dmg_taken = last_my_hp - my_hp
+
+    if (dmg_dealt > 0) {
+        total_damage_dealt = total_damage_dealt + dmg_dealt
+        turns_no_damage = 0  // Reset streak on damage
+    } else {
+        turns_no_damage = turns_no_damage + 1  // Increment idle streak
+    }
+    if (dmg_taken > 0) {
+        total_damage_taken = total_damage_taken + dmg_taken
+    }
+
+    // Update DPT averages (after turn 1)
+    if (turn_count > 0) {
+        my_dpt = total_damage_dealt / turn_count
+        enemy_dpt = total_damage_taken / turn_count
+    }
+
+    // TTK calculation (need at least 1 damage to estimate)
+    if (my_dpt > 0) {
+        my_ttk = ceil(enemy_hp / my_dpt)
+    }
+    if (enemy_dpt > 0) {
+        enemy_ttk = ceil(my_hp / enemy_dpt)
+    }
+
+    // Am I winning the damage race?
+    winning_race = my_ttk <= enemy_ttk
+
+    // Detect enemy movement pattern
+    if (turn_count > 0) {
+        if (dist > last_enemy_dist) {
+            enemy_retreating_count = enemy_retreating_count + 1
+        } else if (dist < last_enemy_dist) {
+            enemy_closing_count = enemy_closing_count + 1
+        }
+
+        // Classify pattern after a few turns
+        if (turn_count >= 2) {
+            if (enemy_retreating_count > enemy_closing_count + 1) {
+                enemy_pattern = "kiting"
+            } else if (enemy_closing_count > enemy_retreating_count + 1) {
+                enemy_pattern = "aggressive"
+            } else {
+                enemy_pattern = "passive"
+            }
+        }
+    }
+
+    // Update tracking for next turn
+    last_enemy_hp = enemy_hp
+    last_my_hp = my_hp
+    last_enemy_dist = dist
+
+    // Increment turn
+    turn_count = turn_count + 1
+
+    // Clear caches (recompute each turn)
+    cached_my_accessible = null
+    cached_enemy_accessible = null
+    cached_danger_map = null
+}
+
+// ============================================================
+// PHASE DETECTION
+// ============================================================
+function detectPhase() {
+    var my_hp_pct = getLife() * 100 / my_start_hp
+    var enemy_hp_pct = 100
+    if (enemy_start_hp > 0) {
+        enemy_hp_pct = last_enemy_hp * 100 / enemy_start_hp
+    }
+
+    if (turn_count <= 2) {
+        fight_phase = "opening"
+    } else if (my_hp_pct < 40 || enemy_hp_pct < 40) {
+        fight_phase = "endgame"
+    } else {
+        fight_phase = "midgame"
+    }
+}
+
+// ============================================================
+// STALEMATE DETECTION
+// ============================================================
+function detectStalemate() {
+    force_engage = false
+
+    // Signal 1: High turns + low total damage
+    // If we've been fighting for 25+ turns and barely dealt damage, something's wrong
+    if (turn_count >= stalemate_threshold && total_damage_dealt < low_damage_threshold) {
+        force_engage = true
+        debug("  STALEMATE: Low damage over " + turn_count + " turns (dealt: " + total_damage_dealt + ")")
+        return;
+    }
+
+    // Signal 2: 5+ consecutive turns with no damage dealt
+    // Both kiters dancing, nobody committing
+    if (turns_no_damage >= 5) {
+        force_engage = true
+        debug("  STALEMATE: " + turns_no_damage + " consecutive turns with no damage")
+        return;
+    }
+}
+
+// ============================================================
+// DEBUG OUTPUT
+// ============================================================
+function debugState() {
+    debug("T" + turn_count + " Phase:" + fight_phase + " HP:" + getLife() + "/" + my_start_hp)
+    debug("  TTK: me=" + my_ttk + " vs enemy=" + enemy_ttk + " winning=" + winning_race)
+    debug("  Pattern: " + enemy_pattern + " (close:" + enemy_closing_count + " retreat:" + enemy_retreating_count + ")")
+    if (turns_no_damage > 0) {
+        debug("  NoDmg streak: " + turns_no_damage)
+    }
+}
+
+
+// === v8_accessible_cells.leek ===
+// v8_accessible_cells.leek - Efficient neighbor propagation for reachability
+// Fighter v8 "Architect" - Module 2/5
+//
+// Uses BFS flood-fill to find all cells reachable with N movement points.
+// Optimizations:
+// - Associative array for O(1) visited lookup (vs O(n) with inArray)
+// - Pre-computed neighbors cached per-fight
+// - Early exit on ops limit
+
+// ============================================================
+// NEIGHBOR CACHE (computed once per fight)
+// ============================================================
+global neighbor_cache_initialized = false
+global neighbor_cache = [:]  // cell -> [neighbors]
+
+// LeekWars grid constants
+global MAP_WIDTH = 18
+global MAP_HEIGHT = 18
+
+// ============================================================
+// COORDINATE HELPERS
+// ============================================================
+
+// Get cell from x,y coordinates (LeekWars specific formula)
+function cellFromXY(x, y) {
+    if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) {
+        return -1
+    }
+    return y * MAP_WIDTH + x
+}
+
+// Get x coordinate from cell
+function cellX(cell) {
+    return cell % MAP_WIDTH
+}
+
+// Get y coordinate from cell
+function cellY(cell) {
+    return floor(cell / MAP_WIDTH)
+}
+
+// ============================================================
+// NEIGHBOR COMPUTATION
+// ============================================================
+
+// Get cardinal neighbors of a cell (4-directional: N, S, E, W)
+function getCardinalNeighbors(cell) {
+    var x = cellX(cell)
+    var y = cellY(cell)
+    var neighbors = []
+
+    // North
+    if (y > 0) {
+        push(neighbors, cellFromXY(x, y - 1))
+    }
+    // South
+    if (y < MAP_HEIGHT - 1) {
+        push(neighbors, cellFromXY(x, y + 1))
+    }
+    // West
+    if (x > 0) {
+        push(neighbors, cellFromXY(x - 1, y))
+    }
+    // East
+    if (x < MAP_WIDTH - 1) {
+        push(neighbors, cellFromXY(x + 1, y))
+    }
+
+    return neighbors
+}
+
+// Initialize neighbor cache for all cells (call once at fight start)
+function initNeighborCache() {
+    if (neighbor_cache_initialized) return;
+
+    // For each cell, pre-compute walkable neighbors
+    // This is expensive but only done once
+    var cell = 0;
+    while (cell < 324) {
+        var neighbors = getCardinalNeighbors(cell)
+        var walkable = []
+
+        for (var n in neighbors) {
+            // Check if the neighbor cell is not an obstacle
+            // Note: We check obstacle status, not entity occupancy
+            // Entities can move, so we recheck occupancy at query time
+            if (isEmptyCell(n) || getCellContent(n) != CELL_OBSTACLE) {
+                push(walkable, n)
+            }
+        }
+
+        neighbor_cache[cell] = walkable
+
+        // Ops safety check
+        if (getOperations() > 500000) {
+            debug("Warning: neighbor cache init stopped early (ops limit)")
+            break;
+        }
+        cell++
+    }
+
+    neighbor_cache_initialized = true
+}
+
+// ============================================================
+// ACCESSIBLE CELLS (BFS FLOOD FILL)
+// ============================================================
+
+// Find all cells reachable from start_cell with up to max_mp movement
+// Returns associative array: cell -> mp_cost to reach it
+function getAccessibleCells(start_cell, max_mp) {
+    // Result: cell -> cost to reach
+    var accessible = [:]
+    accessible[start_cell] = 0
+
+    // BFS frontier
+    var frontier = [start_cell]
+    var current_cost = 0
+
+    while (current_cost < max_mp && count(frontier) > 0) {
+        var next_frontier = []
+
+        for (var cell in frontier) {
+            // Get pre-computed neighbors
+            var neighbors = neighbor_cache[cell]
+            if (neighbors == null) {
+                // Fallback if cache not initialized
+                neighbors = getCardinalNeighbors(cell)
+            }
+
+            for (var neighbor in neighbors) {
+                // Skip if already visited
+                if (accessible[neighbor] != null) continue;
+
+                // Skip if occupied by an entity (can't walk through)
+                // But allow our own cell and empty cells
+                if (!isEmptyCell(neighbor)) continue;
+
+                // Add to accessible with cost
+                accessible[neighbor] = current_cost + 1
+                push(next_frontier, neighbor)
+            }
+
+            // Ops safety
+            if (getOperations() > 800000) {
+                debug("Warning: accessible cells stopped early (ops limit)")
+                return accessible
+            }
+        }
+
+        frontier = next_frontier
+        current_cost = current_cost + 1
+    }
+
+    return accessible
+}
+
+// ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
+
+// Get all cells from accessible map as array (keys only)
+function accessibleCellsToArray(accessible) {
+    var cells = []
+    for (var cell : var cost in accessible) {
+        push(cells, cell)
+    }
+    return cells
+}
+
+// Find closest cell in accessible map to target cell
+function getClosestAccessible(accessible, target_cell) {
+    var best_cell = -1
+    var best_dist = 999999
+
+    for (var cell : var cost in accessible) {
+        var dist = getCellDistance(cell, target_cell)
+        if (dist < best_dist) {
+            best_dist = dist
+            best_cell = cell
+        }
+
+        // Ops safety
+        if (getOperations() > 850000) break;
+    }
+
+    return best_cell
+}
+
+// Find furthest cell in accessible map from target cell
+function getFurthestAccessible(accessible, target_cell) {
+    var best_cell = -1
+    var best_dist = -1
+
+    for (var cell : var cost in accessible) {
+        var dist = getCellDistance(cell, target_cell)
+        if (dist > best_dist) {
+            best_dist = dist
+            best_cell = cell
+        }
+
+        // Ops safety
+        if (getOperations() > 850000) break;
+    }
+
+    return best_cell
+}
+
+// Count accessible cells
+function countAccessible(accessible) {
+    var count_val = 0
+    for (var cell : var cost in accessible) {
+        count_val = count_val + 1
+    }
+    return count_val
+}
+
+
+// === v8_danger_map.leek ===
+// v8_danger_map.leek - Cell danger scoring based on enemy reach
+// Fighter v8 "Architect" - Module 3/5
+//
+// Computes a danger score for each cell based on:
+// - How many positions enemy can reach to shoot us
+// - Distance to enemy (closer = more danger)
+// - Line of sight availability
+
+// ============================================================
+// DANGER COMPUTATION
+// ============================================================
+
+// Compute danger score for each cell in my_accessible
+// Higher score = more dangerous (enemy can hit from more positions)
+function computeDangerMap(my_accessible, enemy, enemy_mp) {
+    var danger = [:]
+    var enemy_cell = getCell(enemy)
+
+    // Get enemy's reachable positions
+    var enemy_accessible = getAccessibleCells(enemy_cell, enemy_mp)
+
+    // Get enemy's weapon info (for range check)
+    var enemy_weapon = getWeapon(enemy)
+    var enemy_min_range = 1
+    var enemy_max_range = 7  // Default pistol range
+
+    if (enemy_weapon != null) {
+        enemy_min_range = getWeaponMinRange(enemy_weapon)
+        enemy_max_range = getWeaponMaxRange(enemy_weapon)
+    }
+
+    // For each cell I could move to
+    for (var my_cell : var my_cost in my_accessible) {
+        var cell_danger = 0
+
+        // Check how many enemy positions can hit this cell
+        for (var e_cell : var e_cost in enemy_accessible) {
+            var dist = getCellDistance(my_cell, e_cell)
+
+            // Can enemy shoot me from there?
+            if (dist >= enemy_min_range && dist <= enemy_max_range) {
+                // Check line of sight
+                if (lineOfSight(e_cell, my_cell)) {
+                    cell_danger = cell_danger + 1
+
+                    // Bonus danger if they can reach in fewer moves
+                    // (more MP left to shoot multiple times)
+                    var remaining_mp = enemy_mp - e_cost
+                    if (remaining_mp >= 0) {
+                        cell_danger = cell_danger + (remaining_mp * 0.5)
+                    }
+                }
+            }
+
+            // Ops safety - aggressive limit for danger map
+            if (getOperations() > 300000) {
+                // Set danger for unchecked cells to average
+                danger[my_cell] = cell_danger
+                return danger
+            }
+        }
+
+        danger[my_cell] = cell_danger
+    }
+
+    return danger
+}
+
+// ============================================================
+// SIMPLIFIED DANGER (faster, less accurate)
+// ============================================================
+
+// Quick danger estimate based on distance only (very fast)
+function computeQuickDanger(my_accessible, enemy) {
+    var danger = [:]
+    var enemy_cell = getCell(enemy)
+
+    for (var my_cell : var my_cost in my_accessible) {
+        // Simple: closer = more dangerous
+        var dist = getCellDistance(my_cell, enemy_cell)
+
+        // Invert distance: dist 1 = danger 10, dist 10 = danger 1
+        var cell_danger = 0
+        if (dist > 0) {
+            cell_danger = 15 - dist
+            if (cell_danger < 0) cell_danger = 0
+        } else {
+            cell_danger = 20  // Same cell = max danger
+        }
+
+        // Reduce danger if no line of sight from enemy
+        if (!lineOfSight(enemy_cell, my_cell)) {
+            cell_danger = cell_danger * 0.3  // 70% reduction
+        }
+
+        danger[my_cell] = cell_danger
+    }
+
+    return danger
+}
+
+// ============================================================
+// DANGER ANALYSIS
+// ============================================================
+
+// Find the safest cell (lowest danger)
+function getSafestCell(danger_map) {
+    var safest_cell = -1
+    var lowest_danger = 999999
+
+    for (var cell : var danger in danger_map) {
+        if (danger < lowest_danger) {
+            lowest_danger = danger
+            safest_cell = cell
+        }
+    }
+
+    return safest_cell
+}
+
+// Find safest cell that's also close to a target
+function getSafestCellNear(danger_map, target_cell, max_dist) {
+    var best_cell = -1
+    var best_score = -999999  // Higher = better (low danger, close)
+
+    for (var cell : var danger in danger_map) {
+        var dist = getCellDistance(cell, target_cell)
+
+        if (dist <= max_dist) {
+            // Score: prefer low danger and close distance
+            var score = -danger - (dist * 2)  // Weight distance less than danger
+
+            if (score > best_score) {
+                best_score = score
+                best_cell = cell
+            }
+        }
+    }
+
+    return best_cell
+}
+
+// Find cells below danger threshold
+function getCellsBelowDanger(danger_map, threshold) {
+    var safe_cells = []
+
+    for (var cell : var danger in danger_map) {
+        if (danger <= threshold) {
+            push(safe_cells, cell)
+        }
+    }
+
+    return safe_cells
+}
+
+// Get average danger level
+function getAverageDanger(danger_map) {
+    var total = 0
+    var cell_count = 0
+
+    for (var cell : var danger in danger_map) {
+        total = total + danger
+        cell_count = cell_count + 1
+    }
+
+    if (cell_count == 0) return 0
+    return total / cell_count
+}
+
+// Get danger at specific cell
+function getDangerAt(danger_map, cell) {
+    var d = danger_map[cell]
+    if (d == null) return 999  // Unknown = assume dangerous
+    return d
+}
+
+// Debug output for danger map
+function debugDangerMap(danger_map) {
+    var min_d = 999999
+    var max_d = 0
+    var total = 0
+    var n = 0
+
+    for (var cell : var d in danger_map) {
+        if (d < min_d) min_d = d
+        if (d > max_d) max_d = d
+        total = total + d
+        n = n + 1
+    }
+
+    var avg = 0
+    if (n > 0) avg = round(total / n)
+
+    var safest = getSafestCell(danger_map)
+    debug("  Danger: min=" + round(min_d) + " max=" + round(max_d) + " avg=" + avg + " safest=" + safest)
+}
+
+
+// === v8_hide_seek.leek ===
+// v8_hide_seek.leek - Safe cell computation (hide from enemy)
+// Fighter v8 "Architect" - Module 4/5
+//
+// Find cells where enemy has NO line of sight, even after moving.
+// This is the "hide" part of hide-and-seek positioning.
+
+// ============================================================
+// SAFE CELL DETECTION
+// ============================================================
+
+// Find cells that are completely safe (no LOS from any enemy position)
+// This is VERY expensive (O(n*m) LOS checks) - use sparingly!
+function findSafeCells(my_accessible, enemy_accessible) {
+    var safe_cells = []
+    var ops_limit = 400000  // Aggressive limit - bail early
+
+    for (var my_cell : var my_cost in my_accessible) {
+        var is_safe = true
+
+        // Check if ANY enemy position has LOS to this cell
+        for (var enemy_cell : var enemy_cost in enemy_accessible) {
+            if (lineOfSight(enemy_cell, my_cell)) {
+                is_safe = false
+                break  // One LOS = not safe, no need to check more
+            }
+
+            // Ops safety
+            if (getOperations() > ops_limit) {
+                // Return what we have so far
+                return safe_cells
+            }
+        }
+
+        if (is_safe) {
+            push(safe_cells, my_cell)
+        }
+    }
+
+    return safe_cells
+}
+
+// ============================================================
+// RETREAT CELL SELECTION
+// ============================================================
+
+// Get best retreat cell considering safety and position
+function getBestRetreatCell(my_accessible, enemy_accessible, danger_map) {
+    var my_cell = getCell()
+
+    // Strategy 1: Find completely safe cells
+    var safe = findSafeCells(my_accessible, enemy_accessible)
+
+    if (count(safe) > 0) {
+        // Pick closest safe cell to maintain some aggression
+        var best = -1
+        var best_dist = 999999
+
+        for (var cell in safe) {
+            var dist = getCellDistance(cell, my_cell)
+            if (dist < best_dist) {
+                best_dist = dist
+                best = cell
+            }
+        }
+
+        debug("  Retreat: " + count(safe) + " safe cells, chose " + best + " (closest)")
+        return best
+    }
+
+    // Strategy 2: No completely safe cell - pick lowest danger
+    if (danger_map != null) {
+        var safest = getSafestCell(danger_map)
+        if (safest != -1) {
+            debug("  Retreat: 0 safe cells, using lowest danger " + safest)
+            return safest
+        }
+    }
+
+    // Strategy 3: Just move away from enemy
+    var enemy = getNearestEnemy()
+    if (enemy != null) {
+        var far = getFurthestAccessible(my_accessible, getCell(enemy))
+        debug("  Retreat: no danger map, fleeing to " + far)
+        return far
+    }
+
+    debug("  Retreat: staying put (no options)")
+    return my_cell  // Stay put as fallback
+}
+
+// ============================================================
+// ATTACK POSITION SELECTION
+// ============================================================
+
+// Find best cell to attack from (can hit enemy, low danger)
+function getBestAttackCell(my_accessible, enemy, danger_map, weapon_min, weapon_max) {
+    var enemy_cell = getCell(enemy)
+    var best_cell = -1
+    var best_score = -999999
+
+    for (var cell : var cost in my_accessible) {
+        var dist = getCellDistance(cell, enemy_cell)
+
+        // Must be in weapon range
+        if (dist < weapon_min || dist > weapon_max) continue;
+
+        // Must have line of sight
+        if (!lineOfSight(cell, enemy_cell)) continue;
+
+        // Score: prefer low danger, prefer optimal range (max range = safer)
+        var danger = 10  // Default if no map
+        if (danger_map != null && danger_map[cell] != null) {
+            danger = danger_map[cell]
+        }
+
+        // Score calculation:
+        // - Lower danger is better (negative weight)
+        // - Prefer max range (safer kiting position)
+        // - Lower movement cost is better (save MP)
+        var range_bonus = dist - weapon_min  // Higher = better
+        var mp_bonus = -cost  // Lower cost = better
+        var danger_penalty = -danger * 2  // Weight danger heavily
+
+        var score = range_bonus + mp_bonus + danger_penalty
+
+        if (score > best_score) {
+            best_score = score
+            best_cell = cell
+        }
+    }
+
+    return best_cell
+}
+
+// ============================================================
+// COVER DETECTION
+// ============================================================
+
+// Check if a cell provides cover (blocks LOS from enemy's current position)
+function hasCover(cell, enemy_cell) {
+    return !lineOfSight(enemy_cell, cell)
+}
+
+// Count how many enemy positions this cell is hidden from
+function getCoverScore(cell, enemy_accessible) {
+    var hidden_from = 0
+
+    for (var e_cell : var cost in enemy_accessible) {
+        if (!lineOfSight(e_cell, cell)) {
+            hidden_from = hidden_from + 1
+        }
+
+        // Ops safety
+        if (getOperations() > 850000) break;
+    }
+
+    return hidden_from
+}
+
+// ============================================================
+// TACTICAL POSITION ANALYSIS
+// ============================================================
+
+// Categorize my accessible cells by tactical value
+function analyzeTacticalPositions(my_accessible, enemy_accessible, danger_map, weapon_min, weapon_max) {
+    var enemy = getNearestEnemy()
+    if (enemy == null) return null
+
+    var enemy_cell = getCell(enemy)
+
+    var result = [:]
+    result["safe"] = []       // Completely hidden
+    result["attack"] = []     // Can attack, reasonable danger
+    result["exposed"] = []    // Can attack but high danger
+    result["retreat"] = []    // Out of range, low danger
+
+    var avg_danger = 0
+    if (danger_map != null) {
+        avg_danger = getAverageDanger(danger_map)
+    }
+
+    for (var cell : var cost in my_accessible) {
+        var dist = getCellDistance(cell, enemy_cell)
+        var has_los = lineOfSight(cell, enemy_cell)
+        var in_range = dist >= weapon_min && dist <= weapon_max && has_los
+
+        var danger = 10
+        if (danger_map != null && danger_map[cell] != null) {
+            danger = danger_map[cell]
+        }
+
+        // Categorize
+        if (danger == 0) {
+            push(result["safe"], cell)
+        } else if (in_range && danger <= avg_danger) {
+            push(result["attack"], cell)
+        } else if (in_range && danger > avg_danger) {
+            push(result["exposed"], cell)
+        } else if (danger < avg_danger) {
+            push(result["retreat"], cell)
+        }
+    }
+
+    return result
+}
+
+
+// === v8_combat.leek ===
+// v8_combat.leek - Weapon rotation and combat execution
+// Fighter v8 "Architect" - Module 5/5
+//
+// Handles multi-weapon rotation respecting v2.42 usage limits.
+// Tracks uses per turn and selects optimal weapon for situation.
+
+// ============================================================
+// WEAPON USAGE TRACKING (v2.42 limits)
+// ============================================================
+global weapon_uses = [:]       // weapon_id -> uses this turn
+global current_weapon = null   // Currently equipped weapon
+global weapon_switched = false // Did we switch this turn?
+
+// Reset at start of each turn
+function resetCombatState() {
+    weapon_uses = [:]
+    weapon_switched = false
+}
+
+// ============================================================
+// WEAPON SELECTION
+// ============================================================
+
+// Get best weapon to use against enemy with remaining TP
+function getBestWeapon(enemy, remaining_tp) {
+    var best_weapon = null
+    var best_score = -999999
+
+    var weapons = getWeapons()
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    for (var w in weapons) {
+        var cost = getWeaponCost(w)
+        var min_range = getWeaponMinRange(w)
+        var max_range = getWeaponMaxRange(w)
+
+        // Skip if can't afford
+        if (cost > remaining_tp) continue;
+
+        // Check usage limit (v2.42 feature)
+        var max_uses = 999  // Default unlimited
+        // Note: getWeaponMaxUses() may not exist in all versions
+        // Fallback: track uses manually and assume 3 for most weapons
+        var uses_this_turn = weapon_uses[w]
+        if (uses_this_turn == null) uses_this_turn = 0
+        if (uses_this_turn >= 3) continue  // Safe limit
+
+        // Skip if out of range
+        if (dist < min_range || dist > max_range) continue;
+
+        // Need line of sight
+        if (!lineOfSight(getCell(), getCell(enemy))) continue;
+
+        // Score weapon by damage output
+        var damage = getWeaponEffects(w)  // Get weapon effects/damage
+        // Approximation: use item ID as rough damage proxy for now
+        // Higher tier weapons = higher damage generally
+        var damage_estimate = cost * 10  // Rough estimate
+
+        // Switching cost: penalize if we need to switch
+        var switch_penalty = 0
+        if (current_weapon != w && current_weapon != null) {
+            switch_penalty = 1  // 1 TP to switch
+            if (switch_penalty >= remaining_tp - cost) {
+                switch_penalty = 999  // Can't afford switch + shot
+            }
+        }
+
+        var score = damage_estimate - switch_penalty
+
+        if (score > best_score) {
+            best_score = score
+            best_weapon = w
+        }
+    }
+
+    return best_weapon
+}
+
+// ============================================================
+// COMBAT EXECUTION
+// ============================================================
+
+// Execute all possible attacks against enemy
+function executeAttacks(enemy) {
+    var attacks_made = 0
+    var total_tp = getTP()
+    var total_damage = 0
+
+    while (getTP() > 0) {
+        var weapon = getBestWeapon(enemy, getTP())
+
+        if (weapon == null) {
+            // No usable weapon - might need to move
+            break;
+        }
+
+        // Switch weapon if needed
+        if (getWeapon() != weapon) {
+            if (getTP() < getWeaponCost(weapon) + 1) {
+                // Can't afford switch + attack
+                break;
+            }
+            setWeapon(weapon)
+            current_weapon = weapon
+            weapon_switched = true
+        }
+
+        // Attack
+        var enemy_hp_before = getLife(enemy)
+        var result = useWeapon(enemy)
+
+        if (result == USE_SUCCESS) {
+            attacks_made = attacks_made + 1
+            var dmg = enemy_hp_before - getLife(enemy)
+            total_damage = total_damage + dmg
+
+            // Track usage
+            var uses = weapon_uses[weapon]
+            if (uses == null) uses = 0
+            weapon_uses[weapon] = uses + 1
+        } else if (result == USE_INVALID_TARGET) {
+            // Target moved or died
+            break;
+        } else if (result == USE_NOT_ENOUGH_TP) {
+            // Out of TP
+            break;
+        } else {
+            // Other failure - break to avoid infinite loop
+            break;
+        }
+
+        // Safety: limit iterations
+        if (attacks_made >= 10) break;
+    }
+
+    // Combat introspection
+    debug("  Combat: " + attacks_made + " hits, " + total_damage + " dmg, " + (total_tp - getTP()) + " TP used")
+
+    return attacks_made
+}
+
+// ============================================================
+// SINGLE ATTACK (for controlled attack sequences)
+// ============================================================
+
+// Try to make one attack, return success
+function attackOnce(enemy) {
+    var weapon = getBestWeapon(enemy, getTP())
+
+    if (weapon == null) return false
+
+    // Switch if needed
+    if (getWeapon() != weapon) {
+        if (getTP() < getWeaponCost(weapon) + 1) return false
+        setWeapon(weapon)
+        current_weapon = weapon
+    }
+
+    var result = useWeapon(enemy)
+
+    if (result == USE_SUCCESS) {
+        var uses = weapon_uses[weapon]
+        if (uses == null) uses = 0
+        weapon_uses[weapon] = uses + 1
+        return true
+    }
+
+    return false
+}
+
+// ============================================================
+// ATTACK OPPORTUNITY ANALYSIS
+// ============================================================
+
+// Can we attack enemy from current position?
+function canAttackFrom(cell, enemy) {
+    var dist = getCellDistance(cell, getCell(enemy))
+
+    // Check all weapons
+    var weapons = getWeapons()
+    for (var w in weapons) {
+        var min_range = getWeaponMinRange(w)
+        var max_range = getWeaponMaxRange(w)
+
+        if (dist >= min_range && dist <= max_range) {
+            if (lineOfSight(cell, getCell(enemy))) {
+                return true
+            }
+        }
+    }
+
+    return false
+}
+
+// Get weapon range (primary weapon)
+function getMyWeaponRange() {
+    var weapons = getWeapons()
+    if (count(weapons) > 0) {
+        var w = weapons[0]
+        return [getWeaponMinRange(w), getWeaponMaxRange(w)]
+    }
+    return [1, 7]  // Default pistol range
+}
+
+// Calculate potential damage output with remaining TP
+function getPotentialDamage(enemy, remaining_tp) {
+    var total = 0
+    var sim_tp = remaining_tp
+    var sim_uses = [:]
+
+    var weapons = getWeapons()
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    // Simulate attacks
+    for (var i = 0; i < 5; i++) {  // Max 5 attacks
+        for (var w in weapons) {
+            var cost = getWeaponCost(w)
+            var min_range = getWeaponMinRange(w)
+            var max_range = getWeaponMaxRange(w)
+
+            if (cost > sim_tp) continue;
+            if (dist < min_range || dist > max_range) continue;
+
+            var uses = sim_uses[w]
+            if (uses == null) uses = 0
+            if (uses >= 3) continue;
+
+            // Estimate damage (cost * 10 rough)
+            total = total + (cost * 10)
+            sim_tp = sim_tp - cost
+            sim_uses[w] = uses + 1
+            break;
+        }
+
+        if (sim_tp <= 0) break;
+    }
+
+    return total
+}
+
+// ============================================================
+// CHIP USAGE (if available)
+// ============================================================
+
+// Use healing chip on self if available and hurt
+function tryHeal() {
+    var chips = getChips()
+    var my_hp = getLife()
+    var my_max = getTotalLife()
+
+    if (my_hp >= my_max * 0.8) return false  // Don't heal if >80% HP
+
+    for (var chip in chips) {
+        // Check if it's a healing chip (positive life effect)
+        var effects = getChipEffects(chip)
+        if (effects != null) {
+            // Try to use on self
+            var result = useChip(chip, getEntity())
+            if (result == USE_SUCCESS) {
+                return true
+            }
+        }
+    }
+
+    return false
+}
+
+
+// === v11_chips.leek ===
+// v11_chips.leek - Chip System Module
+// Fighter v11 "Hydra" - Conditional chip usage
+// =============================================================================
+// Philosophy: Chips augment combat, they don't replace it.
+// Only buff when SAFE (enemy_ttk > 2), always prioritize damage.
+// =============================================================================
+
+// Chip references (populated from getChips())
+global chip_cure = null       // CHIP_CURE (4) - 4 TP, heal
+global chip_flame = null      // CHIP_FLAME (5) - 4 TP, 29 dmg
+global chip_flash = null      // CHIP_FLASH (6) - 3 TP, 32 dmg, AOE
+global chip_protein = null    // CHIP_PROTEIN (8) - 3 TP, +80 STR
+global chip_boots = null      // CHIP_LEATHER_BOOTS (14) - 3 TP, +2 MP
+global chip_motivation = null // CHIP_MOTIVATION (15) - 4 TP, +2 TP
+global chips_loaded = false
+
+// Chip cooldown tracking
+global cd_cure = 0
+global cd_flame = 0  // Note: FLAME has CD 0, but 3 uses/turn max
+global cd_flash = 0
+global cd_protein = 0
+global cd_boots = 0
+global cd_motivation = 0
+
+// Usage tracking this turn
+global flame_uses_this_turn = 0
+global FLAME_MAX_PER_TURN = 3
+
+// =============================================================================
+// CHIP INITIALIZATION
+// =============================================================================
+
+function loadChips() {
+    if (chips_loaded) return;
+
+    var my_chips = getChips()
+    debug("  Loading " + count(my_chips) + " chips...")
+
+    for (var chip in my_chips) {
+        var name = getChipName(chip)
+        if (name == "cure") chip_cure = chip
+        else if (name == "flame") chip_flame = chip
+        else if (name == "flash") chip_flash = chip
+        else if (name == "protein") chip_protein = chip
+        else if (name == "leather_boots") chip_boots = chip
+        else if (name == "motivation") chip_motivation = chip
+    }
+
+    chips_loaded = true
+}
+
+// =============================================================================
+// COOLDOWN MANAGEMENT
+// =============================================================================
+
+function updateChipCooldowns() {
+    // Decrement cooldowns at turn start
+    if (cd_cure > 0) cd_cure--
+    if (cd_flash > 0) cd_flash--
+    if (cd_protein > 0) cd_protein--
+    if (cd_boots > 0) cd_boots--
+    if (cd_motivation > 0) cd_motivation--
+
+    // Reset per-turn counters
+    flame_uses_this_turn = 0
+}
+
+function canUseChip(chip) {
+    if (chip == null) return false
+
+    var cost = getChipCost(chip)
+    if (getTP() < cost) return false
+
+    // Check cooldowns
+    if (chip == chip_cure && cd_cure > 0) return false
+    if (chip == chip_flash && cd_flash > 0) return false
+    if (chip == chip_protein && cd_protein > 0) return false
+    if (chip == chip_boots && cd_boots > 0) return false
+    if (chip == chip_motivation && cd_motivation > 0) return false
+
+    // FLAME special: 3 uses per turn max
+    if (chip == chip_flame && flame_uses_this_turn >= FLAME_MAX_PER_TURN) return false
+
+    return true
+}
+
+function markChipUsed(chip) {
+    // Set cooldowns after successful use
+    if (chip == chip_cure) cd_cure = 2
+    else if (chip == chip_flash) cd_flash = 1
+    else if (chip == chip_protein) cd_protein = 3
+    else if (chip == chip_boots) cd_boots = 5
+    else if (chip == chip_motivation) cd_motivation = 6
+    else if (chip == chip_flame) flame_uses_this_turn++
+}
+
+// =============================================================================
+// CONDITIONAL BUFFING
+// =============================================================================
+
+function shouldBuff() {
+    // CRITICAL: Don't trust TTK=999 (unknown)
+    // On turn 1, we haven't taken damage yet so enemy_ttk is unestimated
+    // At high STR levels, the real enemy_ttk could be 1-2 turns!
+    // Only buff on turn 2+ when we have REAL TTK data
+    if (enemy_ttk >= 999) {
+        debug("  Skip buffs: TTK unknown (turn 1)")
+        return false
+    }
+
+    // Only buff if we have time (enemy won't kill us in 2 turns)
+    // This uses enemy_ttk from v8_state module
+    if (enemy_ttk <= 2) {
+        debug("  Skip buffs: enemy_ttk=" + enemy_ttk)
+        return false
+    }
+
+    // Only buff on turn 2-3 (after we know TTK)
+    if (turn_count > 3) return false
+
+    return true
+}
+
+function applyBuffsSafe() {
+    if (!shouldBuff()) return 0
+
+    var buffs_applied = 0
+
+    // MOTIVATION first (+2 TP helps pay for others)
+    if (canUseChip(chip_motivation)) {
+        var result = useChip(chip_motivation, getEntity())
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_motivation)
+            buffs_applied++
+            debug("    +2 TP buff!")
+        }
+    }
+
+    // BOOTS (+2 MP for mobility)
+    if (canUseChip(chip_boots)) {
+        var result = useChip(chip_boots, getEntity())
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_boots)
+            buffs_applied++
+            debug("    +2 MP buff!")
+        }
+    }
+
+    // PROTEIN (+80 STR) - only if we have TP left for attacks
+    if (canUseChip(chip_protein) && getTP() >= 7) {  // 3 for protein + 4 for attack
+        var result = useChip(chip_protein, getEntity())
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_protein)
+            buffs_applied++
+            debug("    +80 STR buff!")
+        }
+    }
+
+    return buffs_applied
+}
+
+// =============================================================================
+// CHIP DAMAGE
+// =============================================================================
+
+function useChipDamage(enemy) {
+    var total_damage = 0
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    // FLASH (range 1-10, 3 TP, 32 dmg) - long range opener
+    if (canUseChip(chip_flash) && dist <= 10) {
+        var result = useChip(chip_flash, enemy)
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_flash)
+            total_damage = total_damage + 32
+            debug("    FLASH hit!")
+        }
+    }
+
+    // FLAME (range 1-6, 4 TP, 29 dmg) - spam up to 3x
+    while (canUseChip(chip_flame) && dist <= 6) {
+        var result = useChip(chip_flame, enemy)
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_flame)
+            total_damage = total_damage + 29
+        } else {
+            break
+        }
+    }
+
+    return total_damage
+}
+
+// =============================================================================
+// EMERGENCY HEAL
+// =============================================================================
+
+function healIfCritical() {
+    var hp_pct = getLife() * 100 / my_start_hp
+
+    if (hp_pct < 30 && canUseChip(chip_cure)) {
+        var result = useChip(chip_cure, getEntity())
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_cure)
+            debug("    HEALED!")
+            return true
+        }
+    }
+    return false
+}
+
+
+// === fighter_v11.leek (main) ===
+// Fighter v11 "Hydra" - v8 Core + Smart Chips + Stalemate Fix
+// =============================================================================
+// Architecture: v8's proven modules + conditional chip system
+//
+// Modules (from v8):
+// - v8_state: TTK tracking, phase detection, damage accounting
+// - v8_accessible_cells: BFS flood-fill for reachability
+// - v8_danger_map: Cell danger scoring
+// - v8_hide_seek: Safe positioning
+// - v8_combat: Weapon rotation
+//
+// New module:
+// - v11_chips: Conditional buffing, chip damage, cooldown tracking
+//
+// Key improvements over v10:
+// - ONLY buff when enemy_ttk > 2 (won't die mid-buff)
+// - Chips augment damage, don't delay it
+// - Stalemate detection triggers force_engage mode
+// =============================================================================
+
+// =============================================================================
+// MAIN ENTRY POINT
+// =============================================================================
+
+var enemy = getNearestEnemy()
+if (enemy == null) return;
+
+// =============================================================================
+// INITIALIZATION (First Turn Only)
+// =============================================================================
+if (turn_count == 0) {
+    initNeighborCache()
+    initState(enemy)
+    loadChips()
+}
+
+// =============================================================================
+// TURN START
+// =============================================================================
+updateState(enemy)
+updateChipCooldowns()
+detectPhase()
+detectStalemate()
+resetCombatState()
+
+debug("═══ T" + turn_count + " Hydra ═══")
+debug("  HP: " + getLife() + "/" + my_start_hp + " vs " + getLife(enemy))
+debug("  TTK: us=" + my_ttk + " them=" + enemy_ttk + " winning=" + winning_race)
+if (force_engage) debug("  🔥 FORCE ENGAGE MODE")
+
+// =============================================================================
+// EQUIP WEAPON (once)
+// =============================================================================
+if (getWeapon() == null) {
+    var weapons = getWeapons()
+    if (count(weapons) > 0) {
+        setWeapon(weapons[0])
+        current_weapon = weapons[0]
+    }
+}
+
+// =============================================================================
+// FORCE ENGAGE MODE (stalemate override)
+// =============================================================================
+if (force_engage) {
+    debug("  ALL-IN: No retreat, pure aggro")
+
+    // Close gap completely
+    while (getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break;
+    }
+
+    // Chip damage first (usually longer range)
+    useChipDamage(enemy)
+
+    // Weapon damage
+    executeAttacks(enemy)
+
+    // Any remaining MP -> close more -> attack more
+    while (getMP() > 0) {
+        moveToward(enemy)
+    }
+    executeAttacks(enemy)
+
+    debugState()
+    return;
+}
+
+// =============================================================================
+// CONDITIONAL BUFFS (only if safe)
+// =============================================================================
+if (turn_count <= 2) {
+    var buffs = applyBuffsSafe()
+    if (buffs > 0) {
+        debug("  Applied " + buffs + " buffs")
+    }
+}
+
+// =============================================================================
+// COMPUTE SPATIAL AWARENESS
+// =============================================================================
+var my_mp = getMP()
+var enemy_mp = getMP(enemy)
+
+// Always compute our accessible cells
+cached_my_accessible = getAccessibleCells(getCell(), my_mp)
+
+// Only compute enemy accessible in non-opening (expensive!)
+if (fight_phase != "opening") {
+    cached_enemy_accessible = getAccessibleCells(getCell(enemy), enemy_mp)
+    cached_danger_map = computeDangerMap(cached_my_accessible, enemy, enemy_mp)
+}
+
+debug("  Accessible: me=" + count(cached_my_accessible) + " enemy=" + (cached_enemy_accessible ? count(cached_enemy_accessible) : 0))
+
+// =============================================================================
+// STRATEGY SELECTION
+// =============================================================================
+
+var dist = getCellDistance(getCell(), getCell(enemy))
+var weapon = getWeapon()
+var w_min = weapon ? getWeaponMinRange(weapon) : 1
+var w_max = weapon ? getWeaponMaxRange(weapon) : 7
+
+var strategy = "aggro"  // Default: attack
+
+// If losing and can retreat safely, do so
+if (!winning_race && fight_phase == "midgame" && cached_danger_map != null) {
+    var safe_cell = getSafestCell(cached_danger_map)
+    if (safe_cell != null) {
+        var current_danger = getDangerAt(cached_danger_map, getCell())
+        var safe_danger = getDangerAt(cached_danger_map, safe_cell)
+        if (safe_danger < current_danger - 2) {
+            strategy = "retreat"
+        }
+    }
+}
+
+debug("  Strategy: " + strategy + " | Range: " + w_min + "-" + w_max)
+
+// =============================================================================
+// EXECUTE STRATEGY
+// =============================================================================
+
+if (strategy == "retreat") {
+    // Move to safety first
+    var safe_cell = getSafestCell(cached_danger_map)
+    if (safe_cell != null) {
+        moveTowardCell(safe_cell)
+    }
+    // Still try to attack if in range
+    useChipDamage(enemy)
+    executeAttacks(enemy)
+
+} else {
+    // AGGRO: Close and attack
+
+    // Phase 1: Close to attack range
+    while (dist > w_max && getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break;
+        dist = getCellDistance(getCell(), getCell(enemy))
+    }
+
+    // Phase 2: Chip damage (often longer range than weapon)
+    useChipDamage(enemy)
+
+    // Phase 3: Weapon attacks
+    executeAttacks(enemy)
+
+    // Phase 4: Use remaining MP to close further
+    while (getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break;
+    }
+
+    // Phase 5: More attacks if TP available
+    useChipDamage(enemy)
+    executeAttacks(enemy)
+}
+
+// =============================================================================
+// EMERGENCY HEAL
+// =============================================================================
+healIfCritical()
+
+// =============================================================================
+// END OF TURN DEBUG
+// =============================================================================
+debugState()
+if (cached_danger_map != null) {
+    debugDangerMap(cached_danger_map)
+}
+debug("  Ops: " + getOperations())

@@ -170,14 +170,32 @@ def run_fights(api: LeekWarsAPI, count: int) -> dict:
                 log(f"  [{i+1}/{count}] DB save failed: {db_err}")
 
             winner = fight.get("winner", 0)
-            my_team = 1  # We're always team 1 when attacking
 
-            if winner == my_team:
+            # Determine which team we're on (don't assume team 1!)
+            my_team = None
+            leeks1 = fight.get("leeks1", [])
+            leeks2 = fight.get("leeks2", [])
+            for leek in leeks1:
+                if leek.get("id") == leek_id:
+                    my_team = 1
+                    break
+            if my_team is None:
+                for leek in leeks2:
+                    if leek.get("id") == leek_id:
+                        my_team = 2
+                        break
+
+            # Fallback if we couldn't find ourselves (shouldn't happen)
+            if my_team is None:
+                my_team = 1
+                log(f"  [{i+1}/{count}] WARNING: Couldn't determine team, assuming 1")
+
+            if winner == 0:
+                draws += 1
+                result_char = "D"  # Actual draw (turn 64 timeout)
+            elif winner == my_team:
                 wins += 1
                 result_char = "W"
-            elif winner == 0:
-                draws += 1
-                result_char = "D"
             else:
                 losses += 1
                 result_char = "L"
@@ -188,8 +206,21 @@ def run_fights(api: LeekWarsAPI, count: int) -> dict:
                 crashes += 1
                 result_char += " [CRASH]"
 
+            # Extract useful stats for logging
             opponent_name = target.get("name", "Unknown")
-            log(f"  [{i+1}/{count}] {result_char} vs {opponent_name}")
+            turn_count = len(fight.get("data", {}).get("actions", {}).keys()) if fight.get("data") else "?"
+
+            # Get final HP if available
+            my_hp = "?"
+            enemy_hp = "?"
+            if fight.get("data", {}).get("leeks"):
+                for lid, ldata in fight["data"]["leeks"].items():
+                    if int(lid) == leek_id:
+                        my_hp = ldata.get("life", "?")
+                    else:
+                        enemy_hp = ldata.get("life", "?")
+
+            log(f"  [{i+1}/{count}] {result_char} vs {opponent_name} (t{turn_count}, HP:{my_hp}/{enemy_hp})")
 
             time.sleep(0.5)  # Rate limit
 

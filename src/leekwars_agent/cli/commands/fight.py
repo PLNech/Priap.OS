@@ -91,15 +91,24 @@ def run(ctx: click.Context, count: int, dry_run: bool) -> None:
             fight_id = result["fight"]
             time.sleep(3)  # Wait for fight to complete
 
-            fight_data = api.get_fight(fight_id).get("fight", {})
+            fight_resp = api.get_fight(fight_id)
+            # API returns fight data directly OR nested in "fight" key
+            fight_data = fight_resp.get("fight", fight_resp) if isinstance(fight_resp, dict) else fight_resp
             winner = fight_data.get("winner", 0)
 
-            if winner == 1:  # We're always team 1 when attacking
-                wins += 1
-                status_str = "[green]W[/green]"
-            elif winner == 0:
+            # Determine which team we're on (don't assume team 1!)
+            my_team = 1
+            for leek in fight_data.get("leeks2", []):
+                if leek.get("id") == LEEK_ID:
+                    my_team = 2
+                    break
+
+            if winner == 0:
                 draws += 1
                 status_str = "[yellow]D[/yellow]"
+            elif winner == my_team:
+                wins += 1
+                status_str = "[green]W[/green]"
             else:
                 losses += 1
                 status_str = "[red]L[/red]"
@@ -144,8 +153,8 @@ def history(ctx: click.Context, limit: int) -> None:
     """Show recent fight history."""
     api = login_api()
     try:
-        data = api.get_leek_history(LEEK_ID, page=0, count=limit)
-        fights = data.get("fights", [])
+        data = api.get_leek_history(LEEK_ID)
+        fights = data.get("fights", [])[:limit]
 
         if ctx.obj.get("json"):
             output_json(fights)
@@ -155,15 +164,30 @@ def history(ctx: click.Context, limit: int) -> None:
 
         for f in fights:
             winner = f.get("winner", 0)
-            if winner == 1:
-                status = "[green]W[/green]"
-            elif winner == 0:
+
+            # Determine which team we're on
+            my_team = 1
+            for leek in f.get("leeks2", []):
+                if leek.get("id") == LEEK_ID:
+                    my_team = 2
+                    break
+
+            # Get opponent name
+            if my_team == 1:
+                opp = f.get("leeks2", [{}])[0] if f.get("leeks2") else {}
+            else:
+                opp = f.get("leeks1", [{}])[0] if f.get("leeks1") else {}
+            opp_name = opp.get("name", "?")
+
+            if winner == 0:
                 status = "[yellow]D[/yellow]"
+            elif winner == my_team:
+                status = "[green]W[/green]"
             else:
                 status = "[red]L[/red]"
 
             fight_id = f.get("id", "?")
-            console.print(f"  {status} #{fight_id}")
+            console.print(f"  {status} vs {opp_name:20} #{fight_id}")
 
     finally:
         api.close()
@@ -223,6 +247,113 @@ def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool) -> N
 
             weapon_uses = summary.get("weapon_uses", 0)
             console.print(f"  Total weapon uses: {weapon_uses}")
+
+    finally:
+        api.close()
+
+
+@fight.command("analyze")
+@click.option("--limit", "-n", type=int, default=40, help="Number of fights to analyze")
+@click.pass_context
+def analyze_fights(ctx: click.Context, limit: int) -> None:
+    """Analyze recent fight history with win/loss breakdown.
+
+    Shows overall stats, win rate by level difference, and fight duration patterns.
+    """
+    api = login_api()
+    try:
+        console.print(f"[bold]Analyzing last {limit} fights...[/bold]\n")
+
+        # Get fight IDs from history
+        data = api.get_leek_history(LEEK_ID)
+        fight_ids = [f["id"] for f in data.get("fights", [])[:limit]]
+
+        results = {"W": 0, "L": 0, "D": 0}
+        by_level_diff = {}
+        turn_counts = []
+
+        for i, fid in enumerate(fight_ids):
+            # Fetch full fight data
+            resp = api._client.get(f"/fight/get/{fid}", headers=api._headers())
+            if resp.status_code != 200:
+                continue
+
+            f = resp.json()
+            winner = f.get("winner", 0)
+            l1 = f.get("leeks1", [{}])[0] if f.get("leeks1") else {}
+            l2 = f.get("leeks2", [{}])[0] if f.get("leeks2") else {}
+
+            # Determine which team we're on
+            my_team = 1 if l1.get("id") == LEEK_ID else 2
+            my_leek = l1 if my_team == 1 else l2
+            opp = l2 if my_team == 1 else l1
+
+            my_level = my_leek.get("level", 0)
+            opp_level = opp.get("level", 0)
+            level_diff = my_level - opp_level
+
+            # Get fight duration
+            duration = f.get("data", {}).get("duration", 0) if f.get("data") else 0
+            if duration:
+                turn_counts.append(duration)
+
+            # Determine result
+            if winner == 0:
+                result = "D"
+            elif winner == my_team:
+                result = "W"
+            else:
+                result = "L"
+            results[result] += 1
+
+            # Track by level diff
+            key = f"{level_diff:+d}"
+            if key not in by_level_diff:
+                by_level_diff[key] = {"W": 0, "L": 0, "D": 0}
+            by_level_diff[key][result] += 1
+
+            # Progress indicator
+            if (i + 1) % 10 == 0:
+                console.print(f"  Processed {i + 1}/{len(fight_ids)}...")
+
+            time.sleep(0.05)  # Light rate limit
+
+        # Output results
+        total = sum(results.values())
+        win_rate = results["W"] / (results["W"] + results["L"]) * 100 if (results["W"] + results["L"]) > 0 else 0
+        draw_rate = results["D"] / total * 100 if total > 0 else 0
+
+        if ctx.obj.get("json"):
+            output_json({
+                "total": total,
+                "wins": results["W"],
+                "losses": results["L"],
+                "draws": results["D"],
+                "win_rate": win_rate,
+                "draw_rate": draw_rate,
+                "by_level_diff": by_level_diff,
+                "avg_turns": sum(turn_counts) / len(turn_counts) if turn_counts else 0,
+            })
+            return
+
+        console.print(f"\n[bold]Results: {results['W']}W-{results['L']}L-{results['D']}D[/bold]")
+        console.print(f"  Win rate: [green]{win_rate:.1f}%[/green]")
+        console.print(f"  Draw rate: [yellow]{draw_rate:.1f}%[/yellow]")
+
+        if by_level_diff:
+            console.print("\n[bold]By Level Difference:[/bold]")
+            for diff in sorted(by_level_diff.keys(), key=lambda x: int(x)):
+                d = by_level_diff[diff]
+                diff_total = d["W"] + d["L"] + d["D"]
+                diff_wr = d["W"] / (d["W"] + d["L"]) * 100 if (d["W"] + d["L"]) > 0 else 0
+                console.print(f"  {diff}: {d['W']}W-{d['L']}L-{d['D']}D ({diff_wr:.0f}% WR)")
+
+        if turn_counts:
+            console.print("\n[bold]Fight Duration:[/bold]")
+            console.print(f"  Average: {sum(turn_counts) / len(turn_counts):.1f} turns")
+            console.print(f"  Short (<10): {len([t for t in turn_counts if t < 10])}")
+            console.print(f"  Long (>30): {len([t for t in turn_counts if t >= 30])}")
+            console.print(f"  Timeouts (64): {len([t for t in turn_counts if t >= 64])}")
 
     finally:
         api.close()

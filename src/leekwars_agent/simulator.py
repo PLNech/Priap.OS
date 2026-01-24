@@ -60,6 +60,82 @@ class MapConfig:
             team2_spawns=[center + 36],  # ~2 rows below center
         )
 
+    @classmethod
+    def from_fight_data(cls, fight_data: dict) -> "MapConfig":
+        """Create MapConfig from historical fight replay data.
+
+        Args:
+            fight_data: The 'data' field from a fight JSON (contains map, leeks, actions)
+
+        Returns:
+            MapConfig with real obstacles and spawn positions from the fight
+        """
+        map_info = fight_data.get("map", {})
+        leeks = fight_data.get("leeks", [])
+
+        # Extract spawn positions by team from leek data
+        team1_spawns = []
+        team2_spawns = []
+
+        for leek in leeks:
+            cell = leek.get("cellPos")
+            team = leek.get("team", 1)
+
+            if cell is not None:
+                # Teams can be 1, 2, or even 3 for chests - group into 1 vs 2+
+                if team == 1:
+                    team1_spawns.append(cell)
+                else:
+                    team2_spawns.append(cell)
+
+        # Fallback to center if no spawns found
+        width = map_info.get("width", 18)
+        height = map_info.get("height", 18)
+        if not team1_spawns:
+            stride = width * 2 - 1
+            center = (stride * height - (width - 1)) // 2
+            team1_spawns = [center - 36]
+        if not team2_spawns:
+            stride = width * 2 - 1
+            center = (stride * height - (width - 1)) // 2
+            team2_spawns = [center + 36]
+
+        return cls(
+            id=1,  # Arbitrary non-zero to force spawn usage
+            width=width,
+            height=height,
+            type=map_info.get("type", 0),
+            obstacles=map_info.get("obstacles", {}),
+            team1_spawns=team1_spawns,
+            team2_spawns=team2_spawns,
+        )
+
+    @classmethod
+    def distant_spawns(cls, width: int = 18, height: int = 18, distance: int = 12) -> "MapConfig":
+        """Create an empty map with distant spawn positions for stalemate testing.
+
+        Args:
+            width: Map width (default 18)
+            height: Map height (default 18)
+            distance: Rows apart for spawns (default 12 = ~12 cell Manhattan distance)
+        """
+        stride = width * 2 - 1
+        total_cells = stride * height - (width - 1)
+        center = total_cells // 2
+
+        # Place spawns distance rows apart (each row is ~stride cells)
+        row_offset = (distance // 2) * stride
+
+        return cls(
+            id=2,  # Different ID to mark as distant spawn map
+            width=width,
+            height=height,
+            type=0,
+            obstacles={},
+            team1_spawns=[center - row_offset],  # Far above center
+            team2_spawns=[center + row_offset],  # Far below center
+        )
+
 
 class MapLibrary:
     """Library of real map layouts for simulation."""

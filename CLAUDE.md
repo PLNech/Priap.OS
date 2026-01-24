@@ -29,12 +29,23 @@ Automated LeekWars agent aiming for **top 10 ladder**. The strategy: build infra
 
 **Principle**: Never test online what we can test offline. Every online fight is for data collection, not experimentation.
 
-### Online Testing Protocol (MANDATORY)
-**NEVER run multiple online fights without explicit user permission.** Online fights are SCARCE (50/day free).
-- Deploy → Run **1 fight** → Analyze result → Debug if needed
-- **ASK before running >1 fight** - even for "data collection"
-- Only scale up after user confirms intent
-- 10 wasted fights = 20% of daily budget gone
+### Online Fight Protocol (MANDATORY - NO EXCEPTIONS)
+
+> ⛔ **STOP**: Before running ANY online fight or triggering ANY workflow that runs fights, you MUST ask the user first. This includes `gh workflow run`, `leek fight run`, or any script that consumes fights.
+
+**Online fights are IRREPLACEABLE** (50/day free, that's it).
+
+| Action | Requires Permission? |
+|--------|---------------------|
+| `gh workflow run daily-fights.yml` | ✅ YES - ASK FIRST |
+| `leek fight run -n N` | ✅ YES - ASK FIRST |
+| `poetry run python scripts/auto_daily_fights.py` | ✅ YES - ASK FIRST |
+| Offline simulation (`compare_ais.py`) | ❌ No - run freely |
+| Test scenario API (`leek test run`) | ❌ No - unlimited |
+
+**The only exception**: User explicitly says "run fights" or "trigger the workflow".
+
+**Violation consequence**: 40 fights burned = 80% of daily budget = trust damaged.
 
 ### The Flywheel
 ```
