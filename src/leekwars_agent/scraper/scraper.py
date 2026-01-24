@@ -96,37 +96,53 @@ class FightScraper:
         """Wait between requests (rate limiting)."""
         time.sleep(self.delay)
 
-    def _request(self, endpoint: str, require_auth: bool = True) -> dict | None:
-        """Make an API request with rate limiting and error handling."""
-        try:
-            self._wait()
+    def _request(self, endpoint: str, require_auth: bool = True, retries: int = 3) -> dict | None:
+        """Make an API request with rate limiting, retries, and error handling."""
+        for attempt in range(retries):
+            try:
+                self._wait()
 
-            url = f"{self.api.BASE_URL}/{endpoint}"
-            headers = self.api._headers() if require_auth else {}
+                url = f"{self.api.BASE_URL}/{endpoint}"
+                headers = self.api._headers() if require_auth else {}
 
-            response = self.api._client.get(url, headers=headers)
+                response = self.api._client.get(url, headers=headers)
 
-            if response.status_code == 429:
-                self.stats.rate_limits += 1
-                logger.warning("Rate limited, waiting 10s...")
-                time.sleep(10)
-                return self._request(endpoint, require_auth)  # Retry
+                if response.status_code == 429:
+                    self.stats.rate_limits += 1
+                    wait_time = 10 * (2 ** attempt)  # Exponential backoff: 10s, 20s, 40s
+                    logger.warning(f"Rate limited, waiting {wait_time}s (attempt {attempt+1}/{retries})...")
+                    time.sleep(wait_time)
+                    continue  # Retry
 
-            if response.status_code == 401:
-                # Try without auth for public endpoints
-                if require_auth:
-                    return self._request(endpoint, require_auth=False)
+                if response.status_code == 401:
+                    # Try without auth for public endpoints
+                    if require_auth:
+                        return self._request(endpoint, require_auth=False, retries=retries-attempt)
+                    self.stats.errors += 1
+                    logger.debug(f"Auth required for: {endpoint}")
+                    return None
+
+                if response.status_code >= 500:
+                    # Server error - retry with backoff
+                    wait_time = 5 * (2 ** attempt)
+                    logger.warning(f"Server error {response.status_code}, retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                    continue
+
+                response.raise_for_status()
+                return response.json()
+
+            except Exception as e:
+                if attempt < retries - 1:
+                    wait_time = 5 * (2 ** attempt)
+                    logger.warning(f"Request failed, retrying in {wait_time}s: {e}")
+                    time.sleep(wait_time)
+                    continue
                 self.stats.errors += 1
-                logger.debug(f"Auth required for: {endpoint}")
+                logger.error(f"Request failed after {retries} attempts: {endpoint} - {e}")
                 return None
 
-            response.raise_for_status()
-            return response.json()
-
-        except Exception as e:
-            self.stats.errors += 1
-            logger.error(f"Request failed: {endpoint} - {e}")
-            return None
+        return None  # All retries exhausted
 
     # =========================================================================
     # Discovery Methods

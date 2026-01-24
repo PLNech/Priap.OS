@@ -47,15 +47,34 @@ def get_credentials() -> tuple[str, str]:
     return username, password
 
 
-def login_api():
-    """Create and login to LeekWars API.
+def login_api(max_retries: int = 3):
+    """Create and login to LeekWars API with retry on rate limit.
+
+    Args:
+        max_retries: Max login attempts on 429 rate limit
 
     Returns:
         Authenticated LeekWarsAPI instance
     """
+    import time
+    import httpx
     from leekwars_agent.api import LeekWarsAPI
 
     username, password = get_credentials()
     api = LeekWarsAPI()
+
+    for attempt in range(max_retries):
+        try:
+            api.login(username, password)
+            return api
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429:
+                wait_time = 10 * (2 ** attempt)  # 10s, 20s, 40s
+                print(f"Rate limited on login, waiting {wait_time}s (attempt {attempt+1}/{max_retries})...")
+                time.sleep(wait_time)
+                continue
+            raise
+
+    # Final attempt without catching
     api.login(username, password)
     return api
