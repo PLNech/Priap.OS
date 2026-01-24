@@ -7,14 +7,55 @@
 
 ## TODOs (Next Session)
 
-1. ✅ ~~**FIX SIMULATOR CHIP SUPPORT** (#0111)~~ - Fixed!
-2. ✅ ~~**Test Scenario API** (#0118)~~ - Unlimited server-side fights!
-3. ✅ ~~**Fight DB Scraper** (#0308)~~ - 2400+ fights scraped, BFS graph traversal!
-4. ✅ ~~**Meta Analysis CLI** (#0303)~~ - `leek analyze meta/level/stats`
-5. 🔴 **Fix kite stalemates** (#0201) - Our 6.5% draw rate is OK but could improve
-6. 🟠 **Battle Royale automation** (#0509) - 10 free fights/day, needs WebSocket
-7. 🟡 **Buy magnum** (#0407) - Need 7,510 habs
-8. 🟢 **Continue scraping** - Queue ready, run `leek scrape discover && leek scrape run`
+1. ✅ ~~**Stalemate fix validated** (#0201)~~ - Draw rate 21% → 2.5%!
+2. 🔴 **Fix buy_fights 401** - Endpoint returns unauthorized, investigate
+3. 🟠 **Battle Royale automation** (#0509) - 10 free fights/day, needs WebSocket
+4. 🟡 **Buy magnum** (#0407) - Have 14k habs, need 7.5k
+5. 🟢 **Investigate win rate drop** - 48% → 43.6%, is force_engage too aggressive?
+6. 🟢 **Continue scraping** - `leek scrape discover && leek scrape run`
+
+---
+
+## Session 18 v11 Validation & Bug Fixes (2026-01-24)
+
+**Theme:** Validated stalemate fix, found critical logging bug, added strict fight permissions.
+
+### Critical Bug Fixed
+
+**Fight logging showed ALL results as "D" (draws)**:
+- Code assumed `my_team = 1` always
+- But API returns `winner` as team number (1 or 2)
+- When we're team 1 and opponent wins → `winner=2` → fell through to draw
+
+**Fix**: Check which team we're on by finding our leek ID in `leeks1` or `leeks2`.
+
+### v11 "Hydra" Validation
+
+| Metric | Before (v8) | After (v11) |
+|--------|-------------|-------------|
+| Draw Rate | **21%** | **2.5%** ✅ |
+| Win Rate | 48% | 43.6% |
+| Level | 34 | **36** |
+
+**40 fights**: 17W-22L-1D - stalemate fix WORKS!
+
+### New CLI Commands
+
+```bash
+leek fight analyze -n 40   # Comprehensive fight analysis
+leek fight history         # Now shows proper W/L/D with opponent names
+```
+
+### CLAUDE.md Rule Added
+
+**ASK before ANY fight trigger** - even for "data collection":
+- `gh workflow run` → requires permission
+- `leek fight run` → requires permission
+- Only offline simulation is free to run
+
+### Open Question
+
+Win rate dropped 48% → 43.6%. Is `force_engage` too aggressive? Maybe it forces us into unfavorable fights?
 
 ---
 
