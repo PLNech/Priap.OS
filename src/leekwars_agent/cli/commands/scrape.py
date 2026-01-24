@@ -129,6 +129,46 @@ def scrape_status(ctx: click.Context, db: str) -> None:
         fight_db.close()
 
 
+@scrape.command("discover")
+@click.option("--db", type=str, default="data/fights_meta.db", help="Database path")
+@click.option("--leeks", "-l", type=int, default=50, help="Max leeks to explore")
+@click.option("--min-level", type=int, default=25, help="Minimum leek level")
+@click.option("--max-level", type=int, default=100, help="Maximum leek level")
+@click.pass_context
+def discover_graph(ctx: click.Context, db: str, leeks: int, min_level: int, max_level: int) -> None:
+    """BFS graph discovery - find new fights from observed leeks.
+
+    Traverses the leek-fight graph to discover more content.
+
+    Examples:
+        leek scrape discover              # Explore 50 leeks
+        leek scrape discover -l 100       # Explore 100 leeks
+    """
+    api = login_api()
+    fight_db = FightDB(db)
+
+    try:
+        scraper = FightScraper(
+            api=api,
+            db=fight_db,
+            min_level=min_level,
+            max_level=max_level,
+        )
+
+        console.print(f"[bold]Graph BFS Discovery[/bold] (L{min_level}-{max_level})")
+        queued = scraper.discover_graph_bfs(max_leeks=leeks)
+
+        if ctx.obj.get("json"):
+            output_json({"queued": queued, "queue_size": fight_db.queue_size()})
+        else:
+            success(f"Queued {queued} fights from {leeks} leeks")
+            console.print(f"  Queue size: {fight_db.queue_size()}")
+
+    finally:
+        api.close()
+        fight_db.close()
+
+
 @scrape.command("queue")
 @click.argument("fight_ids", nargs=-1, type=int)
 @click.option("--db", type=str, default="data/fights_meta.db", help="Database path")

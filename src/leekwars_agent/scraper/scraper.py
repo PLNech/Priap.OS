@@ -273,6 +273,65 @@ class FightScraper:
 
         return latest
 
+    def discover_graph_bfs(self, max_leeks: int = 50, fights_per_leek: int = 20) -> int:
+        """
+        BFS graph traversal: discover new fights from leeks we've observed.
+
+        Uses leek_observations as edges in bipartite graph:
+        Fight → Leeks → Their histories → New Fights → ...
+
+        Args:
+            max_leeks: Max leeks to explore per call
+            fights_per_leek: Fights to queue per leek history
+
+        Returns number of fights queued.
+        """
+        self.stats.current_action = "Graph BFS discovery"
+        conn = self.db._get_conn()
+
+        # Find leeks we've observed but haven't scraped yet
+        # Using scraped_players table to track
+        unscraped = conn.execute(
+            """
+            SELECT DISTINCT lo.leek_id, lo.level
+            FROM leek_observations lo
+            LEFT JOIN scraped_players sp
+                ON sp.player_type = 'leek' AND sp.player_id = lo.leek_id
+            WHERE sp.player_id IS NULL
+                AND lo.level BETWEEN ? AND ?
+            ORDER BY lo.level DESC
+            LIMIT ?
+            """,
+            (self.min_level, self.max_level, max_leeks)
+        ).fetchall()
+
+        logger.info(f"BFS: {len(unscraped)} unscraped leeks to explore")
+        total_queued = 0
+
+        for row in unscraped:
+            leek_id, level = row[0], row[1]
+
+            # Mark as scraped
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO scraped_players
+                (player_type, player_id, level, last_scraped)
+                VALUES ('leek', ?, ?, datetime('now'))
+                """,
+                (leek_id, level)
+            )
+            conn.commit()
+
+            # Get their history
+            queued = self.discover_from_leek_history(leek_id, count=fights_per_leek)
+            total_queued += queued
+
+            if queued > 0:
+                logger.debug(f"  L{level} #{leek_id}: +{queued} fights")
+
+        self.stats.fights_queued += total_queued
+        return total_queued
+
     # =========================================================================
     # Fight Processing
     # =========================================================================
