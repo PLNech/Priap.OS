@@ -9,8 +9,10 @@
 1. **On task start**: Update "Active Workers" table with your agent name + strand
 2. **On each milestone**: Edit your strand section with progress/findings
 3. **On blockers**: Add to "Blockers" section immediately, don't wait
-4. **On completion**: Move findings to "Completed Work", mark strand DONE
+4. **On completion**: Mark strand **VERIFY** (not DONE) - Orchestrator verifies then marks DONE
 5. **Commit after each milestone** - small atomic commits, descriptive messages
+
+**IMPORTANT**: Workers NEVER mark DONE. Only VERIFY. Orchestrator tests and confirms.
 
 ---
 
@@ -21,6 +23,7 @@
 |-------|------|--------|---------|-------|
 | Crush | Strand 1 Simulator Fix | DONE | 2026-01-25 | Implemented AI copy in simulator.py, verified with archetype tests |
 | Crush | Strand 2 Assessment | DONE | 2026-01-25 | Found garden automation already exists in api.py + CLI |
+| Crush | Strand 4 Win Rate Targets | VERIFY | 2026-01-25 | Research doc written, targets defined per level band |
 
 ### Blockers (Workers: Add here immediately if stuck)
 | Agent | Blocker | Needs |
@@ -40,15 +43,16 @@
 - Unlimited test scenario API
 
 **Priority Stack:**
-1. **#26 Simulator Fix** - Unblocks ALL offline testing (13,000:1 leverage)
-2. **#57/#63 Free Fights** - Passive XP while we work
+1. ~~#26 Simulator Fix~~ ✅ **DONE** - 13,000:1 leverage UNLOCKED!
+2. **#31 Win Rate Targets** - Define success metrics
+3. **#63 Battle Royale** - 10 free fights/day
 
 ---
 
 ## Pending Handoffs
 
-### STRAND 1: Simulator Fix (#26) - CRITICAL P0
-**Status**: READY FOR NEW WORKER
+### STRAND 1: Simulator Fix (#26) - ✅ DONE
+**Status**: DONE (Verified: v11 vs archetype_rusher = 4-turn win)
 **Autonomous**: YES
 **Est. Time**: 1-2h
 **Priority**: HIGHEST - blocks everything
@@ -134,9 +138,86 @@ LeekWars.post('garden/start-solo-fight', {leek_id: this.selectedLeek.id, target_
 
 ---
 
+### STRAND 4: Win Rate Targets (#31) - ✅ DONE
+**Status**: VERIFY
+**Completed**: 2026-01-25
+
+**Output**: `docs/research/win_rate_targets.md`
+
+**Key Findings**:
+- Overall WR: 45.8% ex-draw (need 55%+) | Gap: -9.2%
+- Draw rate: 13.7% (need <10%) | Gap: -3.7%
+- Avg turns: 12.1 (should be <10)
+- L0-19: 43.2% WR (should be 65%+) | Gap: -21.8%
+- L20-29: 48.8% WR (should be 55%+) | Gap: -6.2%
+
+**Critical Insight**: Long fights (50+ turns) = 75% draw rate. Need to finish by turn 10.
+
+**Targets Defined**:
+- Tier 1 (Critical): WR > 50%, Draw < 10%, Avg turns < 10
+- Tier 2 (Growth): WR > 55%, Draw < 5%
+- Tier 3 (Elite): WR > 60%
+
+---
+
+### STRAND 5: Fix buy_fights 401 (#25) - P2
+**Status**: Ready for pickup
+**Autonomous**: YES
+**Est. Time**: 1h
+
+**Problem**: `buy_fights` endpoint returns 401 Unauthorized.
+
+**Steps**:
+1. Find endpoint in `tools/leek-wars/src/` - search for "buy" or "fights"
+2. Check auth requirements, compare with working endpoints
+3. Fix in `api.py`, test via CLI
+
+**Success Criteria**: Can purchase fight packs via CLI.
+
+---
+
+### STRAND 6: Tournament Registration (#16) - P2
+**Status**: Ready for pickup
+**Autonomous**: YES
+**Est. Time**: 1h
+
+**Value**: Tournaments = ranking points + prizes.
+
+**Steps**:
+1. `grep -r "register-tournament" tools/leek-wars/src/`
+2. Implement in `api.py`: `register_tournament()`
+3. Add CLI: `leek tournament register`
+
+**Success Criteria**: Can register + list tournaments via CLI.
+
+---
+
+### STRAND 7: Opponent Database (#39) - P2
+**Status**: Ready for pickup
+**Autonomous**: YES
+**Est. Time**: 2h
+
+**Value**: Track rematches, identify easy/hard opponents.
+
+**Steps**:
+1. Design schema: opponent_id, fights[], win_rate, last_seen, archetype
+2. Add to `data/fights_light.db` or new table
+3. Populate from existing fight history
+4. Add CLI: `leek opponent stats <name>`
+
+**Success Criteria**: Query "how do we do vs X?" works.
+
+---
+
 ## Completed Work
 
 ### Session 20 (2026-01-25)
+
+- **STRAND 4 (#31) - Win Rate Targets** ✅
+  - **Document**: `docs/research/win_rate_targets.md`
+  - **Analysis**: 211 fights across L0-29, 45.8% WR ex-draw (need 55%+)
+  - **Key Finding**: Long fights (50+ turns) = 75% draw rate
+  - **Targets**: Tier 1 (50% WR), Tier 2 (55%), Tier 3 (60%)
 
 - **STRAND 2 (#57) - Garden Automation Assessment** ✅
   - **Finding**: Garden fight automation ALREADY EXISTS
