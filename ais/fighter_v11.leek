@@ -1,0 +1,205 @@
+// Fighter v11 "Hydra" - v8 Core + Smart Chips + Stalemate Fix
+// =============================================================================
+// Architecture: v8's proven modules + conditional chip system
+//
+// Modules (from v8):
+// - v8_state: TTK tracking, phase detection, damage accounting
+// - v8_accessible_cells: BFS flood-fill for reachability
+// - v8_danger_map: Cell danger scoring
+// - v8_hide_seek: Safe positioning
+// - v8_combat: Weapon rotation
+//
+// New module:
+// - v11_chips: Conditional buffing, chip damage, cooldown tracking
+//
+// Key improvements over v10:
+// - ONLY buff when enemy_ttk > 2 (won't die mid-buff)
+// - Chips augment damage, don't delay it
+// - Stalemate detection triggers force_engage mode
+// =============================================================================
+
+include("v8_state.leek")
+include("v8_accessible_cells.leek")
+include("v8_danger_map.leek")
+include("v8_hide_seek.leek")
+include("v8_combat.leek")
+include("v11_chips.leek")
+
+// =============================================================================
+// MAIN ENTRY POINT
+// =============================================================================
+
+var enemy = getNearestEnemy()
+if (enemy == null) return;
+
+// =============================================================================
+// INITIALIZATION (First Turn Only)
+// =============================================================================
+if (turn_count == 0) {
+    initNeighborCache()
+    initState(enemy)
+    loadChips()
+}
+
+// =============================================================================
+// TURN START
+// =============================================================================
+updateState(enemy)
+updateChipCooldowns()
+detectPhase()
+detectStalemate()
+resetCombatState()
+
+debug("═══ T" + turn_count + " Hydra ═══")
+debug("  HP: " + getLife() + "/" + my_start_hp + " vs " + getLife(enemy))
+debug("  TTK: us=" + my_ttk + " them=" + enemy_ttk + " winning=" + winning_race)
+if (force_engage) debug("  🔥 FORCE ENGAGE MODE")
+
+// =============================================================================
+// EQUIP WEAPON (once)
+// =============================================================================
+if (getWeapon() == null) {
+    var weapons = getWeapons()
+    if (count(weapons) > 0) {
+        setWeapon(weapons[0])
+        current_weapon = weapons[0]
+    }
+}
+
+// =============================================================================
+// FORCE ENGAGE MODE (stalemate override)
+// =============================================================================
+if (force_engage) {
+    debug("  ALL-IN: No retreat, pure aggro")
+
+    // Close gap completely
+    while (getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break;
+    }
+
+    // Chip damage first (usually longer range)
+    useChipDamage(enemy)
+
+    // Weapon damage
+    executeAttacks(enemy)
+
+    // Any remaining MP -> close more -> attack more
+    while (getMP() > 0) {
+        moveToward(enemy)
+    }
+    executeAttacks(enemy)
+
+    debugState()
+    return;
+}
+
+// =============================================================================
+// CONDITIONAL BUFFS (only if safe)
+// =============================================================================
+if (turn_count <= 2) {
+    var buffs = applyBuffsSafe()
+    if (buffs > 0) {
+        debug("  Applied " + buffs + " buffs")
+    }
+}
+
+// =============================================================================
+// COMPUTE SPATIAL AWARENESS
+// =============================================================================
+var my_mp = getMP()
+var enemy_mp = getMP(enemy)
+
+// Always compute our accessible cells
+cached_my_accessible = getAccessibleCells(getCell(), my_mp)
+
+// Only compute enemy accessible in non-opening (expensive!)
+if (fight_phase != "opening") {
+    cached_enemy_accessible = getAccessibleCells(getCell(enemy), enemy_mp)
+    cached_danger_map = computeDangerMap(cached_my_accessible, enemy, enemy_mp)
+}
+
+debug("  Accessible: me=" + count(cached_my_accessible) + " enemy=" + (cached_enemy_accessible ? count(cached_enemy_accessible) : 0))
+
+// =============================================================================
+// STRATEGY SELECTION
+// =============================================================================
+
+var dist = getCellDistance(getCell(), getCell(enemy))
+var weapon = getWeapon()
+var w_min = weapon ? getWeaponMinRange(weapon) : 1
+var w_max = weapon ? getWeaponMaxRange(weapon) : 7
+
+var strategy = "aggro"  // Default: attack
+
+// If losing and can retreat safely, do so
+if (!winning_race && fight_phase == "midgame" && cached_danger_map != null) {
+    var safe_cell = getSafestCell(cached_danger_map)
+    if (safe_cell != null) {
+        var current_danger = getDangerAt(cached_danger_map, getCell())
+        var safe_danger = getDangerAt(cached_danger_map, safe_cell)
+        if (safe_danger < current_danger - 2) {
+            strategy = "retreat"
+        }
+    }
+}
+
+debug("  Strategy: " + strategy + " | Range: " + w_min + "-" + w_max)
+
+// =============================================================================
+// EXECUTE STRATEGY
+// =============================================================================
+
+if (strategy == "retreat") {
+    // Move to safety first
+    var safe_cell = getSafestCell(cached_danger_map)
+    if (safe_cell != null) {
+        moveTowardCell(safe_cell)
+    }
+    // Still try to attack if in range
+    useChipDamage(enemy)
+    executeAttacks(enemy)
+
+} else {
+    // AGGRO: Close and attack
+
+    // Phase 1: Chip damage with long-range first (FLASH range 10, FLAME range 6)
+    // Don't waste MP closing when chips can hit from further
+    useChipDamage(enemy)
+    dist = getCellDistance(getCell(), getCell(enemy))
+
+    // Phase 2: Close, but RESERVE 1 MP for post-attack closing (kiter counter)
+    // This prevents us from spending all MP, having kiter retreat, then being stuck
+    while (dist > w_max && getMP() > 1) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break;
+        dist = getCellDistance(getCell(), getCell(enemy))
+    }
+
+    // Phase 3: Weapon attacks
+    executeAttacks(enemy)
+
+    // Phase 4: Use reserved MP to close more (kiter counter)
+    while (getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break;
+    }
+
+    // Phase 5: More attacks if we closed enough
+    useChipDamage(enemy)
+    executeAttacks(enemy)
+}
+
+// =============================================================================
+// EMERGENCY HEAL
+// =============================================================================
+healIfCritical()
+
+// =============================================================================
+// END OF TURN DEBUG
+// =============================================================================
+debugState()
+if (cached_danger_map != null) {
+    debugDangerMap(cached_danger_map)
+}
+debug("  Ops: " + getOperations())
