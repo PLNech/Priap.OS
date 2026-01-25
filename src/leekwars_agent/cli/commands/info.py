@@ -6,6 +6,7 @@ from pathlib import Path
 from ..output import output_json, output_kv, success, console
 from ..constants import LEEK_ID, FARMER_ID
 from leekwars_agent.auth import login_api
+from leekwars_agent.alpha_strike import calculate_stat_cv, calculate_mobility_ratio
 
 
 @click.group()
@@ -36,6 +37,21 @@ def leek_info(ctx: click.Context, leek_id: int) -> None:
             chip_ids = [str(c.get("template", c.get("id", "?"))) for c in chips]
             weapon_ids = [str(w.get("template", w.get("id", "?"))) for w in weapons]
 
+            # Alpha Strike build diagnostics
+            stats = {
+                "strength": leek.get("strength", 0),
+                "agility": leek.get("agility", 0),
+                "wisdom": leek.get("wisdom", 0),
+                "resistance": leek.get("resistance", 0),
+                "magic": leek.get("magic", 0),
+                "science": leek.get("science", 0),
+            }
+            stat_cv = calculate_stat_cv(stats)
+            mobility = calculate_mobility_ratio(leek.get("mp", 3), leek.get("life", 300))
+
+            # CV warning: lower is better (hybrid), high = pure build
+            cv_status = "⚠ pure" if stat_cv > 0.8 else "✓ hybrid" if stat_cv < 0.5 else ""
+
             output_kv({
                 "Name": leek.get("name"),
                 "Level": leek.get("level"),
@@ -53,6 +69,9 @@ def leek_info(ctx: click.Context, leek_id: int) -> None:
                 "MP": leek.get("mp"),
                 "Chips": f"{len(chips)} ({', '.join(chip_ids)})" if chips else "0",
                 "Weapons": f"{len(weapons)} ({', '.join(weapon_ids)})" if weapons else "0",
+                "─────────": "",  # Separator
+                "stat_cv": f"{stat_cv:.2f} {cv_status}",
+                "mobility": f"{mobility:.1f}",
             }, title=f"Leek #{leek_id}")
     finally:
         api.close()
