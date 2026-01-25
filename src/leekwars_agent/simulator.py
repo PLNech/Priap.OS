@@ -6,6 +6,7 @@ simulation that matches online fight conditions.
 
 import json
 import random
+import re
 import subprocess
 import tempfile
 import time
@@ -18,6 +19,60 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 GENERATOR_PATH = PROJECT_ROOT / "tools" / "leek-wars-generator"
 GENERATOR_JAR = GENERATOR_PATH / "generator.jar"
 MAP_LIBRARY_FILE = PROJECT_ROOT / "data" / "map_library.json"
+
+
+def extract_includes(source: Path) -> list[Path]:
+    """Extract include() statements from a LeekScript file."""
+    includes = []
+    content = source.read_text()
+
+    # Match: include("filename") or include('filename')
+    pattern = r'include\s*\(\s*["\']([^"\']+)["\']\s*\)'
+
+    for match in re.finditer(pattern, content):
+        include_name = match.group(1)
+
+        # Resolve relative to source file's directory
+        include_path = source.parent / include_name
+        if include_path.exists():
+            includes.append(include_path)
+            # Recursively check for nested includes
+            includes.extend(extract_includes(include_path))
+
+    # Remove duplicates while preserving order
+    seen = set()
+    unique = []
+    for p in includes:
+        if p.as_posix() not in seen:
+            seen.add(p.as_posix())
+            unique.append(p)
+
+    return unique
+
+
+def copy_ai_to_generator(source: Path, name: str | None = None) -> tuple[str, list[str]]:
+    """Copy AI file and its includes to generator directory.
+
+    Returns tuple of (main_name, list_of_copied_files).
+    """
+    copied_files = []
+
+    # Use provided name or derive from source
+    if name is None:
+        name = source.name
+
+    # Copy main file
+    dest = GENERATOR_PATH / name
+    dest.write_text(source.read_text())
+    copied_files.append(name)
+
+    # Copy included files
+    for include_path in extract_includes(source):
+        include_dest = GENERATOR_PATH / include_path.name
+        include_dest.write_text(include_path.read_text())
+        copied_files.append(include_path.name)
+
+    return name, copied_files
 
 
 @dataclass
@@ -496,6 +551,28 @@ class Simulator:
         scenario_dict = scenario.to_dict()
         map_id = scenario_dict.get("map", {}).get("id", 0)
 
+        # Copy AI files to generator directory
+        copied_files: set[str] = set()
+        # entities is [team1_list, team2_list]
+        for team_entities in scenario_dict.get("entities", []):
+            for entity in team_entities:
+                ai_path = entity.get("ai", "")
+                if ai_path and ai_path not in copied_files:
+                    try:
+                        source_path = Path(ai_path)
+                        if source_path.is_absolute():
+                            name, _ = copy_ai_to_generator(source_path)
+                        else:
+                            # Relative path - resolve from project root
+                            full_path = PROJECT_ROOT / ai_path
+                            name, _ = copy_ai_to_generator(full_path)
+                        entity["ai"] = name
+                        copied_files.add(ai_path)
+                    except Exception as e:
+                        # Log but continue - generator will fail if AI is missing
+                        import sys
+                        print(f"Warning: Failed to copy AI file {ai_path}: {e}", file=sys.stderr)
+
         # Write scenario to temp file
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", dir=self.generator_path, delete=False
@@ -608,6 +685,7 @@ class Simulator:
             team2=[leek2],
             map_config=game_map,
             seed=seed,
+            starter_team=1,  # CRITICAL: Without this, first entity can't use weapons
         )
         return self.run_scenario(scenario)
 
