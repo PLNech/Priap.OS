@@ -26,6 +26,21 @@ class LeekWarsAPI:
             headers["Authorization"] = f"Bearer {self.token}"
         return headers
 
+    def _browser_headers(self, referer: str | None = None) -> dict[str, str]:
+        """Return headers that mimic browser XHR requests."""
+        headers = self._headers()
+        headers["Content-Type"] = "application/json; charset=UTF-8"
+        headers["Origin"] = "https://leekwars.com"
+        headers["Accept"] = "application/json, text/plain, */*"
+        headers["User-Agent"] = (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+        if referer:
+            headers["Referer"] = f"https://leekwars.com{referer}"
+        headers["X-Requested-With"] = "XMLHttpRequest"
+        return headers
+
     def login(self, username: str, password: str, keep_connected: bool = True) -> dict[str, Any]:
         """Login and store token. Returns farmer data on success."""
         response = self._client.post(
@@ -225,8 +240,7 @@ class LeekWarsAPI:
     # Market operations
     def buy_fights(self, quantity: int = 1) -> dict[str, Any]:
         """Buy fight packs from market (50 fights per pack)."""
-        headers = self._headers()
-        headers["Content-Type"] = "application/json; charset=UTF-8"
+        headers = self._browser_headers("/market")
         response = self._client.post(
             "/market/buy-habs-quantity",
             headers=headers,
@@ -251,8 +265,7 @@ class LeekWarsAPI:
         Returns:
             Purchase result with new item data
         """
-        headers = self._headers()
-        headers["Content-Type"] = "application/json; charset=UTF-8"
+        headers = self._browser_headers("/market")
         response = self._client.post(
             "/market/buy-habs-quantity",
             headers=headers,

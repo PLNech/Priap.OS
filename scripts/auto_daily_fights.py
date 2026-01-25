@@ -38,16 +38,22 @@ import json
 from datetime import datetime, date
 from pathlib import Path
 
+import httpx
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from leekwars_agent.api import LeekWarsAPI
 from leekwars_agent.auth import login_api
 from leekwars_agent.db import store_fight, init_db
+from leekwars_agent.fight_parser import parse_fight
+from leekwars_agent.fight_analyzer import classify_ai_behavior
+from leekwars_agent.market import buy_fight_pack_via_browser
 
 # Config
 LEEK_ID = 131321
 LOG_FILE = Path(__file__).parent.parent / "logs" / "auto_fights.log"
 STATE_FILE = Path(__file__).parent.parent / "data" / "daily_state.json"
+FALLBACK_SNAPSHOT = LOG_FILE.with_name("market_fallback")
 
 
 def log(msg: str, also_print: bool = True):
@@ -88,33 +94,71 @@ def buy_fight_pack(api: LeekWarsAPI, state: dict) -> bool:
         log(f"[{task}] Already purchased today, skipping")
         return True
 
-    try:
-        result = api.buy_fights(quantity=1)
-        log(f"[{task}] Bought 50-fight pack! Result: {result}")
+    def mark(result: str):
         state[task] = {
             "last_date": today,
-            "result": "success",
+            "result": result,
             "timestamp": datetime.now().isoformat(),
         }
         save_state(state)
+
+    def describe_http_error(exc: httpx.HTTPStatusError) -> tuple[str, dict | None]:
+        status = exc.response.status_code if exc.response is not None else "?"
+        body = exc.response.text if exc.response is not None else ""
+        if len(body) > 300:
+            body = body[:300] + "...[truncated]"
+        data = None
+        if exc.response is not None:
+            try:
+                parsed = exc.response.json()
+                if isinstance(parsed, dict):
+                    data = parsed
+            except Exception:
+                pass
+        return f"status={status} body={body or '<empty>'}", data
+
+    try:
+        result = api.buy_fights(quantity=1)
+        log(f"[{task}] Bought 50-fight pack! Result: {result}")
+        mark("success")
         return True
+    except httpx.HTTPStatusError as e:
+        status = e.response.status_code if e.response is not None else None
+        desc, payload = describe_http_error(e)
+        if status == 401 and payload and payload.get("error") == "not_enough_habs":
+            log(f"[{task}] Not enough habs (price={payload.get('price')}); will retry later")
+            return False
+        if status == 401:
+            log(f"[{task}] API returned 401 ({desc}), using browser fallback...")
+            try:
+                buy_fight_pack_via_browser(headless=True, snapshot_path=FALLBACK_SNAPSHOT)
+                log(f"[{task}] Browser fallback succeeded")
+                mark("success_browser")
+                return True
+            except Exception as browser_err:
+                log(f"[{task}] Browser fallback failed: {browser_err}. "
+                    f"Artifacts: {FALLBACK_SNAPSHOT.with_suffix('.png')}")
+                return False
+        if status == 402:
+            log(f"[{task}] Not enough habs to buy pack (will retry later)")
+            return False
+        if status == 400:
+            log(f"[{task}] Already at max fights or limit reached")
+            mark("limit_reached")
+            return True
+        log(f"[{task}] Error buying pack: {desc}")
+        return False
     except Exception as e:
         error_msg = str(e)
         if "402" in error_msg or "not enough" in error_msg.lower():
             log(f"[{task}] Not enough habs to buy pack (will retry later)")
             return False
-        elif "400" in error_msg:
+        if "400" in error_msg:
             log(f"[{task}] Already at max fights or limit reached")
-            state[task] = {
-                "last_date": today,
-                "result": "limit_reached",
-                "timestamp": datetime.now().isoformat(),
-            }
-            save_state(state)
-            return True  # Not an error, just capped
-        else:
-            log(f"[{task}] Error buying pack: {e}")
-            return False
+            mark("limit_reached")
+            return True
+        log(f"[{task}] Error buying pack: {e}")
+        return False
 
 
 def get_status(api: LeekWarsAPI) -> dict:
@@ -134,9 +178,11 @@ def get_status(api: LeekWarsAPI) -> dict:
 
 def run_fights(api: LeekWarsAPI, count: int) -> dict:
     """Run N fights and return results."""
+    from collections import defaultdict
 
     leek_id = LEEK_ID
     wins, losses, draws, crashes = 0, 0, 0, 0
+    archetype_stats = defaultdict(lambda: {"W": 0, "L": 0, "D": 0})
 
     for i in range(count):
         try:
@@ -220,13 +266,44 @@ def run_fights(api: LeekWarsAPI, count: int) -> dict:
                     else:
                         enemy_hp = ldata.get("life", "?")
 
-            log(f"  [{i+1}/{count}] {result_char} vs {opponent_name} (t{turn_count}, HP:{my_hp}/{enemy_hp})")
+            # Classify opponent archetype
+            opp_archetype = "?"
+            try:
+                parsed = parse_fight(fight)
+                data = fight.get("data", {})
+                for leek in data.get("leeks", []):
+                    if leek.get("team") != my_team:
+                        opp_entity_id = leek.get("id")
+                        classification = classify_ai_behavior(parsed, opp_entity_id)
+                        opp_archetype = classification.archetype
+                        break
+            except Exception:
+                pass  # Classification is optional, don't fail fight
+
+            log(f"  [{i+1}/{count}] {result_char} vs {opponent_name} [{opp_archetype}] (t{turn_count}, HP:{my_hp}/{enemy_hp})")
+
+            # Track per-archetype stats
+            if opp_archetype != "?":
+                if winner == 0:
+                    archetype_stats[opp_archetype]["D"] += 1
+                elif winner == my_team:
+                    archetype_stats[opp_archetype]["W"] += 1
+                else:
+                    archetype_stats[opp_archetype]["L"] += 1
 
             time.sleep(0.5)  # Rate limit
 
         except Exception as e:
             log(f"  [{i+1}/{count}] Error: {e}")
             crashes += 1
+
+    # Log archetype breakdown
+    if archetype_stats:
+        log("  Archetype breakdown:")
+        for arch, stats in sorted(archetype_stats.items()):
+            total = stats["W"] + stats["L"] + stats["D"]
+            wr = stats["W"] / (stats["W"] + stats["L"]) * 100 if (stats["W"] + stats["L"]) > 0 else 0
+            log(f"    vs {arch}: {stats['W']}W-{stats['L']}L-{stats['D']}D ({wr:.0f}% WR)")
 
     return {
         "fights_run": wins + losses + draws,
@@ -235,6 +312,7 @@ def run_fights(api: LeekWarsAPI, count: int) -> dict:
         "draws": draws,
         "crashes": crashes,
         "win_rate": wins / (wins + losses) * 100 if (wins + losses) > 0 else 0,
+        "archetype_stats": dict(archetype_stats),
     }
 
 
@@ -250,6 +328,8 @@ def main():
                         help="Check status only, don't fight")
     parser.add_argument("--no-buy", action="store_true",
                         help="Skip buying fight packs (just use available)")
+    parser.add_argument("--buy-only", action="store_true",
+                        help="Attempt to buy fights then exit (debugging)")
     args = parser.parse_args()
 
     log("=" * 50)
@@ -270,6 +350,11 @@ def main():
     if not args.no_buy and not args.dry_run:
         state = load_state()
         buy_fight_pack(api, state)
+
+    if args.buy_only:
+        log("[buy_only] Skipping fight scheduling after purchase attempt")
+        api.close()
+        return
 
     # Get status
     status = get_status(api)

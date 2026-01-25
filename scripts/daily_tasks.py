@@ -11,13 +11,17 @@ import json
 from pathlib import Path
 from datetime import datetime, date
 
+import httpx
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from leekwars_agent.api import LeekWarsAPI
 from leekwars_agent.auth import login_api
+from leekwars_agent.market import buy_fight_pack_via_browser
 
 # State file to track what we've done today
 STATE_FILE = Path(__file__).parent.parent / "data" / "daily_state.json"
+FALLBACK_SNAPSHOT = Path(__file__).parent.parent / "logs" / "market_fallback_manual"
 
 
 def load_state() -> dict:
@@ -59,24 +63,63 @@ def buy_fights(api: LeekWarsAPI, state: dict) -> bool:
         print(f"[{task}] Already done today, skipping")
         return False
 
+    def describe_http_error(exc: httpx.HTTPStatusError) -> tuple[str, dict | None]:
+        status = exc.response.status_code if exc.response is not None else "?"
+        body = exc.response.text if exc.response is not None else ""
+        if len(body) > 300:
+            body = body[:300] + "...[truncated]"
+        data = None
+        if exc.response is not None:
+            try:
+                parsed = exc.response.json()
+                if isinstance(parsed, dict):
+                    data = parsed
+            except Exception:
+                pass
+        return f"status={status} body={body or '<empty>'}", data
+
     try:
         result = api.buy_fights(quantity=1)
         print(f"[{task}] Success: {result}")
         mark_done(task, state, "success")
         return True
+    except httpx.HTTPStatusError as e:
+        status = e.response.status_code if e.response is not None else None
+        desc, payload = describe_http_error(e)
+        if status == 401 and payload and payload.get("error") == "not_enough_habs":
+            print(f"[{task}] Not enough habs (price={payload.get('price')}), will retry later")
+            return False
+        if status == 401:
+            print(f"[{task}] API returned 401 ({desc}), falling back to browser automation...")
+            try:
+                buy_fight_pack_via_browser(headless=True, snapshot_path=FALLBACK_SNAPSHOT)
+                print(f"[{task}] Browser fallback succeeded")
+                mark_done(task, state, "success_browser")
+                return True
+            except Exception as browser_err:
+                print(f"[{task}] Browser fallback failed: {browser_err}. "
+                      f"Artifacts: {FALLBACK_SNAPSHOT.with_suffix('.png')}")
+                return False
+        if status == 402:
+            print(f"[{task}] Not enough habs, will retry later")
+            return False
+        if status == 400:
+            print(f"[{task}] Already have max fights or other limit")
+            mark_done(task, state, "limit_reached")
+            return False
+        print(f"[{task}] Error: {desc}")
+        return False
     except Exception as e:
         error_msg = str(e)
         if "402" in error_msg or "not enough" in error_msg.lower():
             print(f"[{task}] Not enough habs, will retry later")
-            # Don't mark as done - retry later
             return False
-        elif "400" in error_msg:
+        if "400" in error_msg:
             print(f"[{task}] Already have max fights or other limit")
             mark_done(task, state, "limit_reached")
             return False
-        else:
-            print(f"[{task}] Error: {e}")
-            return False
+        print(f"[{task}] Error: {e}")
+        return False
 
 
 def run_garden_fights(api: LeekWarsAPI, state: dict, max_fights: int = 10) -> int:
