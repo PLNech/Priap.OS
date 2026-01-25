@@ -376,3 +376,172 @@ def _save_meta_analysis(results: dict, path: str) -> None:
 
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text("\n".join(lines) + "\n")
+
+
+# =============================================================================
+# ALPHA STRIKE ANALYSIS (Elite Meta Metrics)
+# =============================================================================
+
+@analyze.command("alpha-strike")
+@click.argument("fight_id", type=int, required=False)
+@click.option("--db", type=str, default="data/fights_meta.db", help="Database path")
+@click.option("--sample", type=int, default=0, help="Analyze N random fights from DB")
+@click.pass_context
+def alpha_strike_analysis(ctx: click.Context, fight_id: int | None, db: str, sample: int) -> None:
+    """Alpha Strike analysis - elite meta metrics.
+
+    Analyzes: TP efficiency, opening buffs, high-win chips, PONR.
+
+    Examples:
+        leek analyze alpha-strike 51234567       # Single fight
+        leek analyze alpha-strike --sample 100  # Random sample from DB
+    """
+    from leekwars_agent.fight_parser import parse_fight
+    from leekwars_agent.fight_analyzer import analyze_alpha_strike, print_alpha_strike_analysis
+
+    if fight_id:
+        # Analyze single fight
+        if not Path(db).exists():
+            console.print(f"[red]Database not found: {db}[/red]")
+            raise SystemExit(1)
+
+        conn = sqlite3.connect(db)
+        row = conn.execute(
+            "SELECT json_data FROM fights WHERE fight_id = ?", (fight_id,)
+        ).fetchone()
+        conn.close()
+
+        if not row:
+            console.print(f"[red]Fight {fight_id} not found in database[/red]")
+            raise SystemExit(1)
+
+        fight_data = json.loads(row[0])
+        fight = fight_data.get("fight", fight_data)
+        parsed = parse_fight(fight)
+        summary = analyze_alpha_strike(parsed)
+
+        if ctx.obj.get("json"):
+            output_json(summary.summary_dict())
+        else:
+            print_alpha_strike_analysis(summary)
+
+    elif sample > 0:
+        # Analyze sample from DB
+        if not Path(db).exists():
+            console.print(f"[red]Database not found: {db}[/red]")
+            raise SystemExit(1)
+
+        conn = sqlite3.connect(db)
+        rows = conn.execute(
+            "SELECT fight_id, json_data, winner FROM fights ORDER BY RANDOM() LIMIT ?",
+            (sample,)
+        ).fetchall()
+        conn.close()
+
+        if not rows:
+            console.print("[red]No fights in database[/red]")
+            raise SystemExit(1)
+
+        # Aggregate stats
+        results = _run_alpha_strike_sample(rows)
+
+        if ctx.obj.get("json"):
+            output_json(results)
+        else:
+            _print_alpha_strike_sample(results, sample)
+
+    else:
+        console.print("[yellow]Usage: leek analyze alpha-strike <fight_id>[/yellow]")
+        console.print("       leek analyze alpha-strike --sample 100")
+
+
+def _run_alpha_strike_sample(rows: list) -> dict:
+    """Run Alpha Strike analysis on a sample of fights."""
+    from leekwars_agent.fight_parser import parse_fight
+    from leekwars_agent.fight_analyzer import analyze_alpha_strike
+
+    tp_efficiencies = []
+    opening_buff_gaps = []
+    ponr_turns = []
+    high_win_counts = []
+    winners_by_opener = {"better_opener_wins": 0, "worse_opener_wins": 0, "equal": 0}
+
+    for row in rows:
+        fight_id, json_data, winner = row
+        try:
+            fight_data = json.loads(json_data)
+            fight = fight_data.get("fight", fight_data)
+            parsed = parse_fight(fight)
+            summary = analyze_alpha_strike(parsed)
+
+            # Collect stats
+            if summary.team1_metrics:
+                tp_efficiencies.append(summary.team1_metrics.overall_tp_efficiency)
+            if summary.team2_metrics:
+                tp_efficiencies.append(summary.team2_metrics.overall_tp_efficiency)
+
+            opening_buff_gaps.append(abs(summary.opening_buff_delta))
+
+            if summary.ponr_turn:
+                ponr_turns.append(summary.ponr_turn)
+
+            if summary.team1_metrics:
+                high_win_counts.append(len(summary.team1_metrics.high_win_chips_used))
+            if summary.team2_metrics:
+                high_win_counts.append(len(summary.team2_metrics.high_win_chips_used))
+
+            # Track opener advantage
+            if winner == 1 and summary.opening_buff_delta > 0:
+                winners_by_opener["better_opener_wins"] += 1
+            elif winner == 2 and summary.opening_buff_delta < 0:
+                winners_by_opener["better_opener_wins"] += 1
+            elif winner == 1 and summary.opening_buff_delta < 0:
+                winners_by_opener["worse_opener_wins"] += 1
+            elif winner == 2 and summary.opening_buff_delta > 0:
+                winners_by_opener["worse_opener_wins"] += 1
+            else:
+                winners_by_opener["equal"] += 1
+
+        except Exception as e:
+            continue  # Skip malformed fights
+
+    n = len(rows)
+    return {
+        "sample_size": n,
+        "avg_tp_efficiency": round(sum(tp_efficiencies) / len(tp_efficiencies), 3) if tp_efficiencies else 0,
+        "tp_below_90": sum(1 for e in tp_efficiencies if e < 0.9),
+        "avg_opening_buff_gap": round(sum(opening_buff_gaps) / len(opening_buff_gaps), 2) if opening_buff_gaps else 0,
+        "avg_ponr_turn": round(sum(ponr_turns) / len(ponr_turns), 1) if ponr_turns else None,
+        "ponr_before_turn_3": sum(1 for t in ponr_turns if t <= 3),
+        "avg_high_win_chips": round(sum(high_win_counts) / len(high_win_counts), 2) if high_win_counts else 0,
+        "opener_advantage": winners_by_opener,
+    }
+
+
+def _print_alpha_strike_sample(results: dict, n: int) -> None:
+    """Pretty print Alpha Strike sample analysis."""
+    console.print(f"\n[bold cyan]═══ ALPHA STRIKE SAMPLE ANALYSIS ({n} fights) ═══[/bold cyan]\n")
+
+    console.print("[bold]TP Efficiency[/bold] (target: ≥0.9)")
+    eff = results["avg_tp_efficiency"]
+    status = "[green]✓[/green]" if eff >= 0.9 else "[yellow]⚠[/yellow]"
+    console.print(f"  Average: {eff:.3f} {status}")
+    console.print(f"  Below 0.9: {results['tp_below_90']} ({100*results['tp_below_90']/n/2:.1f}% of entities)")
+
+    console.print("\n[bold]Opening Buff Gap[/bold]")
+    console.print(f"  Average gap: {results['avg_opening_buff_gap']:.2f} buffs")
+    oa = results["opener_advantage"]
+    total_decided = oa["better_opener_wins"] + oa["worse_opener_wins"]
+    if total_decided > 0:
+        opener_rate = 100 * oa["better_opener_wins"] / total_decided
+        console.print(f"  Better opener wins: {opener_rate:.1f}% of decided fights")
+
+    console.print("\n[bold]Point of No Return (PONR)[/bold]")
+    if results["avg_ponr_turn"]:
+        console.print(f"  Average PONR turn: {results['avg_ponr_turn']:.1f}")
+        console.print(f"  Decided by turn 3: {results['ponr_before_turn_3']} ({100*results['ponr_before_turn_3']/n:.1f}%)")
+    else:
+        console.print("  [dim]Not enough data[/dim]")
+
+    console.print("\n[bold]High-Win Chips[/bold]")
+    console.print(f"  Average per entity: {results['avg_high_win_chips']:.2f}/5")

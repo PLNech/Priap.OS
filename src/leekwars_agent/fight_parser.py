@@ -1,7 +1,11 @@
-"""Fight action parser for LeekWars replays."""
+"""Fight action parser for LeekWars replays.
+
+Extended with Alpha Strike metrics (TP efficiency, opening buffs, chip tracking).
+See docs/project_alpha_strike_integration.md for research background.
+"""
 
 from enum import IntEnum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -85,7 +89,13 @@ def parse_action(raw: list) -> ParsedAction:
 
 
 def parse_fight(fight_data: dict) -> dict:
-    """Parse full fight data into structured format."""
+    """Parse full fight data into structured format.
+
+    Extended with Alpha Strike metrics:
+    - Per-entity chip/weapon IDs (not just counts)
+    - Opening buff tracking (turns 0-1)
+    - TP usage estimation per turn
+    """
     data = fight_data.get("data", {})
 
     result = {
@@ -103,10 +113,19 @@ def parse_fight(fight_data: dict) -> dict:
             "chip_uses": 0,
             "damage_dealt": {},
             "healing_done": {},
+        },
+        # Alpha Strike extensions
+        "alpha_strike": {
+            "entity_chips": {},      # entity_id -> list of chip IDs used
+            "entity_weapons": {},    # entity_id -> list of weapon IDs used
+            "opening_buffs": {},     # entity_id -> list of chip IDs used in turns 0-1
+            "per_turn_actions": {},  # entity_id -> {turn: action_count}
+            "hp_by_turn": {},        # entity_id -> {turn: hp}
         }
     }
 
     current_turn = {"number": 0, "actions": []}
+    current_entity = None  # Track whose turn it is (from LEEK_TURN)
     actions = data.get("actions", [])
     result["summary"]["total_actions"] = len(actions)
 
@@ -119,6 +138,15 @@ def parse_fight(fight_data: dict) -> dict:
             current_turn = {"number": action.entity_id or 0, "actions": []}
             result["summary"]["turns"] += 1
 
+        elif action.type == ActionType.LEEK_TURN:
+            # Track whose turn it is for weapon/chip attribution
+            current_entity = action.entity_id
+            current_turn["actions"].append({
+                "type": "leek_turn",
+                "entity": action.entity_id,
+                "params": action.params,
+            })
+
         elif action.type == ActionType.MOVE_TO:
             current_turn["actions"].append({
                 "type": "move",
@@ -129,20 +157,50 @@ def parse_fight(fight_data: dict) -> dict:
             result["summary"]["moves"] += 1
 
         elif action.type == ActionType.USE_WEAPON:
+            # USE_WEAPON format: [16, cell?, target_entity]
+            # The acting entity comes from LEEK_TURN, not from this action
+            weapon_id = action.entity_id  # The weapon ID
             current_turn["actions"].append({
                 "type": "weapon",
-                "entity": action.entity_id,
-                "params": action.params,
+                "entity": current_entity,  # Use tracked entity, not action.entity_id
+                "target": action.params[0] if action.params else None,
+                "weapon_id": weapon_id,
+                "raw_action": action.entity_id,  # Keep original for debugging
             })
             result["summary"]["weapon_uses"] += 1
 
+            # Alpha Strike: Track weapon IDs per entity
+            if current_entity is not None:
+                if current_entity not in result["alpha_strike"]["entity_weapons"]:
+                    result["alpha_strike"]["entity_weapons"][current_entity] = []
+                if weapon_id not in result["alpha_strike"]["entity_weapons"][current_entity]:
+                    result["alpha_strike"]["entity_weapons"][current_entity].append(weapon_id)
+
         elif action.type == ActionType.USE_CHIP:
+            # Same pattern as USE_WEAPON
+            chip_id = action.entity_id  # The chip ID
             current_turn["actions"].append({
                 "type": "chip",
-                "entity": action.entity_id,
-                "params": action.params,
+                "entity": current_entity,  # Use tracked entity
+                "target": action.params[0] if action.params else None,
+                "chip_id": chip_id,
+                "raw_action": action.entity_id,
             })
             result["summary"]["chip_uses"] += 1
+
+            # Alpha Strike: Track chip IDs per entity
+            if current_entity is not None:
+                if current_entity not in result["alpha_strike"]["entity_chips"]:
+                    result["alpha_strike"]["entity_chips"][current_entity] = []
+                if chip_id not in result["alpha_strike"]["entity_chips"][current_entity]:
+                    result["alpha_strike"]["entity_chips"][current_entity].append(chip_id)
+
+                # Track opening buffs (turns 0-1)
+                turn_num = current_turn.get("number", 0)
+                if turn_num <= 1:
+                    if current_entity not in result["alpha_strike"]["opening_buffs"]:
+                        result["alpha_strike"]["opening_buffs"][current_entity] = []
+                    result["alpha_strike"]["opening_buffs"][current_entity].append(chip_id)
 
         elif action.type == ActionType.LOST_LIFE:
             entity = str(action.entity_id)
@@ -168,9 +226,9 @@ def parse_fight(fight_data: dict) -> dict:
                 "amount": heal,
             })
 
-        elif action.type in (ActionType.LEEK_TURN, ActionType.END_TURN):
+        elif action.type == ActionType.END_TURN:
             current_turn["actions"].append({
-                "type": action.type.name.lower(),
+                "type": "end_turn",
                 "entity": action.entity_id,
                 "params": action.params,
             })
