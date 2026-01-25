@@ -17,11 +17,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from leekwars_agent.api import LeekWarsAPI
 from leekwars_agent.auth import login_api
-from leekwars_agent.market import buy_fight_pack_via_browser
 
 # State file to track what we've done today
 STATE_FILE = Path(__file__).parent.parent / "data" / "daily_state.json"
-FALLBACK_SNAPSHOT = Path(__file__).parent.parent / "logs" / "market_fallback_manual"
 
 
 def load_state() -> dict:
@@ -90,16 +88,8 @@ def buy_fights(api: LeekWarsAPI, state: dict) -> bool:
             print(f"[{task}] Not enough habs (price={payload.get('price')}), will retry later")
             return False
         if status == 401:
-            print(f"[{task}] API returned 401 ({desc}), falling back to browser automation...")
-            try:
-                buy_fight_pack_via_browser(headless=True, snapshot_path=FALLBACK_SNAPSHOT)
-                print(f"[{task}] Browser fallback succeeded")
-                mark_done(task, state, "success_browser")
-                return True
-            except Exception as browser_err:
-                print(f"[{task}] Browser fallback failed: {browser_err}. "
-                      f"Artifacts: {FALLBACK_SNAPSHOT.with_suffix('.png')}")
-                return False
+            print(f"[{task}] Unauthorized response ({desc}), skipping purchase")
+            return False
         if status == 402:
             print(f"[{task}] Not enough habs, will retry later")
             return False

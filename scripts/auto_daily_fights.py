@@ -47,13 +47,11 @@ from leekwars_agent.auth import login_api
 from leekwars_agent.db import store_fight, init_db
 from leekwars_agent.fight_parser import parse_fight
 from leekwars_agent.fight_analyzer import classify_ai_behavior
-from leekwars_agent.market import buy_fight_pack_via_browser
 
 # Config
 LEEK_ID = 131321
 LOG_FILE = Path(__file__).parent.parent / "logs" / "auto_fights.log"
 STATE_FILE = Path(__file__).parent.parent / "data" / "daily_state.json"
-FALLBACK_SNAPSHOT = LOG_FILE.with_name("market_fallback")
 
 
 def log(msg: str, also_print: bool = True):
@@ -129,16 +127,8 @@ def buy_fight_pack(api: LeekWarsAPI, state: dict) -> bool:
             log(f"[{task}] Not enough habs (price={payload.get('price')}); will retry later")
             return False
         if status == 401:
-            log(f"[{task}] API returned 401 ({desc}), using browser fallback...")
-            try:
-                buy_fight_pack_via_browser(headless=True, snapshot_path=FALLBACK_SNAPSHOT)
-                log(f"[{task}] Browser fallback succeeded")
-                mark("success_browser")
-                return True
-            except Exception as browser_err:
-                log(f"[{task}] Browser fallback failed: {browser_err}. "
-                    f"Artifacts: {FALLBACK_SNAPSHOT.with_suffix('.png')}")
-                return False
+            log(f"[{task}] Unauthorized response ({desc}), skipping purchase")
+            return False
         if status == 402:
             log(f"[{task}] Not enough habs to buy pack (will retry later)")
             return False
