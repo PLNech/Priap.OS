@@ -100,13 +100,13 @@ if (force_engage) {
 }
 
 // =============================================================================
-// V14 OPENING STRATEGY (turns 1-5)
+// V14 OPENING BURST (turns 1-3)
 // =============================================================================
-// NEW: v14 replaces v11's cautious opening with aggressive burst
-if (turn_count <= 5) {
+// Add aggressive opening burst BEFORE the main combat loop
+// v11's main combat loop still handles movement/positioning
+if (turn_count <= 3) {
     executeOpeningStrategy(enemy)
-    debugState()
-    return;
+    // Continue to main combat loop below for movement/positioning
 }
 
 // =============================================================================

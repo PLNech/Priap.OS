@@ -5,10 +5,12 @@
 // =============================================================================
 
 // =============================================================================
-// TURN 1: OPENING BURST - MAXIMUM IMPACT
+// TURN 1: OPENING BURST - FLASH + WEAPON (no MOTIVATION)
 // =============================================================================
 // TP Budget: 10 TP
-// Priority: FLASH (32 dmg) > Weapon (~15 dmg) > MOTIVATION (+2 TP)
+// Priority: FLASH (32 dmg) > Weapon (~15 dmg) > Movement
+// Don't use MOTIVATION on turn 1 - it's inefficient
+// Movement: Reserve 1 MP for turn 2 pursuit (kiter counter)
 // Expected damage: ~47 turn 1
 // =============================================================================
 
@@ -29,36 +31,23 @@ function executeOpeningBurst(enemy) {
     // Pistol: 3 TP, ~15 damage
     attackOnce(enemy)
 
-    // Priority 3: MOTIVATION chip - +2 TP for next turn
-    // This gives us 12 TP on turn 2 for sustained pressure
-    if (canUseChip(chip_motivation)) {
-        var result = useChip(chip_motivation, getEntity())
-        if (result == USE_SUCCESS) {
-            markChipUsed(chip_motivation)
-            debug("    +2 TP for turn 2!")
-        }
-    }
+    // NO MOTIVATION on turn 1 - it wastes 4 TP for +2 TP next turn
+    // Better to use those 4 TP for movement or more attacks
 
-    // Move toward enemy, but RESERVE 1 MP
-    // Don't corner ourselves - keep options open
+    // Move toward enemy, RESERVE 1 MP for kiter pursuit on turn 2
     while (getMP() > 1) {
-        var moved = moveToward(enemy)
-        if (moved == 0) break
-    }
-
-    // Use any remaining MP (after reserving 1)
-    while (getMP() > 0) {
         var moved = moveToward(enemy)
         if (moved == 0) break
     }
 }
 
 // =============================================================================
-// TURN 2-3: SUSTAINED PRESSURE - KEEP ATTACKING
+// TURN 2-3: SUSTAINED PRESSURE - KEEP ATTACKING + CHASE
 // =============================================================================
 // TP Available: 12 (base 10 + 2 from MOTIVATION turn 1)
 // Priority: Weapon attacks > FLAME chip > Movement
 // Expected damage: ~59 turn 2 if in range
+// Movement: Reserve 1 MP for post-attack pursuit (kiter counter)
 // =============================================================================
 
 function executeSustainedPressure(enemy) {
@@ -68,7 +57,6 @@ function executeSustainedPressure(enemy) {
     // If in range (≤7): Weapon + FLAME spam
     if (dist <= 7) {
         // FLAME spam: 29 damage, 4 TP, 3x per turn
-        // Better than weapon when we have extra TP
         while (canUseChip(chip_flame) && getTP() >= 4) {
             var result = useChip(chip_flame, enemy)
             if (result == USE_SUCCESS) {
@@ -86,10 +74,12 @@ function executeSustainedPressure(enemy) {
     }
     // If out of range (>7): Move + FLASH to bridge gap
     else {
-        // Chase aggressively
-        while (getMP() > 1) {
-            moveToward(enemy)
+        // Chase aggressively - use all MP to close
+        while (getMP() > 0) {
+            var moved = moveToward(enemy)
+            if (moved == 0) break
         }
+        dist = getCellDistance(getCell(), getCell(enemy))
 
         // FLASH at range 10 to maintain pressure
         if (canUseChip(chip_flash) && dist <= 10) {
