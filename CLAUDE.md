@@ -17,6 +17,87 @@ Strategic planning lives in the task system. High-level structure:
 
 Sub-tasks use notation like #0201, #0202 under their pillar.
 
+## Orchestration Strategy (Multi-Agent Sessions)
+
+When user says "orchestrator mode": delegate implementation, keep context clean.
+
+### Files
+- **`AGORA.md`** - Workers read/write progress here (create if missing)
+- **`docs/GANTT_SESSION*.md`** - Critical path visualization
+
+### Orchestrator Rules
+1. **Don't grep/read** - spawn `Task(subagent_type="Explore", model="haiku")` instead
+2. **Workers mark VERIFY, not DONE** - Orchestrator tests then marks DONE
+3. **Adversarial verification** (2-phase):
+   - **Phase 1 (Sonnet)**: Gather raw evidence. Prompt: `"Run these commands, show RAW output. Do NOT interpret. Include: [specific checks from success criteria]"`
+   - **Phase 2 (Opus/you)**: Review evidence adversarially. Ask: "Could worker have bluffed? Does evidence ACTUALLY meet criteria? What's missing?"
+4. **Update AGORA + Tasks** - after each worker report
+
+### Writing Good Strand Definitions (Workers are Myopic)
+
+Workers execute literally. They see the tree, not the forest. **Orchestrator must provide strategic context.**
+
+**Strand Template**:
+```markdown
+### STRAND N: [Name]
+**Status**: READY
+**Priority**: P0/P1/P2
+
+**Strategic Context** (WHY this matters):
+[1-2 sentences on how this fits the bigger picture. What breaks if we don't fix this? What unlocks if we do?]
+
+**Problem** (WHAT's broken - symptoms):
+[Observable symptoms. Error messages. User-facing impact.]
+
+**Investigation Steps** (before fixing):
+[Let worker discover root cause. Don't prescribe solution.]
+
+**Success Criteria** (WHAT success looks like - not HOW):
+[Functional tests. "User can X" not "Code does Y".]
+
+**Key Files**: [Starting points for investigation]
+```
+
+**Anti-patterns** (avoid these):
+| Bad | Good |
+|-----|------|
+| "Make `LocalSimulator` import work" | "Clarify canonical simulator import pattern" |
+| "Add alias for backward compat" | "Ensure scripts can import simulator cleanly" |
+| "Fix line 42 in foo.py" | "Fight logging shows all D - investigate why" |
+
+**Key insight**: Describe the *problem* and *what success looks like*. Let workers discover the *solution*. They may find a simpler fix than you imagined.
+
+### Verification Prompt Template
+```
+Gather evidence for STRAND X. Run these commands and show RAW output (no interpretation):
+1. `ls -la <expected_file>` - exists?
+2. `wc -l <file>` - has content?
+3. `head -50 <file>` - show actual content
+4. `<functional_test_command>` - does it work?
+
+Report raw outputs. Orchestrator will judge PASS/FAIL.
+```
+
+### Lesson Learned
+Worker found #57 "already implemented" → orchestrator verified via subagent → confirmed → task closed. **Always verify before building.**
+
+### Task Cleanup (End of Session)
+Archive completed tasks to `tasks/sessionN_archive.json`:
+```json
+{
+  "session": N,
+  "completed_tasks": [{
+    "task_id": X,
+    "subject": "...",
+    "root_cause": "...",      // if bug fix
+    "solution": "...",
+    "key_files": [],
+    "learnings": []           // CRITICAL: capture insights
+  }]
+}
+```
+Then mark tasks DONE in Claude Code task system. Learnings compound across sessions.
+
 ## Project Overview
 Automated LeekWars agent aiming for **top 10 ladder**. The strategy: build infrastructure that lets us iterate faster than anyone else.
 
