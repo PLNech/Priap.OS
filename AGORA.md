@@ -1,270 +1,153 @@
 # AGORA - Multi-Agent Coordination Space
 
-> **Shared context for Orchestrator ↔ WorkerAgent communication.**
->
 > **Workers: READ THIS FIRST, then follow the protocol below.**
 
 ## Worker Protocol (MANDATORY)
 
 1. **On task start**: Update "Active Workers" table with your agent name + strand
 2. **On each milestone**: Edit your strand section with progress/findings
-3. **On blockers**: Add to "Blockers" section immediately, don't wait
+3. **On blockers**: Add to "Blockers" section immediately
 4. **On completion**: Mark strand **VERIFY** (not DONE) - Orchestrator verifies then marks DONE
-5. **Commit after each milestone** - small atomic commits, descriptive messages
+5. **Commit after each milestone**
 
 **IMPORTANT**: Workers NEVER mark DONE. Only VERIFY. Orchestrator tests and confirms.
 
 ---
 
-## Current Session: 2026-01-25
+## Current Session: 2026-01-26 (Cleanup Sprint)
+
+### Mission
+**Fix the measurement system before optimizing further.** We discovered:
+- Team detection broken → all fights showing as "D"
+- DB schema mismatch → saves failing
+- Simulator import broken → tooling fragile
 
 ### Active Workers
 | Agent | Task | Status | Started | Notes |
 |-------|------|--------|---------|-------|
-| Crush | Strand 1 Simulator Fix | DONE | 2026-01-25 | Implemented AI copy in simulator.py, verified with archetype tests |
-| Crush | Strand 2 Assessment | DONE | 2026-01-25 | Found garden automation already exists in api.py + CLI |
-| Crush | Strand 4 Win Rate Targets | VERIFY | 2026-01-25 | Research doc written, targets defined per level band |
+| - | STRAND 1 Operations Fix | ⏳ READY | - | #78 + #79 |
+| - | STRAND 2 Simulator Fix | ⏳ READY | - | #80 |
 
-### Blockers (Workers: Add here immediately if stuck)
+### Blockers
 | Agent | Blocker | Needs |
 |-------|---------|-------|
 | - | - | - |
 
 ### Orchestrator Notes
 
-**Strategic Context (from PONR analysis):**
-- PONR claim **disproved**: Turn 2.7 → actual Turn 5.5-10 (L20-259 data, n=2535)
-- stat_cv validated: pure builds (>0.85) win **57% in long fights** (16+ turns)
-- Our stat_cv=0.94 is GOOD for attrition play
-
-**Today's Budget:**
-- ~40 online fights remaining
-- Unlimited offline simulation (BLOCKED by #26)
-- Unlimited test scenario API
-
-**Priority Stack:**
-1. ~~#26 Simulator Fix~~ ✅ **DONE** - 13,000:1 leverage UNLOCKED!
-2. **#31 Win Rate Targets** - Define success metrics
-3. **#63 Battle Royale** - 10 free fights/day
+**Current State**: L38, T39-43 (fluctuating), WR unknown (measurement broken!)
+**Budget**: 50/50 fights available
+**Priority**: P0 fixes before any new features
 
 ---
 
-## Pending Handoffs
+## Open Strands
 
-### STRAND 1: Simulator Fix (#26) - ✅ DONE
-**Status**: DONE (Verified: v11 vs archetype_rusher = 4-turn win)
+### STRAND 1: Operations Fix (#78 + #79)
+**Status**: READY FOR WORKER
+**Priority**: P0 - Measurement is broken
 **Autonomous**: YES
-**Est. Time**: 1-2h
-**Priority**: HIGHEST - blocks everything
 
-**Problem**: Simulated fights timeout at turn 65, 0 damage. AI files not found by generator.
+**Goal**: Fix fight logging so we can measure actual WR
 
-**ROOT CAUSE** (discovered by previous worker):
-- AI files not copied to `tools/leek-wars-generator/ai/`
-- LeekScript silently fails with VALUE_EXPECTED parse errors
-- No AI code executes → no weapons fire
+**Problems**:
+1. Team detection returns None → all fights logged as "D"
+2. DB schema missing `status` column → saves fail
 
-**SOLUTION** (pattern exists in codebase):
-```python
-# From scripts/debug_fight.py:268-269 - THIS WORKS
-ai1_name, ai1_files = copy_ai_to_generator(ai1_path, ai1_path.name)
+**Evidence**:
+```
+[2026-01-25 20:02:00] [32/32] D vs ElMago [?] (t?, HP:?/?)
+Results: 0W-0L-32D (0.0% WR)
+DB save failed: table fights has no column named status
 ```
 
-**Implementation Steps**:
-1. Read `scripts/debug_fight.py:20-50` - see working `copy_ai_to_generator()`
-2. Extract to shared util OR copy to `src/leekwars_agent/simulator.py`
-3. Handle includes: parse `include("...")` lines, copy deps recursively
-4. Call copy function before scenario creation in simulator
-5. Test: `poetry run python scripts/validate_archetypes.py -n 1 --level 34`
+**Steps**:
+1. Read `scripts/auto_daily_fights.py` - find team detection logic
+2. Read `src/leekwars_agent/fight_parser.py` - understand how team is determined
+3. Read `src/leekwars_agent/scraper/db.py` - check schema definition
+4. Compare DB schema: `sqlite3 data/fights_meta.db ".schema fights"`
+5. Fix team detection (likely API response parsing issue)
+6. Add migration for missing columns
+7. Test with `leek fight run -n 1` (ASK ORCHESTRATOR FIRST - costs 1 fight)
 
 **Success Criteria**:
-- ActionUseWeapon events appear in fight logs
-- Archetype mirrors produce wins/losses (not all 65-turn draws)
-- `scripts/validate_archetypes.py` passes
+- [ ] `sqlite3 data/fights_meta.db ".schema fights"` shows `status` column
+- [ ] Team detection returns 1 or 2, not None
+- [ ] Fight result shows W or L, not D (unless actual draw)
+- [ ] DB save succeeds without error
 
 **Key Files**:
-- `scripts/debug_fight.py:20-50` - working copy function
-- `src/leekwars_agent/simulator.py:291` - where ai_path is set
-- `ais/*.leek` - have includes needing recursive copy
+- `scripts/auto_daily_fights.py` - main automation script
+- `src/leekwars_agent/fight_parser.py` - fight parsing logic
+- `src/leekwars_agent/scraper/db.py` - DB schema
+- `data/fights_meta.db` - actual database
 
 ---
 
-### STRAND 2: Garden Automation (#57) - ❌ INVALID - Already Exists
-**Status**: ~~Ready for pickup~~ **COMPLETED** (no work needed)
-**Assessment Date**: 2026-01-25
+### STRAND 2: Simulator Import Fix (#80)
+**Status**: ✅ VERIFY
+**Priority**: P1 - Blocks clean tooling
+**Autonomous**: YES
 
-**Value**: ~~Free XP from garden solo fights~~ → N/A (garden fights use normal fight budget)
+**Goal**: Make `from leekwars_agent.simulator import LocalSimulator` work
 
-**Finding**: STRAND 2 description was inaccurate.
-
-| Claimed | Actual |
-|---------|--------|
-| "Free" solo fights | All garden fights consume `fights` budget |
-| `/garden/start-solo-fight/{leek_id}` | Requires `leek_id` + `target_id` body params |
-| New endpoint needed | Already implemented in `api.py` |
-
-**Already Implemented**:
-- `api.get_garden()` - line 92
-- `api.get_leek_opponents(leek_id)` - line 98
-- `api.start_solo_fight(leek_id, target_id)` - line 116
-- CLI: `leek fight run` - automates the complete workflow
-
-**Reference**: `tools/leek-wars/src/component/garden/garden.vue:599-602`
-```javascript
-LeekWars.post('garden/start-solo-fight', {leek_id: this.selectedLeek.id, target_id: leek.id})
-  .then(data => {
-    store.commit('update-fights', -1)  // ← Consumes budget!
-  })
+**Problem**:
+```python
+ImportError: cannot import name 'LocalSimulator' from 'leekwars_agent.simulator'
 ```
 
-**Conclusion**: No work needed. Garden fight automation already exists.
+**Root Cause**: Class was named `Simulator` but import expected `LocalSimulator`
+
+**Fix Applied**: Added `LocalSimulator = Simulator` alias at end of simulator.py
+
+**Evidence**:
+```
+$ poetry run python -c "from leekwars_agent.simulator import LocalSimulator; print('OK')"
+OK
+
+$ poetry run python scripts/compare_ais.py ais/archetype_rusher.leek ais/archetype_kiter.leek -n 3
+[... runs successfully ...]
+```
+
+**Success Criteria**:
+- [x] `poetry run python -c "from leekwars_agent.simulator import LocalSimulator; print('OK')"` succeeds
+- [x] `poetry run python scripts/compare_ais.py ais/archetype_rusher.leek ais/archetype_kiter.leek -n 3` still works
+- [x] No breaking changes to existing scripts
 
 ---
 
-### STRAND 3: Battle Royale (#63) - P2
-**Status**: Ready for pickup
-**Autonomous**: YES
-**Est. Time**: 2h
+## Orchestrator Reserved
 
-**Value**: 10 free fights/day from Battle Royale = passive XP.
-
-**Steps**:
-1. Study `tools/leek-wars/src/component/battle-royale/` for protocol
-2. Identify WebSocket messages for join/spectate
-3. Implement BR connection in `api.py` or new module
-4. Add CLI command `leek br join`
-
-**Caution**: WebSocket = stateful. May need event loop handling.
+### Investigation: opponent_stats (#81)
+Orchestrator will investigate where opponent data actually lives while workers fix the critical path.
 
 ---
 
-### STRAND 4: Win Rate Targets (#31) - ✅ DONE
-**Status**: VERIFY
-**Completed**: 2026-01-25
+## Completed This Session
 
-**Output**: `docs/research/win_rate_targets.md`
-
-**Key Findings**:
-- Overall WR: 45.8% ex-draw (need 55%+) | Gap: -9.2%
-- Draw rate: 13.7% (need <10%) | Gap: -3.7%
-- Avg turns: 12.1 (should be <10)
-- L0-19: 43.2% WR (should be 65%+) | Gap: -21.8%
-- L20-29: 48.8% WR (should be 55%+) | Gap: -6.2%
-
-**Critical Insight**: Long fights (50+ turns) = 75% draw rate. Need to finish by turn 10.
-
-**Targets Defined**:
-- Tier 1 (Critical): WR > 50%, Draw < 10%, Avg turns < 10
-- Tier 2 (Growth): WR > 55%, Draw < 5%
-- Tier 3 (Elite): WR > 60%
-
----
-
-### STRAND 5: Fix buy_fights 401 (#25) - P2
-**Status**: Ready for pickup
-**Autonomous**: YES
-**Est. Time**: 1h
-
-**Problem**: `buy_fights` endpoint returns 401 Unauthorized.
-
-**Steps**:
-1. Find endpoint in `tools/leek-wars/src/` - search for "buy" or "fights"
-2. Check auth requirements, compare with working endpoints
-3. Fix in `api.py`, test via CLI
-
-**Success Criteria**: Can purchase fight packs via CLI.
-
----
-
-### STRAND 6: Tournament Registration (#16) - P2
-**Status**: Ready for pickup
-**Autonomous**: YES
-**Est. Time**: 1h
-
-**Value**: Tournaments = ranking points + prizes.
-
-**Steps**:
-1. `grep -r "register-tournament" tools/leek-wars/src/`
-2. Implement in `api.py`: `register_tournament()`
-3. Add CLI: `leek tournament register`
-
-**Success Criteria**: Can register + list tournaments via CLI.
-
----
-
-### STRAND 7: Opponent Database (#39) - P2
-**Status**: Ready for pickup
-**Autonomous**: YES
-**Est. Time**: 2h
-
-**Value**: Track rematches, identify easy/hard opponents.
-
-**Steps**:
-1. Design schema: opponent_id, fights[], win_rate, last_seen, archetype
-2. Add to `data/fights_light.db` or new table
-3. Populate from existing fight history
-4. Add CLI: `leek opponent stats <name>`
-
-**Success Criteria**: Query "how do we do vs X?" works.
-
----
-
-## Completed Work
-
-### Session 20 (2026-01-25)
-
-- **STRAND 4 (#31) - Win Rate Targets** ✅
-  - **Document**: `docs/research/win_rate_targets.md`
-  - **Analysis**: 211 fights across L0-29, 45.8% WR ex-draw (need 55%+)
-  - **Key Finding**: Long fights (50+ turns) = 75% draw rate
-  - **Targets**: Tier 1 (50% WR), Tier 2 (55%), Tier 3 (60%)
-
-- **STRAND 2 (#57) - Garden Automation Assessment** ✅
-  - **Finding**: Garden fight automation ALREADY EXISTS
-  - `api.start_solo_fight(leek_id, target_id)` implemented at api.py:116
-  - CLI command `leek fight run` handles full workflow
-  - **No free fights** - garden fights consume normal fight budget
-  - **Verdict**: STRAND 2 is INVALID, not incomplete
-
-- **STRAND 1 (#26) - Simulator Fix** ✅
-  - **FIXED**: Added `copy_ai_to_generator()` and `extract_includes()` to `simulator.py`
-  - Modified `run_scenario()` to copy AI files before running fights
-  - Verified: Weapons fire, fights end, archetypes produce wins/losses
-  - Usage: `sim.run_1v1("ais/fighter_v11.leek", "ais/archetype_rusher.leek", level=34)`
-
-- **STRAND 1 (#26) - Root Cause Found** (partial)
-  - AI files not copied to generator dir → silent parse failure
-  - Solution pattern identified in `scripts/debug_fight.py`
-  - Implementation pending
+| Strand | Task | Result |
+|--------|------|--------|
+| - | - | - |
 
 ---
 
 ## Shared Context
 
-### Our Current Build
-- Level: 36, Talent: 38
-- STR: 310, AGI: 10
-- stat_cv: 0.94 (validated as good for long fights!)
-- Chips: PROTEIN, MOTIVATION, CURE, BOOTS, FLASH, FLAME
-- Weapons: Pistol, Magnum
+### Build
+- Level: 38, Talent: 39-43 (variance in reports)
+- STR: 310, AGI: 10, stat_cv: 0.94
+- Weapons: Pistol, Magnum, Destroyer (L85 locked)
+- AI Deployed: Unknown (need to verify after fixes)
 
-### PONR Data (disproves "Turn 2.7" claim)
-| Level Band | Avg PONR | 80% Threshold |
-|------------|----------|---------------|
-| L20-39 | 4.58 | Turn 7 |
-| L40-59 | 5.57 | Turn 8 |
-| L100-119 | 6.75 | Turn 9 |
-| L120+ | 8-10 | Turn 12-18 |
+### Key Files for This Sprint
+```
+scripts/auto_daily_fights.py     # Fight automation
+src/leekwars_agent/fight_parser.py    # Parse fight results
+src/leekwars_agent/scraper/db.py      # DB schema
+src/leekwars_agent/simulator.py       # Local simulation
+data/fights_meta.db                   # Fight database
+```
 
-### Key Files
-| Component | Path |
-|-----------|------|
-| Simulator | `src/leekwars_agent/simulator.py` |
-| Debug Fight | `scripts/debug_fight.py` (has working copy_ai) |
-| Archetypes | `ais/archetype_*.leek` |
-| Ground Truth | `docs/GROUND_TRUTH.md` |
-
----
-
-## Small Tasks (grab if blocked)
-- [ ] Drain `data/top100_fights.db` queue: `leek scrape top --top 100 --fights-per-leek 20`
+### Verification Protocol (2-Phase)
+1. **Worker**: Gather raw evidence, show outputs
+2. **Orchestrator**: Review adversarially, confirm PASS/FAIL
