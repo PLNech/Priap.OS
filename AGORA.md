@@ -14,19 +14,23 @@
 
 ---
 
-## Current Session: 2026-01-26 (Cleanup Sprint)
+## Current Session: 2026-01-26 (Data-Driven Pivot)
 
 ### Mission
-**Fix the measurement system before optimizing further.** We discovered:
-- Team detection broken → all fights showing as "D"
-- DB schema mismatch → saves failing
-- Simulator import broken → tooling fragile
+**Data revealed: opening is our weakness (41% WR), mid-game is strong (60% WR). Pivot accordingly.**
+
+Key insights from fight analysis:
+- 48.7% overall WR (74W-78L)
+- 5.8 avg fight duration (we're aggro, it works)
+- 41% WR in ≤5 turns ← **THE PROBLEM**
+- 60% WR in 6-15 turns ← already strong
+- 100% opponents "balanced" ← archetype inference broken
 
 ### Active Workers
 | Agent | Task | Status | Started | Notes |
 |-------|------|--------|---------|-------|
-| Crush | STRAND 1 Operations Fix | 🔄 VERIFY | 2026-01-26 | #78 + #79 fixed - team detection + DB migration |
-| Haiku | STRAND 2 Simulator Fix | ✅ DONE | 2026-01-26 | #80 - use `Simulator` directly |
+| - | STRAND 4 Data Foundation | ⏳ READY | - | DB unify + archetypes |
+| - | STRAND 5 v14 Opening Burst | ⏳ READY | - | Address 41% early WR |
 
 ### Blockers
 | Agent | Blocker | Needs |
@@ -35,82 +39,95 @@
 
 ### Orchestrator Notes
 
-**Current State**: L38, T39-43 (fluctuating), WR unknown (measurement broken!)
-**Budget**: 50/50 fights available
-**Priority**: P0 fixes before any new features
+**Current State**: L38, T45, WR 48.7%
+**Budget**: 49/50 fights
+**Priority**: Data foundation → v14 design → deploy
 
 ---
 
 ## Open Strands
 
-### STRAND 1: Operations Fix (#78 + #79)
-**Status**: VERIFY (complete)
-**Priority**: P0 - Measurement is broken
+### STRAND 4: Data Foundation (#83 + #82)
+**Status**: READY FOR WORKER
+**Priority**: P0 - Blocks analytics
 **Autonomous**: YES
 
-**Goal**: Fix fight logging so we can measure actual WR
+**Strategic Context**:
+We have TWO fight databases with different schemas. This is confusing and error-prone. The archetype classifier shows 100% "balanced" which is clearly broken. We need clean data to make good decisions.
 
-**Root Causes Found**:
-1. **Team detection**: `leeks1`/`leeks2` can be arrays of integers OR dictionaries - code assumed dicts only
-2. **DB schema**: Old `fights.db` was missing columns (`status`, `seed`, `duration`, `fetched_at`) and related tables (`leeks`, `fight_participants`)
+Fix the foundation before building on it.
 
-**Fixes Applied**:
-1. **auto_daily_fights.py:208-242**: Added `get_leek_id()` helper to handle both int and dict formats
-2. **src/leekwars_agent/db.py:97-168**: Added schema migration for:
-   - `fights` table: `status`, `seed`, `duration`, `fetched_at` columns
-   - `leeks` table: `farmer_id`, `farmer_name`, `last_seen` columns  
-   - `fight_participants` table: Created with all stat columns
+**Problems**:
+1. `data/fights.db` (134 fights, CLI) vs `data/fights_meta.db` (4,392 fights, scraper)
+2. Archetype inference returns 100% "balanced" for all 2,819 opponents
+3. Can't answer "WR vs kiters" without working archetypes
+
+**Investigation Steps**:
+1. Audit both DBs: `sqlite3 <db> ".schema"` and record counts
+2. Determine which is source of truth (probably fights_meta.db)
+3. Check archetype inference: `leek opponent infer --help` or code in `scraper/db.py`
+4. Fix classifier OR run inference on existing data
+5. Verify: archetype distribution should NOT be 100% one type
 
 **Success Criteria**:
-- [x] DB schema has all required columns (`status`, `seed`, `duration`, `fetched_at`)
-- [x] Team detection handles both int and dict formats
-- [x] Cancelled fights (winner=-1) handled separately
-- [x] DB save succeeds without error
+- [ ] Single canonical fight DB identified (or merged)
+- [ ] Archetype distribution shows variety (rusher, kiter, tank, balanced)
+- [ ] Can query "WR vs kiters" and get meaningful answer
+- [ ] Document decision in `docs/research/data_architecture.md`
 
-**Files Changed**:
-- `scripts/auto_daily_fights.py` - +15 lines (team detection fix)
-- `src/leekwars_agent/db.py` - +80 lines (schema migration)
-- `src/leekwars_agent/scraper/db.py` - DB schema
-- `data/fights_meta.db` - actual database
+**Key Files**:
+- `src/leekwars_agent/db.py`
+- `src/leekwars_agent/scraper/db.py`
+- `src/leekwars_agent/cli/commands/opponent.py`
 
 ---
 
-### STRAND 2: Simulator Import Fix (#80)
-**Status**: ✅ DONE (verified by Orchestrator)
-**Priority**: P1 - Blocks clean tooling
+### STRAND 5: v14 Opening Burst Design (#76)
+**Status**: READY FOR WORKER
+**Priority**: P1 - WR improvement
 **Autonomous**: YES
 
-**Goal**: Make `from leekwars_agent.simulator import LocalSimulator` work
+**Strategic Context**:
+Data proves opening is our weakness:
+- 41% WR in ≤5 turn fights
+- 60% WR in 6-15 turn fights
+- 86% of losses end in ≤5 turns
+
+If we survive to turn 5, we win 60% of the time. v14 must maximize opening damage to either win fast or survive to mid-game.
 
 **Problem**:
-```python
-ImportError: cannot import name 'LocalSimulator' from 'leekwars_agent.simulator'
-```
+We're losing the alpha strike. Opponents deal more damage in turns 1-5.
 
-**Root Cause**: Class was named `Simulator` but import expected `LocalSimulator`
+**Design Constraints** (from GROUND_TRUTH.md):
+- Turn 1: 10 TP available
+- setWeapon costs 1 TP (call once!)
+- FLASH: 3 TP, 32±3 dmg, range 1-10
+- PROTEIN: 3 TP, +80 STR for 2 turns
+- Magnum: 5 TP, 25±15 dmg
 
-**Fix Applied**: Added `LocalSimulator = Simulator` alias at end of simulator.py
+**Design Questions**:
+1. PROTEIN first (buff then hit) or FLASH first (immediate damage)?
+2. Should we always open with chip damage before closing?
+3. How do we handle kiters who retreat turn 1?
 
-**Evidence**:
-```
-$ poetry run python -c "from leekwars_agent.simulator import LocalSimulator; print('OK')"
-OK
-
-$ poetry run python scripts/compare_ais.py ais/archetype_rusher.leek ais/archetype_kiter.leek -n 3
-[... runs successfully ...]
-```
+**Investigation Steps**:
+1. Read current v11/v13 opening logic
+2. Read nemesis analysis for counter-strategy ideas
+3. Draft v14 design doc with turn-by-turn opening sequence
+4. Test offline: v14 draft vs archetype_rusher (n=20)
+5. Measure: "WR in ≤5 turns" should improve
 
 **Success Criteria**:
-- [x] `poetry run python -c "from leekwars_agent.simulator import LocalSimulator; print('OK')"` succeeds
-- [x] `poetry run python scripts/compare_ais.py ais/archetype_rusher.leek ais/archetype_kiter.leek -n 3` still works
-- [x] No breaking changes to existing scripts
+- [ ] v14 design doc in `docs/research/v14_design.md`
+- [ ] Turn 1-5 sequence documented with TP math
+- [ ] Offline test shows improvement over v11 in short fights
+- [ ] Ready for deployment decision
 
----
-
-## Orchestrator Reserved
-
-### Investigation: opponent_stats (#81)
-Orchestrator will investigate where opponent data actually lives while workers fix the critical path.
+**Key Files**:
+- `ais/fighter_v11.leek` (current baseline)
+- `ais/fighter_v13.leek` (mid-game focus, reference only)
+- `docs/research/nemesis_analysis.md`
+- `docs/GROUND_TRUTH.md`
 
 ---
 
@@ -118,27 +135,33 @@ Orchestrator will investigate where opponent data actually lives while workers f
 
 | Strand | Task | Result |
 |--------|------|--------|
-| STRAND 2 | Simulator Import (#80) | Just use `Simulator` - canonical name, no alias needed |
+| STRAND 1 | Operations Fix (#78+#79) | Team detection + DB migration |
+| STRAND 2 | Simulator Import (#80) | Use `Simulator` directly |
+| STRAND 3 | Test Fight | W vs Peper confirmed, WR measurement works |
+| - | #74 v13 mid-game | **WONTDO** - data showed mid-game already strong |
+
+---
+
+## Key Learnings This Session
+
+1. **Data beats intuition**: We thought mid-game was weak. Data showed it's 60% WR.
+2. **Task definitions matter**: Describe problems, not solutions. Let workers discover.
+3. **Two DBs = tech debt**: `fights.db` vs `fights_meta.db` causes confusion.
+4. **Archetype inference broken**: 100% "balanced" is clearly wrong.
 
 ---
 
 ## Shared Context
 
 ### Build
-- Level: 38, Talent: 39-43 (variance in reports)
+- Level: 38, Talent: 45
 - STR: 310, AGI: 10, stat_cv: 0.94
 - Weapons: Pistol, Magnum, Destroyer (L85 locked)
-- AI Deployed: Unknown (need to verify after fixes)
 
-### Key Files for This Sprint
-```
-scripts/auto_daily_fights.py     # Fight automation
-src/leekwars_agent/fight_parser.py    # Parse fight results
-src/leekwars_agent/scraper/db.py      # DB schema
-src/leekwars_agent/simulator.py       # Local simulation
-data/fights_meta.db                   # Fight database
-```
+### Fight Stats (from analysis)
+- WR: 48.7% (74W-78L)
+- Avg duration: 5.8 turns
+- WR by phase: ≤5 turns (41%), 6-15 turns (60%)
 
-### Verification Protocol (2-Phase)
-1. **Worker**: Gather raw evidence, show outputs
-2. **Orchestrator**: Review adversarially, confirm PASS/FAIL
+### The Strategic Insight
+> We're an aggro that wins mid-game. Fix the opening, and 60% WR becomes our floor.
