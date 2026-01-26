@@ -860,6 +860,3 @@ if __name__ == "__main__":
     if non_draws > 0:
         bias = abs(wins.get(1, 0) - wins.get(2, 0)) / non_draws * 100
         print(f"  Bias: {bias:.1f}% (should be <10% for fair simulation)")
-
-# Alias for common import pattern
-LocalSimulator = Simulator
