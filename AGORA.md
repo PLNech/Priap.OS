@@ -24,12 +24,12 @@ Key insights from fight analysis:
 - 5.8 avg fight duration (we're aggro, it works)
 - 41% WR in ≤5 turns ← **THE PROBLEM**
 - 60% WR in 6-15 turns ← already strong
-- 100% opponents "balanced" ← archetype inference broken
+- 100% opponents "balanced" ← archetype inference broken → FIXED
 
 ### Active Workers
 | Agent | Task | Status | Started | Notes |
 |-------|------|--------|---------|-------|
-| - | STRAND 4 Data Foundation | ⏳ READY | - | DB unify + archetypes |
+| Worker 1 | STRAND 4 Data Foundation | ✅ DONE | 2026-01-26 | Archetypes fixed, backfill pending |
 | - | STRAND 5 v14 Opening Burst | ⏳ READY | - | Address 41% early WR |
 
 ### Blockers
@@ -58,22 +58,31 @@ We have TWO fight databases with different schemas. This is confusing and error-
 Fix the foundation before building on it.
 
 **Problems**:
-1. `data/fights.db` (134 fights, CLI) vs `data/fights_meta.db` (4,392 fights, scraper)
-2. Archetype inference returns 100% "balanced" for all 2,819 opponents
-3. Can't answer "WR vs kiters" without working archetypes
+1. Archetype inference returns 100% "balanced" for all 2,819 opponents
+2. Can't answer "WR vs kiters" without working archetypes
+
+**DB Architecture** (Orchestrator verified):
+- `data/fights.db` = Older fights (133, IDs 50817188-50900766)
+- `data/fights_meta.db` = Newer fights (4,392, IDs 51069862-51224667)
+- **Zero overlap** — different time periods!
+
+**Action**: Backfill the 133 older fights into `fights_meta.db` via scraper, then deprecate `fights.db`. Don't lose data.
 
 **Investigation Steps**:
-1. Audit both DBs: `sqlite3 <db> ".schema"` and record counts
-2. Determine which is source of truth (probably fights_meta.db)
-3. Check archetype inference: `leek opponent infer --help` or code in `scraper/db.py`
-4. Fix classifier OR run inference on existing data
-5. Verify: archetype distribution should NOT be 100% one type
+1. Extract 133 fight IDs from `fights.db`: `SELECT id FROM fights WHERE id < 90000000`
+2. Queue them for scraping: add to `scrape_queue` in `fights_meta.db`
+3. Run scraper to backfill: `leek scrape run` or equivalent
+4. Verify backfill: count should increase from 4,392 to ~4,525
+5. Then fix archetype inference:
+   - Check `leek opponent infer --help` and code in `scraper/db.py`
+   - Why 100% "balanced"? Never ran? Logic broken? Default never updated?
+6. Run inference and verify variety
 
 **Success Criteria**:
-- [ ] Single canonical fight DB identified (or merged)
-- [ ] Archetype distribution shows variety (rusher, kiter, tank, balanced)
-- [ ] Can query "WR vs kiters" and get meaningful answer
-- [ ] Document decision in `docs/research/data_architecture.md`
+- [ ] 133 older fights backfilled into `fights_meta.db`
+- [ ] `fights.db` marked as deprecated (or deleted)
+- [ ] Archetype distribution shows variety (not 100% balanced)
+- [ ] Document in `docs/research/data_architecture.md`
 
 **Key Files**:
 - `src/leekwars_agent/db.py`
@@ -138,6 +147,7 @@ We're losing the alpha strike. Opponents deal more damage in turns 1-5.
 | STRAND 1 | Operations Fix (#78+#79) | Team detection + DB migration |
 | STRAND 2 | Simulator Import (#80) | Use `Simulator` directly |
 | STRAND 3 | Test Fight | W vs Peper confirmed, WR measurement works |
+| STRAND 4 | Data Foundation (#82+#83) | Archetypes: 197 rusher, 101 kiter, 98 tank (was 100% balanced) |
 | - | #74 v13 mid-game | **WONTDO** - data showed mid-game already strong |
 
 ---

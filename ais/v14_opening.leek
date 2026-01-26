@@ -1,0 +1,183 @@
+// v14_opening.leek - Opening Burst Module
+// Fighter v14 "Burst" - Maximum damage in turns 1-5
+// =============================================================================
+// Philosophy: Damage > Buffs in opening. Deal damage immediately.
+// =============================================================================
+
+// =============================================================================
+// TURN 1: OPENING BURST - MAXIMUM IMPACT
+// =============================================================================
+// TP Budget: 10 TP
+// Priority: FLASH (32 dmg) > Weapon (~15 dmg) > MOTIVATION (+2 TP)
+// Expected damage: ~47 turn 1
+// =============================================================================
+
+function executeOpeningBurst(enemy) {
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    // Priority 1: FLASH chip - guaranteed 32 damage, range 1-10
+    // This is our opening "guaranteed damage" before enemies can react
+    if (canUseChip(chip_flash) && dist <= 10) {
+        var result = useChip(chip_flash, enemy)
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_flash)
+            debug("    ⚡ FLASH OPENER! (32 dmg)")
+        }
+    }
+
+    // Priority 2: Weapon attack - pistol is TP-efficient (~5 damage/TP)
+    // Pistol: 3 TP, ~15 damage
+    attackOnce(enemy)
+
+    // Priority 3: MOTIVATION chip - +2 TP for next turn
+    // This gives us 12 TP on turn 2 for sustained pressure
+    if (canUseChip(chip_motivation)) {
+        var result = useChip(chip_motivation, getEntity())
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_motivation)
+            debug("    +2 TP for turn 2!")
+        }
+    }
+
+    // Move toward enemy, but RESERVE 1 MP
+    // Don't corner ourselves - keep options open
+    while (getMP() > 1) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break
+    }
+
+    // Use any remaining MP (after reserving 1)
+    while (getMP() > 0) {
+        var moved = moveToward(enemy)
+        if (moved == 0) break
+    }
+}
+
+// =============================================================================
+// TURN 2-3: SUSTAINED PRESSURE - KEEP ATTACKING
+// =============================================================================
+// TP Available: 12 (base 10 + 2 from MOTIVATION turn 1)
+// Priority: Weapon attacks > FLAME chip > Movement
+// Expected damage: ~59 turn 2 if in range
+// =============================================================================
+
+function executeSustainedPressure(enemy) {
+    var dist = getCellDistance(getCell(), getCell(enemy))
+    var total_damage = 0
+
+    // If in range (≤7): Weapon + FLAME spam
+    if (dist <= 7) {
+        // FLAME spam: 29 damage, 4 TP, 3x per turn
+        // Better than weapon when we have extra TP
+        while (canUseChip(chip_flame) && getTP() >= 4) {
+            var result = useChip(chip_flame, enemy)
+            if (result == USE_SUCCESS) {
+                markChipUsed(chip_flame)
+                total_damage = total_damage + 29
+                debug("    🔥 FLAME spam (29 dmg)")
+            } else {
+                break
+            }
+        }
+
+        // Double weapon attack: 2x ~15 damage = 30 damage
+        attackOnce(enemy)
+        attackOnce(enemy)
+    }
+    // If out of range (>7): Move + FLASH to bridge gap
+    else {
+        // Chase aggressively
+        while (getMP() > 1) {
+            moveToward(enemy)
+        }
+
+        // FLASH at range 10 to maintain pressure
+        if (canUseChip(chip_flash) && dist <= 10) {
+            var result = useChip(chip_flash, enemy)
+            if (result == USE_SUCCESS) {
+                markChipUsed(chip_flash)
+                total_damage = total_damage + 32
+                debug("    ⚡ FLASH range bridge (32 dmg)")
+            }
+        }
+
+        // One attack if we can afford it
+        if (getTP() >= 3) {
+            attackOnce(enemy)
+        }
+    }
+}
+
+// =============================================================================
+// TURN 4-5: TRANSITION - FINISH OR RECOVER
+// =============================================================================
+// Decision: Finisher (enemy low) vs Recovery (we're losing)
+// =============================================================================
+
+function executeTransition(enemy) {
+    var enemy_hp = getLife(enemy)
+    var enemy_hp_pct = enemy_start_hp > 0 ? (enemy_hp * 100 / enemy_start_hp) : 100
+
+    // Case 1: Enemy low (<30% HP) - FLAME spam finisher
+    if (enemy_hp_pct < 30) {
+        debug("    🎯 Finisher mode: Enemy at " + enemy_hp + " HP")
+        while (canUseChip(chip_flame) && getTP() >= 4) {
+            var result = useChip(chip_flame, enemy)
+            if (result == USE_SUCCESS) {
+                markChipUsed(chip_flame)
+            } else {
+                break
+            }
+            if (getLife(enemy) <= 0) break
+        }
+        while (getTP() >= 3) {
+            if (!attackOnce(enemy)) break
+        }
+    }
+    // Case 2: Losing race - PROTEIN swing
+    else if (!winning_race && enemy_ttk <= 3) {
+        debug("    💪 Recovery: Swinging with PROTEIN")
+        if (canUseChip(chip_protein)) {
+            var result = useChip(chip_protein, getEntity())
+            if (result == USE_SUCCESS) {
+                markChipUsed(chip_protein)
+            }
+        }
+        while (getTP() >= 3) {
+            if (!attackOnce(enemy)) break
+        }
+    }
+    // Case 3: Default - continued pressure
+    else {
+        debug("    🔥 Sustained pressure mode")
+        while (getTP() >= 3) {
+            if (!attackOnce(enemy)) break
+        }
+        if (getTP() >= 4 && canUseChip(chip_flame)) {
+            var result = useChip(chip_flame, enemy)
+            if (result == USE_SUCCESS) {
+                markChipUsed(chip_flame)
+                debug("    🔥 FLAME cleanup")
+            }
+        }
+    }
+}
+
+// =============================================================================
+// OPENING STRATEGY ENTRY POINT
+// =============================================================================
+// Called from main fighter loop on turns 1-5
+// =============================================================================
+
+function executeOpeningStrategy(enemy) {
+    if (turn_count == 1) {
+        // TURN 1: Maximum burst - FLASH > Weapon > MOTIVATION
+        executeOpeningBurst(enemy)
+    } else if (turn_count <= 3) {
+        // TURNS 2-3: Sustain pressure with extra TP
+        executeSustainedPressure(enemy)
+    } else {
+        // TURNS 4-5: Finish or transition to mid-game
+        executeTransition(enemy)
+    }
+}

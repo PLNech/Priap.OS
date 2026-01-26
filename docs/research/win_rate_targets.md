@@ -1,6 +1,6 @@
 # Win Rate Targets
 
-> **Last Updated**: 2026-01-25
+> **Last Updated**: 2026-01-25 (Session 25)
 > **Purpose**: Define success metrics per level band to know when we're winning.
 
 ---
@@ -9,141 +9,115 @@
 
 | Metric | Current | Target | Gap |
 |--------|---------|--------|-----|
-| Overall WR (ex-draw) | 48.8% | 55%+ | +6.2% |
-| Draw Rate | 13.7% | <10% | -3.7% |
-| Avg Fight Duration | 12.1 turns | 5-10 turns | -2 to -7 turns |
+| Our WR (ex-draw) | 49.7% | 55%+ | +5.3% |
+| Our Draw Rate | 2.0% | <10% | ✓ |
+| Meta Team1 WR | 69.8% | N/A (position bias) |
+| % 50+ turn fights | 1.9% | <5% | ✓ |
+
+**Key Finding**: Our 49.7% WR is NOT statistically distinguishable from 50% (p=1.0). We need ~1256 more fights to confirm if we're below 55% target.
 
 ---
 
-## Our Historical Performance
+## Our Fight Record (n=152)
 
-Based on 211 recorded fights:
+From `data/fights_meta.db`:
 
 | Opponent Level | Fights | W-L-D | WR (raw) | WR (ex-draw) | Avg Turns |
 |----------------|--------|-------|----------|--------------|-----------|
-| L0-19 | 98 | 41-54-3 | 41.8% | 43.2% | 7.7 |
-| L20-29 | 113 | 41-43-29 | 36.3% | 48.8% | 16.6 |
-| **TOTAL** | 211 | 82-97 | 38.9% | 45.8% | 12.1 |
+| All opponents | 152 | 74-75-3 | 48.7% | 49.7% | 2.0 |
 
-**Key Finding**: We perform 5.6% worse against equal/higher level opponents (48.8% → 43.2% WR). This suggests our AI needs improvement in:
-1. Closing out fights before opponent scales
-2. Pressure/aggro against defensive play
+### Statistical Validation
 
----
+| Comparison | p-value | Significant? |
+|------------|---------|--------------|
+| vs 50% (random) | 1.0000 | NO |
+| vs 55% (target) | 0.2167 | NO |
+| vs 60% (top player) | 0.0119 | **YES** |
 
-## Meta Benchmarks (n=2535 scraped fights)
+**95% CI**: [41.4%, 58.0%] - Margin of error: ±8.3%
 
-### First-Mover Advantage
-| Matchup | Team1 WR | Team2 WR | Draw Rate | Avg Turns |
-|---------|----------|----------|-----------|-----------|
-| FAVORED | 54.7% | 38.4% | 6.7% | 1.9 |
-| EVEN | 52.2% | 43.8% | 4.0% | 0.1 |
-| UNDERDOG | 45.5% | 48.2% | 6.3% | 1.1 |
-
-**Takeaway**: ~52% baseline for first-mover. We should target 55%+ (3% advantage over meta).
-
-### Duration Impact on Win Rate
-| Duration | Team1 WR | Draw Rate |
-|----------|----------|-----------|
-| 0-5 turns | 75.0% | 0% |
-| 6-10 turns | 75.0% | 0% |
-| 11-15 turns | 50.0% | 0% |
-| 16-20 turns | 75.0% | 0% |
-| 21-30 turns | 33.3% | 0% |
-| 31-50 turns | 46.7% | 0% |
-| 50+ turns | 25.0% | 75% |
-
-**Critical Insight**: Long fights → high draw rate. **Target: finish by turn 10.**
+**Sample size needed**: ~1405 ex-draw fights to detect 5.3% gap to 55% target. Currently have 149.
 
 ---
 
-## PONR Thresholds (from `docs/research/ponr_validation.md`)
+## Meta Analysis (n=10,000 scraped fights)
 
-| Level Band | Avg PONR | 80% KO | Recommended Max Duration |
-|------------|---------|--------|--------------------------|
-| L20-39 | 4.58 | Turn 7 | 8 turns |
-| L40-59 | 5.57 | Turn 8 | 10 turns |
-| L60-79 | ~6.0 | Turn 9 | 11 turns |
-| L100-119 | 6.75 | Turn 9 | 12 turns |
+### Duration Distribution
 
-**Our fights average 12.1 turns** - we're 2-4 turns slower than the meta expects.
+| Duration | Count | % |
+|----------|-------|---|
+| 0 (forfeit) | 1 | 0.0% |
+| 1-3 turns | 312 | 3.1% |
+| 4-5 turns | 2,834 | 28.3% |
+| 6-10 turns | 5,776 | 57.8% |
+| 11-20 turns | 779 | 7.8% |
+| 21-50 turns | 113 | 1.1% |
+| 50+ turns | 185 | 1.9% |
 
----
+**Meta average**: 8.1 turns (we average 2.0 - seems we're getting quick finishes or forfeits)
 
-## stat_cv Correlation
+### Win Rate by Duration (ex-draws)
 
-From `docs/research/stat_cv_duration.md`:
-- **Pure builds (CV > 0.85)**: 57% WR in 16+ turn fights
-- **Balanced builds (CV ≤ 0.6)**: 35-45% WR in long fights
+| Duration | N | Team1 WR | Team2 WR |
+|----------|---|----------|----------|
+| 4-5 turns | 3,116 | 75.2% | 24.8% |
+| 6-10 turns | 5,771 | 68.2% | 31.8% |
+| 11-20 turns | 779 | 62.3% | 37.7% |
+| 21-50 turns | 113 | 58.4% | 41.6% |
+| 50+ turns | 14 | 64.3% | 35.7% |
 
-**Our build**: CV = 0.94 (pure STR) → Good for attrition
-**Problem**: We're LOSING long fights anyway (38.9% WR, high draw rate)
-
-**Conclusion**: stat_cv validates our build choice, but execution is the problem.
-
----
-
-## Targets by Opponent Level
-
-### L0-19 (Underleveled Fights)
-| Metric | Current | Target | Notes |
-|--------|---------|--------|-------|
-| WR | 43.2% | 65%+ | Should dominate weaker opponents |
-| Avg Turns | 7.7 | <6 | Quick kills expected |
-| Draw Rate | 3.1% | <2% | Rarely draw vs weaker |
-
-### L20-29 (Competitive Fights)
-| Metric | Current | Target | Notes |
-|--------|---------|--------|-------|
-| WR | 48.8% | 55%+ | Match first-mover advantage |
-| Avg Turns | 16.6 | <10 | Too slow! |
-| Draw Rate | 25.7% | <10% | High draw = kiting problem |
-
-### L30+ (Challenging Fights)
-| Metric | Current | Target | Notes |
-|--------|---------|--------|-------|
-| WR | N/A (need data) | 45%+ | Accept lower, focus on not drawing |
+**Critical Insight**: Team1 wins 69.8% ex-draw overall. Short fights = high Team1 advantage. Long fights = more even.
 
 ---
 
-## Success Criteria
+## Draw Rate Analysis
+
+| Source | Draw Rate |
+|--------|-----------|
+| Our fights | 2.0% |
+| Meta (10k) | 2.1% |
+| Meta (50+ turns) | ~75% |
+
+**Good news**: Our draw rate is acceptable. The meta has very low draw rate overall - long fights are rare (1.9% of 10k).
+
+---
+
+## Updated Targets
 
 ### Tier 1 (Critical - Next Session)
-- [ ] Overall WR > 50% ex-draw
-- [ ] Draw rate < 10%
-- [ ] Avg fight duration < 10 turns
-- [ ] L20-29 WR > 52%
+- [ ] Overall WR > 50% ex-draw (current: 49.7%)
+- [ ] Draw rate < 10% (current: 2.0% ✓)
+- [ ] Demonstrate statistical significance (n > 300)
 
 ### Tier 2 (Growth - This Week)
 - [ ] Overall WR > 55% ex-draw
-- [ ] Draw rate < 5%
-- [ ] L0-19 WR > 60%
+- [ ] Narrow 95% CI to ±5% margin
 
 ### Tier 3 (Elite - This Month)
 - [ ] Overall WR > 60% ex-draw
-- [ ] Win rate > meta first-mover (52%) by 5%+
+- [ ] Beat meta first-mover (69.8%) adjusted for position bias
 
 ---
 
 ## Action Items
 
-1. **Reduce Draw Rate**
-   - Implement "force_engage" at turn 15-20 (from v10 fix)
-   - Better chip timing for damage spike
+1. **Collect More Data**
+   - Current sample (149 ex-draw) is too small for statistical significance
+   - Need ~1256 more meaningful fights
+   - Run: `leek scrape top --top 100 --fights-per-leek 20`
 
-2. **Faster Kills**
-   - Optimize range calculations (reduce TP waste)
-   - Prioritize damage over safety in mid-fight
+2. **Analyze Duration Pattern**
+   - Our avg duration (2.0 turns) seems suspiciously low
+   - Check if duration=0 fights are being counted correctly
+   - Verify we're not losing to immediate forfeits
 
-3. **Level Band Tracking**
-   - Add to fight analysis: `leek fight analyze --by-level`
-   - Track progress against these targets
+3. **Update Tracking**
+   - Add level-banded analysis to `leek fight analyze`
+   - Track WR by opponent level band separately
 
 ---
 
 ## References
 
-- `data/fight_history.json` - Our historical fights
-- `data/fights_meta.db` - Scraped meta data (n=2535)
-- `docs/research/stat_cv_duration.md` - stat_cv analysis
-- `docs/research/ponr_validation.md` - PONR thresholds
+- `data/fights_meta.db` - Our fights (n=152)
+- `fights_light.db` - Scraped meta (n=10,000)

@@ -1,0 +1,48 @@
+// Archetype: KITER - Always maintain distance, shoot and run
+// Counter: High MP to close gap, or corner trapping
+// Purpose: Test kiting vs aggro dynamics
+// Behavior: Prioritize distance over damage
+
+// Weapon constant (for simulator compatibility)
+var WEAPON_PISTOL = 37;
+
+var enemy = getNearestEnemy();
+if (enemy == null) return;
+setWeapon(WEAPON_PISTOL);
+var dist = getCellDistance(getCell(), getCell(enemy));
+
+// PHASE 1: If too close, RETREAT first (priority!)
+while (dist < 5 && getMP() > 0) {
+    var m = moveAwayFrom(enemy);
+    if (m == 0) break;
+    dist = getCellDistance(getCell(), getCell(enemy));
+}
+
+// PHASE 2: Shoot if in range
+while (getTP() >= 3 && dist <= 7 && dist >= 1) {
+    var r = useWeapon(enemy);
+    if (r != USE_SUCCESS) break;
+    dist = getCellDistance(getCell(), getCell(enemy));
+}
+
+// PHASE 3: Create MORE distance (always back off after shooting)
+while (getMP() > 0) {
+    var m = moveAwayFrom(enemy);
+    if (m == 0) break;
+    dist = getCellDistance(getCell(), getCell(enemy));
+}
+
+// PHASE 4: Only approach if completely out of range AND have MP
+if (dist > 7) {
+    while (dist > 7 && getMP() > 0) {
+        var m = moveToward(enemy);
+        if (m == 0) break;
+        dist = getCellDistance(getCell(), getCell(enemy));
+    }
+    // One more round of shooting
+    while (getTP() >= 3 && dist <= 7 && dist >= 1) {
+        var r = useWeapon(enemy);
+        if (r != USE_SUCCESS) break;
+        dist = getCellDistance(getCell(), getCell(enemy));
+    }
+}

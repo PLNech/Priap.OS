@@ -1,0 +1,102 @@
+{
+  "session": 20,
+  "date": "2026-01-26",
+  "theme": "Cleanup Sprint + Data-Driven Pivot",
+  "completed_this_session": [
+    {
+      "task_id": 78,
+      "subject": "🔴 #0506: Fix team detection in fight logging",
+      "root_cause": "leeks1/leeks2 can be arrays of ints OR dicts - code assumed dicts only",
+      "solution": "Added get_leek_id() helper to handle both formats",
+      "key_files": ["scripts/auto_daily_fights.py"],
+      "learnings": ["API response formats vary - always check both possibilities"]
+    },
+    {
+      "task_id": 79,
+      "subject": "🔴 #0507: Fix DB schema mismatch",
+      "root_cause": "Schema evolved in code but DB not migrated",
+      "solution": "Added ALTER TABLE migrations for status, seed, duration, fetched_at",
+      "key_files": ["src/leekwars_agent/db.py"],
+      "learnings": ["Schema migrations needed when evolving DB"]
+    },
+    {
+      "task_id": 80,
+      "subject": "🔧 #0119: Fix simulator import path",
+      "root_cause": "Test expected LocalSimulator but class is named Simulator",
+      "solution": "Just use Simulator - it's the canonical name, no alias needed",
+      "key_files": ["src/leekwars_agent/simulator.py"],
+      "learnings": ["Sometimes the fix is removing the fix - Simulator was already right"]
+    },
+    {
+      "task_id": 81,
+      "subject": "📊 #0318: Investigate opponent_stats table",
+      "root_cause": "Table name is 'opponents' not 'opponent_stats'",
+      "solution": "Documentation - table exists with 2,819 records",
+      "key_files": ["src/leekwars_agent/scraper/db.py"],
+      "learnings": ["Always check actual table names before assuming missing"]
+    },
+    {
+      "task_id": 82,
+      "subject": "📊 #0319: Fix archetype inference",
+      "root_cause": "Inference was defaulting to 'balanced' without running",
+      "solution": "Fixed infer_opponent_archetype() with behavior-based scoring",
+      "key_files": ["src/leekwars_agent/scraper/db.py"],
+      "learnings": ["100% one value = broken classifier, always check distributions"]
+    },
+    {
+      "task_id": 83,
+      "subject": "🔧 #0123: Unify fights.db and fights_meta.db",
+      "root_cause": "Two DBs from different time periods (legacy CLI vs scraper)",
+      "solution": "fights_meta.db is canonical, queued 132 recoverable fights for backfill",
+      "key_files": ["docs/research/data_architecture.md"],
+      "learnings": [
+        "API has data retention boundary at ~50847000",
+        "Binary search found exact threshold - dont trust extrapolated claims"
+      ]
+    },
+    {
+      "task_id": 74,
+      "subject": "🧠 #0212: Mid-game efficiency optimization",
+      "status": "WONTDO",
+      "reason": "Data showed mid-game is already 60% WR - opening (41%) is the real problem",
+      "learnings": ["Data beats intuition - always verify hypotheses with evidence"]
+    }
+  ],
+  "key_discoveries": {
+    "fight_stats": {
+      "overall_wr": "48.7% (74W-78L)",
+      "avg_duration": "5.8 turns",
+      "wr_by_phase": {
+        "turns_1_5": "41%",
+        "turns_6_15": "60%"
+      }
+    },
+    "archetype_distribution": {
+      "balanced": 2423,
+      "rusher": 197,
+      "kiter": 101,
+      "tank": 98
+    },
+    "api_boundary": {
+      "threshold": 50847000,
+      "below_threshold": "Returns 401 regardless of auth",
+      "note": "LeekWars data retention policy"
+    }
+  },
+  "strategic_pivot": {
+    "from": "v13 mid-game buff recovery",
+    "to": "v14 opening burst damage",
+    "rationale": "60% WR in mid-game means we WIN there. 41% WR in opening means we LOSE there. Fix the opening."
+  },
+  "pending_high_priority": [
+    {"task_id": 76, "subject": "v14 Opening Burst design"},
+    {"task_id": 75, "subject": "Buy Laser weapon"},
+    {"task_id": 77, "subject": "Solo tournament automation"}
+  ],
+  "orchestration_learnings": [
+    "Task definitions should describe PROBLEMS not SOLUTIONS",
+    "Workers are myopic - include strategic context",
+    "Challenge worker claims with data before accepting",
+    "2-phase verification: Sonnet gathers evidence, Opus reviews adversarially"
+  ]
+}

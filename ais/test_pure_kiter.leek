@@ -1,0 +1,26 @@
+// Pure kiter - only retreats, never approaches
+// Used for stalemate testing
+
+var enemy = getNearestEnemy()
+if (enemy == null) return;
+
+var dist = getCellDistance(getCell(), getCell(enemy))
+
+// Equip pistol
+if (getWeapon() != WEAPON_PISTOL) {
+    setWeapon(WEAPON_PISTOL)
+}
+
+// Only shoot if in range (1-7) - don't move to get in range
+if (dist >= 1 && dist <= 7) {
+    while (getTP() >= 3) {
+        var result = useWeapon(enemy)
+        if (result != USE_SUCCESS) break;
+    }
+}
+
+// ALWAYS retreat with all MP
+while (getMP() > 0) {
+    var moved = moveAwayFrom(enemy)
+    if (moved == 0) break;
+}

@@ -2,6 +2,9 @@
 // Counter: Kiting, outrange
 // Purpose: Test if our AI handles aggressive pressure
 
+// Weapon constant (for simulator compatibility)
+var WEAPON_PISTOL = 37;
+
 var enemy = getNearestEnemy()
 if (enemy == null) return
 setWeapon(WEAPON_PISTOL)

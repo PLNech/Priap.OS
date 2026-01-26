@@ -3,6 +3,8 @@
 // Purpose: Test if our AI handles high-damage opponents
 // Note: Burst relies on stats (high STR), behavior is pure aggro
 
+var WEAPON_PISTOL = 37;
+
 var enemy = getNearestEnemy()
 if (enemy == null) return
 setWeapon(WEAPON_PISTOL)

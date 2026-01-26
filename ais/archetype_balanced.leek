@@ -1,0 +1,40 @@
+// Archetype: BALANCED - No strong preference, reactive
+// Counter: Specific strategies (aggro or kiter)
+// Purpose: Baseline for comparison
+// Behavior: Shoot first, then decide movement
+
+// Weapon constant (for simulator compatibility)
+var WEAPON_PISTOL = 37;
+
+var enemy = getNearestEnemy();
+if (enemy == null) return;
+setWeapon(WEAPON_PISTOL);
+var dist = getCellDistance(getCell(), getCell(enemy));
+
+// PHASE 1: Get into range if needed
+while (dist > 7 && getMP() > 0) {
+    var m = moveToward(enemy);
+    if (m == 0) break;
+    dist = getCellDistance(getCell(), getCell(enemy));
+}
+
+// PHASE 2: Shoot
+while (getTP() >= 3 && dist <= 7 && dist >= 1) {
+    var r = useWeapon(enemy);
+    if (r != USE_SUCCESS) break;
+    dist = getCellDistance(getCell(), getCell(enemy));
+}
+
+// PHASE 3: Spend remaining MP - no strong preference
+// Just move slightly closer (cautious advance)
+if (getMP() > 0 && dist > 3) {
+    moveToward(enemy, 1);
+    dist = getCellDistance(getCell(), getCell(enemy));
+}
+
+// PHASE 4: Final shots if any TP left
+while (getTP() >= 3 && dist <= 7 && dist >= 1) {
+    var r = useWeapon(enemy);
+    if (r != USE_SUCCESS) break;
+    dist = getCellDistance(getCell(), getCell(enemy));
+}

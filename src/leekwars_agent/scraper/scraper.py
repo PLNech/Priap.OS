@@ -236,21 +236,60 @@ class FightScraper:
         Returns list of leek IDs found.
         """
         self.stats.current_action = f"Fetching ranking page {page}"
-        data = self._request(f"ranking/get-leek-ranking/{page}/{count}/talent")
+        country = "null"
+        page_num = max(1, page + 1)
+        data = self._request(f"ranking/get/leek/talent/{page_num}/{country}")
 
         if not data:
             return []
 
         leek_ids = []
-        for leek in data.get("ranking", []):
+        ranking = data.get("ranking", [])
+        start_index = (page_num - 1) * 50
+        for i, leek in enumerate(ranking[:count]):
             leek_id = leek.get("id")
             level = leek.get("level", 0)
 
             # Filter by level
             if self.min_level <= level <= self.max_level:
                 leek_ids.append(leek_id)
+            else:
+                # Keep some context even if out of bounds
+                leek_ids.append(leek_id)
 
         return leek_ids
+
+    def queue_top_ranking(self, top_n: int = 100, fights_per_leek: int = 20, ranking_type: str = "talent") -> int:
+        """Queue fights for the top N leeks in ranking."""
+        total_queued = 0
+        collected = 0
+        page = 1
+        per_page = 50
+        country = "null"
+
+        while collected < top_n:
+            data = self._request(f"ranking/get/leek/{ranking_type}/{page}/{country}")
+            if not data:
+                break
+
+            ranking_entries = data.get("ranking", [])
+            if not ranking_entries:
+                break
+
+            for entry in ranking_entries[:per_page]:
+                leek_id = entry.get("id")
+                if not leek_id:
+                    continue
+                total_queued += self.discover_from_leek_history(leek_id, count=fights_per_leek)
+                collected += 1
+                if collected >= top_n:
+                    break
+
+            if len(ranking_entries) < per_page:
+                break
+            page += 1
+
+        return total_queued
 
     def find_latest_tournament(self, start_id: int = 108000) -> int:
         """
@@ -408,11 +447,19 @@ class FightScraper:
         fight = data.get("fight", data)
         winner = fight.get("winner", 0)
 
+        fight_data = fight.get("data", {})
+        ops_by_entity = fight_data.get("ops", {})
+        entity_lookup = self._build_entity_lookup(fight_data.get("leeks", []))
+
         for leek in fight.get("leeks1", []):
-            self.db.store_leek_observation(fight_id, leek, team=1, won=(winner == 1))
+            merged, entity_id = self._enhance_leek(leek, team=1, entity_lookup=entity_lookup)
+            ops_used = self._ops_for_entity(entity_id, ops_by_entity)
+            self.db.store_leek_observation(fight_id, merged, team=1, won=(winner == 1), ops_used=ops_used)
 
         for leek in fight.get("leeks2", []):
-            self.db.store_leek_observation(fight_id, leek, team=2, won=(winner == 2))
+            merged, entity_id = self._enhance_leek(leek, team=2, entity_lookup=entity_lookup)
+            ops_used = self._ops_for_entity(entity_id, ops_by_entity)
+            self.db.store_leek_observation(fight_id, merged, team=2, won=(winner == 2), ops_used=ops_used)
 
         # Note: We could discover more fights from participants' histories,
         # but that's expensive (1 API call per leek). Bootstrap provides enough.
@@ -506,3 +553,60 @@ class FightScraper:
     def stop(self):
         """Request graceful stop."""
         self._stop_requested = True
+
+    # =========================================================================
+    # Helpers
+    # =========================================================================
+
+    @staticmethod
+    def _build_entity_lookup(leeks_data: list[dict]) -> dict[tuple[int, int], dict]:
+        """Map (team, farmer_id) -> fight.data.leeks entry for quick lookup."""
+        lookup: dict[tuple[int, int], dict] = {}
+        for entity in leeks_data or []:
+            if entity.get("summon"):
+                continue
+            team = entity.get("team")
+            farmer = entity.get("farmer")
+            entity_id = entity.get("id")
+            if farmer is None or entity_id is None:
+                continue
+            if team not in (1, 2):
+                continue
+            lookup[(team, farmer)] = entity
+        return lookup
+
+    @staticmethod
+    def _enhance_leek(leek: dict, team: int, entity_lookup: dict[tuple[int, int], dict]) -> tuple[dict, int | None]:
+        """Merge stats from fight.data.leeks into the public leek payload."""
+        merged = dict(leek)
+        stats = entity_lookup.get((team, leek.get("farmer")))
+        entity_id = None
+        if stats:
+            entity_id = stats.get("id")
+            merged["_entity_id"] = entity_id
+            for key in (
+                "life",
+                "strength",
+                "agility",
+                "wisdom",
+                "resistance",
+                "magic",
+                "science",
+                "frequency",
+                "tp",
+                "mp",
+            ):
+                value = stats.get(key)
+                if value is not None:
+                    merged[key] = value
+        return merged, entity_id
+
+    @staticmethod
+    def _ops_for_entity(entity_id: int | None, ops_by_entity: dict) -> int:
+        """Lookup operations consumed for a given entity id."""
+        if entity_id is None:
+            return 0
+        try:
+            return int(ops_by_entity.get(str(entity_id), 0))
+        except (ValueError, TypeError):
+            return 0

@@ -197,14 +197,18 @@ def history(ctx: click.Context, limit: int) -> None:
 @click.argument("fight_id", type=int)
 @click.option("--save/--no-save", default=False, help="Save fight data to data/fights/")
 @click.option("--analyze", is_flag=True, help="Show fight analysis")
+@click.option("--classify", is_flag=True, help="Classify opponent AI behavior")
 @click.pass_context
-def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool) -> None:
+def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool, classify: bool) -> None:
     """Fetch and display fight details by ID.
 
     Examples:
         leek fight get 50863105
         leek fight get 50863105 --save --analyze
+        leek fight get 50863105 --classify  # Show opponent AI archetype
     """
+    from leekwars_agent.fight_analyzer import classify_ai_behavior
+
     api = login_api()
     try:
         fight_data = api.get_fight(fight_id)
@@ -229,13 +233,16 @@ def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool) -> N
         console.print(f"  Winner: {winner_str}")
 
         # Show teams
-        leeks = fight.get("leeks1", []) + fight.get("leeks2", [])
+        leeks1 = fight.get("leeks1", [])
+        leeks2 = fight.get("leeks2", [])
+        leeks = leeks1 + leeks2
         if leeks:
             console.print(f"  Participants: {', '.join(l.get('name', '?') for l in leeks)}")
 
         if analyze:
             console.print("\n[bold]Analysis:[/bold]")
-            parsed = parse_fight(fight_data)
+            # Use unwrapped fight data (not the API wrapper)
+            parsed = parse_fight(fight)
             summary = parsed.get("summary", {})
 
             turns = summary.get("turns", 0)
@@ -247,6 +254,56 @@ def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool) -> N
 
             weapon_uses = summary.get("weapon_uses", 0)
             console.print(f"  Total weapon uses: {weapon_uses}")
+
+        if classify:
+            console.print("\n[bold]AI Classification:[/bold]")
+            # Use unwrapped fight data (not the API wrapper)
+            parsed = parse_fight(fight)
+
+            # Determine which team we're on
+            my_team = 1
+            for leek in leeks2:
+                if leek.get("id") == LEEK_ID:
+                    my_team = 2
+                    break
+
+            # Find opponent entity ID from the parsed fight
+            # Entity IDs in parsed fight are 0, 1, etc. (not the leek IDs)
+            # Team 1 entities have team=1 in fight.data.leeks
+            data = fight.get("data", {})
+            data_leeks = data.get("leeks", [])
+
+            our_entity_id = None
+            opponent_entity_id = None
+            opponent_name = "Unknown"
+
+            for leek in data_leeks:
+                if leek.get("team") == my_team:
+                    our_entity_id = leek.get("id")
+                else:
+                    opponent_entity_id = leek.get("id")
+                    opponent_name = leek.get("name", "Unknown")
+
+            if opponent_entity_id is not None:
+                classification = classify_ai_behavior(parsed, opponent_entity_id)
+
+                # Color-code archetype
+                archetype_colors = {
+                    "aggro": "red",
+                    "kiter": "cyan",
+                    "healer": "green",
+                    "balanced": "yellow",
+                    "unknown": "dim",
+                }
+                color = archetype_colors.get(classification.archetype, "white")
+
+                console.print(f"  Opponent: {opponent_name}")
+                console.print(f"  Archetype: [{color}]{classification.archetype}[/{color}] (confidence: {classification.confidence:.0%})")
+                console.print(f"  Decision entropy: {classification.entropy:.2f}")
+                console.print(f"  [dim]Metrics: attack_rate={classification.metrics.get('attack_rate', 0):.1f}/turn, "
+                            f"move_tendency={classification.metrics.get('move_tendency', 0):+.1f}[/dim]")
+            else:
+                console.print("  [dim]Could not determine opponent[/dim]")
 
     finally:
         api.close()

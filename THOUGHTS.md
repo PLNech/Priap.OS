@@ -7,12 +7,126 @@
 
 ## TODOs (Next Session)
 
-1. ✅ ~~**Stalemate fix validated** (#0201)~~ - Draw rate 21% → 2.5%!
-2. 🔴 **Fix buy_fights 401** - Endpoint returns unauthorized, investigate
-3. 🟠 **Battle Royale automation** (#0509) - 10 free fights/day, needs WebSocket
-4. 🟡 **Buy magnum** (#0407) - Have 14k habs, need 7.5k
-5. 🟢 **Investigate win rate drop** - 48% → 43.6%, is force_engage too aggressive?
-6. 🟢 **Continue scraping** - `leek scrape discover && leek scrape run`
+1. 🔴 **v14 Opening Burst design** - Address 41% WR in ≤5 turns (STRAND 5 ready)
+2. 🟠 **Run scraper backfill** - 979 fights queued, run `leek scrape run`
+3. 🟠 **Buy Laser** - Need to verify habs, then purchase
+4. 🟢 **Solo tournament automation** - Daily 12:00-14:00 CET
+
+---
+
+## Session 20: Cleanup Sprint + Data-Driven Pivot (2026-01-26)
+
+**Theme:** Fixed measurement system, discovered opening is our weakness (not mid-game), pivoted strategy.
+
+### Key Accomplishments
+
+1. **Measurement System Fixed** (#78, #79)
+   - Team detection: `get_leek_id()` handles both int and dict formats
+   - DB schema: Added `status`, `seed`, `duration`, `fetched_at` columns
+   - Test fight validated: "W vs Peper" (not "D")
+
+2. **Simulator Import Clarified** (#80)
+   - Just use `Simulator` - it's the canonical name
+   - Removed unnecessary `LocalSimulator` alias
+
+3. **Archetype Inference Fixed** (#82)
+   - Was: 100% "balanced" (broken)
+   - Now: 2423 balanced, 197 rusher, 101 kiter, 98 tank
+
+4. **Data Foundation Unified** (#83)
+   - `fights_meta.db` = canonical (4,394+ fights)
+   - `fights.db` = legacy (132 recoverable, 1 lost)
+   - API boundary discovered: <50847000 returns 401
+   - Queue cleaned of 568 unreachable fights
+
+5. **Data-Driven Strategy Pivot**
+   - 48.7% overall WR (74W-78L)
+   - **41% WR in ≤5 turns** ← THE PROBLEM
+   - **60% WR in 6-15 turns** ← already strong
+   - Conclusion: v13 mid-game focus was WRONG, v14 opening burst is RIGHT
+
+### Key Learnings
+
+1. **Task definitions: describe PROBLEMS not SOLUTIONS**
+   - Bad: "Make LocalSimulator work" → worker added alias
+   - Good: "All fights show D, investigate" → worker found two root causes
+
+2. **Challenge worker claims with data**
+   - Worker: "older fights inaccessible"
+   - Reality: Binary search found boundary at ~50847000, recovered 132/133 fights
+
+3. **Two DBs were intentional but confusing**
+   - `fights.db` = CLI history (legacy)
+   - `fights_meta.db` = scraper analytics (canonical)
+
+4. **API has data retention boundary**
+   - Fights <50847000 return 401 regardless of auth
+   - LeekWars policy, not our bug
+
+### Strategic Insight
+
+> **We're an aggro that wins mid-game. Fix the opening, and 60% WR becomes our floor.**
+
+The data proves: if we survive to turn 5, we win 60% of the time. v14 must maximize opening damage.
+
+### Files Changed
+
+- `AGORA.md` - Full session rewrite, strands 1-5
+- `CLAUDE.md` - Added strand definition guidelines
+- `docs/research/data_architecture.md` - DB architecture doc
+- `scripts/auto_daily_fights.py` - Team detection fix
+- `src/leekwars_agent/db.py` - Schema migration
+- `src/leekwars_agent/scraper/db.py` - Archetype inference fix
+
+---
+
+## Session 19: Classification + Meta Analysis (2026-01-24)
+
+**Theme:** Built opponent classification system, validated on 10k fights, discovered aggro dominance.
+
+### Key Accomplishments
+
+1. **Opponent AI Classification** (#63 ✅)
+   - `classify_ai_behavior()` detects: aggro, kiter, balanced, healer
+   - Metrics: attack_rate, move_tendency (toward/away), entropy
+   - CLI: `leek fight get <id> --classify`
+
+2. **Meta Analysis on 10k Scraped Fights**
+   - Aggro dominates: **60.4% WR** vs balanced 39.2%
+   - Matchups: aggro vs balanced = **89.9%**, kiter vs balanced = **86.3%**
+   - High entropy (variety) correlates with winning: **58.2% WR**
+   - First-mover advantage confirmed in all mirror matchups
+
+3. **Magnum Purchased + Equipped** - Now have Pistol + Magnum
+
+4. **Auto-Classification Logging** - `auto_daily_fights.py` now logs opponent archetype per fight
+
+### Parser Bugs Fixed
+
+- **Entity tracking**: Weapon actions don't contain actor ID, need to track from `LEEK_TURN`
+- **Truthiness bug**: `if opponent_id` fails when `opponent_id=0` (valid ID)
+- **API wrapper**: Classification needed unwrapped `fight` not raw `fight_data`
+
+### Simulator Issue (UNRESOLVED)
+
+Archetype validation script (`validate_archetypes.py`) runs but ALL fights timeout:
+- 65 turns, 0 damage dealt
+- Even with `WEAPON_PISTOL = 37` constant added
+- Need to debug why `useWeapon()` isn't working in simulator
+
+### Strategic Insight
+
+**Be aggressive.** The data is clear:
+- Aggro beats everything (60% overall WR)
+- Variety beats predictability (high entropy = 58% WR)
+- Balanced/passive play loses (39% WR)
+
+### Files Created/Modified
+
+- `docs/research/archetype_analysis.md` - Full meta analysis
+- `ais/archetype_kiter.leek`, `archetype_balanced.leek` - New test AIs
+- `scripts/validate_archetypes.py` - Archetype vs archetype simulator test
+- `src/leekwars_agent/fight_analyzer.py` - Added classification system
 
 ---
 

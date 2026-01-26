@@ -1,22 +1,24 @@
-// Fighter v12 "Mid-Game Hydra" - v11 Core + Mid-Game Efficiency
+// Fighter v14 "Burst" - Opening-Focused AI
 // =============================================================================
-// Architecture: v11's proven modules + adaptive mid-game system
+// Architecture: v14 opening burst module + v11/12 proven modules
 //
-// Modules (from v11):
+// Philosophy: We're losing the first 5 turns (41% WR). Fix the opening.
+// Data: If we survive to turn 5, we win 60% of the time.
+//
+// Modules (proven from v11/v12):
 // - v8_state: TTK tracking, phase detection, damage accounting
 // - v8_accessible_cells: BFS flood-fill for reachability
 // - v8_danger_map: Cell danger scoring
 // - v8_hide_seek: Safe positioning
 // - v8_combat: Weapon rotation
 // - v11_chips: Conditional buffing, chip damage, cooldown tracking
+// - v12_midgame: Mid-game buff recovery
+// - v14_opening: NEW - Opening burst damage (turns 1-5)
 //
-// New module:
-// - v12_midgame: Mid-game buff recovery, strategic chip timing
-//
-// Key improvements over v11:
-// - Late buff trigger (turn 4+, losing + enemy_ttk > 3)
-// - Strategic chip timing (chips augment damage at key moments)
-// - Adaptive chip selection (FLAME for close, FLASH for range)
+// Key changes from v11:
+// - Turn 1: FLASH (32 dmg) > Weapon (~15 dmg) > MOTIVATION (+2 TP)
+// - Turn 2-3: Sustained pressure with 12 TP (from MOTIVATION)
+// - Turn 4-5: Finish or transition
 // =============================================================================
 
 include("v8_state.leek")
@@ -26,6 +28,7 @@ include("v8_hide_seek.leek")
 include("v8_combat.leek")
 include("v11_chips.leek")
 include("v12_midgame.leek")
+include("v14_opening.leek")
 
 // =============================================================================
 // MAIN ENTRY POINT
@@ -52,7 +55,7 @@ detectPhase()
 detectStalemate()
 resetCombatState()
 
-debug("═══ T" + turn_count + " Hydra ═══")
+debug("═══ T" + turn_count + " Burst ═══")
 debug("  HP: " + getLife() + "/" + my_start_hp + " vs " + getLife(enemy))
 debug("  TTK: us=" + my_ttk + " them=" + enemy_ttk + " winning=" + winning_race)
 if (force_engage) debug("  🔥 FORCE ENGAGE MODE")
@@ -97,16 +100,19 @@ if (force_engage) {
 }
 
 // =============================================================================
-// CONDITIONAL BUFFS (early game + mid-game recovery)
+// V14 OPENING STRATEGY (turns 1-5)
 // =============================================================================
-if (turn_count <= 4) {
-    var buffs = applyBuffsSafe()
-    if (buffs > 0) {
-        debug("  Applied " + buffs + " early buffs")
-    }
+// NEW: v14 replaces v11's cautious opening with aggressive burst
+if (turn_count <= 5) {
+    executeOpeningStrategy(enemy)
+    debugState()
+    return;
 }
 
-// Mid-game buff recovery (turn 4+, losing, safe window)
+// =============================================================================
+// MID-GAME + ENDGAME (turns 6+)
+// =============================================================================
+// Reuse v11/v12 proven logic for mid-game onward
 if (turn_count >= 4 && !winning_race) {
     var mid_buffs = enableMidGameBuffs()
     if (mid_buffs > 0) {
@@ -180,24 +186,23 @@ if (strategy == "retreat") {
     useStrategicChips(enemy)
     dist = getCellDistance(getCell(), getCell(enemy))
 
-    // Phase 2: Close, but RESERVE 1 MP for post-attack closing (kiter counter)
-    // This prevents us from spending all MP, having kiter retreat, then being stuck
+    // Phase 3: Close, but RESERVE 1 MP for post-attack closing (kiter counter)
     while (dist > w_max && getMP() > 1) {
         var moved = moveToward(enemy)
         if (moved == 0) break;
         dist = getCellDistance(getCell(), getCell(enemy))
     }
 
-    // Phase 3: Weapon attacks
+    // Phase 4: Weapon attacks
     executeAttacks(enemy)
 
-    // Phase 4: Use reserved MP to close more (kiter counter)
+    // Phase 5: Use reserved MP to close more (kiter counter)
     while (getMP() > 0) {
         var moved = moveToward(enemy)
         if (moved == 0) break;
     }
 
-    // Phase 5: More attacks if we closed enough (use adaptive chips)
+    // Phase 6: More attacks if we closed enough (use adaptive chips)
     useAdaptiveChips(enemy)
     executeAttacks(enemy)
 }

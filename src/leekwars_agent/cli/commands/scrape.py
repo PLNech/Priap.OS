@@ -90,6 +90,50 @@ def run_scraper(ctx: click.Context, count: int, min_level: int, max_level: int, 
         fight_db.close()
 
 
+@scrape.command("top")
+@click.option("--top", "-t", type=int, default=100, help="Number of top-ranked leeks to include")
+@click.option("--fights-per-leek", "-f", type=int, default=20, help="Fights to queue per leek history")
+@click.option("--min-level", type=int, default=1, help="Minimum level filter when storing fights")
+@click.option("--max-level", type=int, default=400, help="Maximum level filter when storing fights")
+@click.option("--db", type=str, default="data/fights_meta.db", help="Database path")
+@click.option("--process/--no-process", default=True, help="Process queued fights immediately")
+@click.pass_context
+def scrape_top(ctx: click.Context, top: int, fights_per_leek: int, min_level: int, max_level: int, db: str, process: bool):
+    """Queue fights for top-ranked leeks (Alpha Strike replication)."""
+    api = login_api()
+    fight_db = FightDB(db)
+
+    try:
+        scraper = FightScraper(api=api, db=fight_db, min_level=min_level, max_level=max_level)
+        console.print(f"[bold]Top Ranking Scrape[/bold] - top {top} leeks, {fights_per_leek} fights each")
+        queued = scraper.queue_top_ranking(top_n=top, fights_per_leek=fights_per_leek)
+        console.print(f"  Queued fights: [green]{queued}[/green]")
+        console.print(f"  Queue size now: {fight_db.queue_size()}")
+
+        if process and queued > 0:
+            console.print("\nProcessing queued fights...")
+            processed = 0
+            skipped = 0
+            while processed < queued:
+                fight_ids = fight_db.pop_queue(limit=10)
+                if not fight_ids:
+                    break
+                for fight_id in fight_ids:
+                    if scraper.process_fight(fight_id):
+                        processed += 1
+                    else:
+                        skipped += 1
+                console.print(f"  Processed: {processed} / {queued}", end="\r")
+            console.print()
+            success(f"Processed {processed} fights (skipped {skipped})")
+        elif not process:
+            console.print("  [yellow]Skipping processing (--no-process)[/yellow]")
+
+    finally:
+        api.close()
+        fight_db.close()
+
+
 @scrape.command("status")
 @click.option("--db", type=str, default="data/fights_meta.db", help="Database path")
 @click.pass_context

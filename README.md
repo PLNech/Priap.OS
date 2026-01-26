@@ -1,42 +1,69 @@
 # Priap.OS
 
-LeekWars AI agent aiming for **Top 10 ladder ranking**.
+An experiment in automated game-playing: can we reach **Top 10** in [LeekWars](https://leekwars.com) through systematic iteration rather than grinding?
 
-## Quick Start
+[→ See current rank](https://leekwars.com/farmer/124831)
+
+## The Hypothesis
+
+Online fights are scarce (~50/day free). Offline simulation is unlimited (~20 fights/sec).
+
+**If we can validate strategies 13,000x faster offline, we should climb faster than manual players.**
+
+## The Flywheel
+
+```
+Fight Online → Collect Data → Analyze Losses → Improve AI Offline → Deploy
+     ↑                                                              ↓
+     └──────────────────────────────────────────────────────────────┘
+```
+
+Every online fight is data collection, not experimentation. Experimentation happens offline.
+
+## The Method: AGORA
+
+Complex problems decompose into parallel workstreams. Workers coordinate via `AGORA.md`:
+
+1. Orchestrator defines strands (self-contained tasks)
+2. Workers claim strands, report progress
+3. Workers mark **VERIFY** when done
+4. Orchestrator tests, then marks **DONE**
+
+No heroics. Small steps. Compound progress.
+
+## Getting Started
 
 ```bash
-# Install dependencies
+# Install
 poetry install
 
-# Run daily fights
-poetry run python scripts/auto_daily_fights.py
+# Offline A/B test (unlimited)
+poetry run python scripts/compare_ais.py ais/fighter_v11.leek ais/archetype_rusher.leek -n 100
 
-# Compare AI versions offline
-poetry run python scripts/compare_ais.py v1.leek v2.leek -n 1000
+# CLI for online operations
+poetry run leek --help
+poetry run leek info leek          # Stats
+poetry run leek fight status       # Fights remaining
 ```
 
-## Strategy
-
-- **Online fights**: 150/day (scarce)
-- **Offline fights**: 1.8M/day potential (21.5/sec)
-- **Leverage ratio**: 13,000:1
-
-Never test online what we can test offline.
-
-## Project Structure
+## Project Layout
 
 ```
-src/leekwars_agent/   # Core library (API, simulator, analysis)
-scripts/              # Automation scripts
-ais/                  # LeekScript AI files
-tools/                # External tools (generator, leekscript)
-data/                 # Fight data, configs
+ais/                    # LeekScript AI files
+src/leekwars_agent/     # Core library (api, simulator, parser)
+scripts/                # Automation tools
+AGORA.md                # Multi-agent coordination
+CLAUDE.md               # Developer guide
+docs/research/          # Analysis, findings, meta studies
 ```
 
-## Current Status
+## Philosophy
 
-- **Level**: 27
-- **AI**: v8 "Architect" (subsystem-based)
-- **Automation**: GitHub Actions 3x daily
+- **Offline-first**: Never test online what you can test offline
+- **Data over intuition**: Every claim needs evidence
+- **Small commits**: Ship fast, iterate faster
+- **Tooling compounds**: Time spent on infrastructure pays dividends
 
-See `CLAUDE.md` for detailed project context.
+## License
+
+MIT

@@ -1,4 +1,4 @@
-// Fighter v12 "Mid-Game Hydra" - v11 Core + Mid-Game Efficiency
+// Fighter v13 "Hydra" - v11 Core + Mid-Game Efficiency
 // =============================================================================
 // Architecture: v11's proven modules + adaptive mid-game system
 //
@@ -13,7 +13,7 @@
 // New module:
 // - v12_midgame: Mid-game buff recovery, strategic chip timing
 //
-// Key improvements over v11:
+// Key improvements over v12 (Ares):
 // - Late buff trigger (turn 4+, losing + enemy_ttk > 3)
 // - Strategic chip timing (chips augment damage at key moments)
 // - Adaptive chip selection (FLAME for close, FLASH for range)
@@ -173,14 +173,15 @@ if (strategy == "retreat") {
 } else {
     // AGGRO: Close and attack
 
-    // Phase 1: Mid-game buffs (if applicable)
-    enableMidGameBuffs()
-
-    // Phase 2: Strategic chip damage (before closing)
-    useStrategicChips(enemy)
+    // Phase 1: Initial chip damage (FLASH range 10, FLAME range 6)
+    // Don't waste MP closing when chips can hit from further
+    useChipDamage(enemy)
     dist = getCellDistance(getCell(), getCell(enemy))
 
-    // Phase 2: Close, but RESERVE 1 MP for post-attack closing (kiter counter)
+    // Phase 2: Mid-game buffs (if applicable) - use before closing
+    enableMidGameBuffs()
+
+    // Phase 3: Close, but RESERVE 1 MP for post-attack closing (kiter counter)
     // This prevents us from spending all MP, having kiter retreat, then being stuck
     while (dist > w_max && getMP() > 1) {
         var moved = moveToward(enemy)

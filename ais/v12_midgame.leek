@@ -1,0 +1,193 @@
+// v12_midgame.leek - Mid-Game Efficiency Module
+// Fighter v12 "Mid-Game Hydra" - Strategic mid-game decisions
+// =============================================================================
+// Philosophy: Turn 5-10 is where games are won or lost.
+// v11 only buffs on turn 2-3. This module adds late-game buff recovery and
+// strategic chip timing to accelerate kills in the mid-game.
+// =============================================================================
+//
+// Key functions:
+// - enableMidGameBuffs(): Use PROTEIN if losing turn 4+ with safe window
+// - useStrategicChips(): Chip BEFORE weapon if we need chip damage to close gap
+// - adaptiveChipSelection(): Prefer FLASH (range 10) when far, FLAME (spam) when close
+// =============================================================================
+
+// =============================================================================
+// MID-GAME BUFF RECOVERY
+// =============================================================================
+//
+// Problem: v11's shouldBuff() returns false after turn 3.
+// If we're losing in mid-game, we have no burst to swing the fight.
+// Solution: Add a "recovery buff" window for turns 4-6 if:
+// - We're losing (winning_race == false)
+// - We have enough TP (3 for PROTEIN)
+// - Enemy won't kill us mid-buff (enemy_ttk > 3)
+// - We haven't already used PROTEIN this turn (cd_protein checked by canUseChip)
+//
+
+function enableMidGameBuffs() {
+    // Only active mid-game (turn 4+)
+    if (turn_count < 4) return 0
+
+    // Skip if winning or TTK unknown
+    if (winning_race) return 0
+    if (enemy_ttk >= 999) return 0
+
+    // Only if enemy won't kill us mid-buff
+    // PROTEIN costs 3 TP, so we need 4 TP to use it AND still attack
+    // This means: getTP() >= 4 (or >= 7 to also use MOTIVATION first)
+    if (enemy_ttk <= 3) {
+        debug("  Skip mid-game buffs: enemy_ttk=" + enemy_ttk)
+        return 0
+    }
+
+    // Use PROTEIN for burst damage (+80 STR for 2 turns)
+    // This swings the race: our TTK drops, we start winning
+    var buffs_applied = 0
+
+    if (canUseChip(chip_protein) && getTP() >= 4) {
+        // Need 3 TP for PROTEIN + at least 1 TP for a weapon attack
+        var result = useChip(chip_protein, getEntity())
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_protein)
+            buffs_applied++
+            debug("    💪 MID-GAME PROTEIN BUFF! (+80 STR)")
+        }
+    }
+
+    return buffs_applied
+}
+
+// =============================================================================
+// STRATEGIC CHIP TIMING
+// =============================================================================
+//
+// Problem: v11 calls useChipDamage() at fixed points in the combat loop.
+// Chip timing matters: using chips BEFORE or AFTER weapon attacks affects:
+// - TP efficiency: Some chips cost TP, others cost nothing
+// - Range optimization: FLASH (range 10) vs FLAME (range 6)
+// - Kill acceleration: Chips should be used to CLOSE the damage gap
+//
+// Solution: StrategicChipTiming() makes two key decisions:
+// 1. Chip BEFORE weapon: If enemy HP is high and we need chip damage
+// 2. Chip AFTER weapon: If we have excess TP after attacking
+//
+// This is called from the main loop at key decision points.
+//
+
+function useStrategicChips(enemy) {
+    var total_damage = 0
+    var dist = getCellDistance(getCell(), getCell(enemy))
+    var weapon = getWeapon()
+
+    // Don't waste chips if enemy is already dead
+    if (enemy == null || getLife(enemy) <= 0) return 0
+
+    // Case 1: Enemy is close (FLAME range) -> SPAM FLAME
+    if (dist <= 6 && canUseChip(chip_flame)) {
+        while (canUseChip(chip_flame) && dist <= 6 && getLife(enemy) > 0) {
+            var result = useChip(chip_flame, enemy)
+            if (result == USE_SUCCESS) {
+                markChipUsed(chip_flame)
+                total_damage = total_damage + 29
+                debug("    🔥 Strategic FLAME (close range cleanup)")
+            } else {
+                break
+            }
+            // Recalculate distance after chip (enemy might move or die)
+            if (getLife(enemy) <= 0) break
+            dist = getCellDistance(getCell(), getCell(enemy))
+        }
+    }
+
+    // Case 2: Enemy is in FLASH range but not FLAME range -> Use FLASH
+    // FLASH does 32 dmg at 3 TP, better efficiency, range 10
+    if (dist <= 10 && dist > 6 && canUseChip(chip_flash)) {
+        var result = useChip(chip_flash, enemy)
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_flash)
+            total_damage = total_damage + 32
+            debug("    ⚡ Strategic FLASH (range bridge)")
+        }
+    }
+
+    // Case 3: Chip AFTER weapon - use any remaining chips with excess TP
+    // If we have 4+ TP after attacking, burn it on chips
+    if (getTP() >= 4) {
+        // Prioritize FLAME (higher total damage potential with 3x use)
+        if (dist <= 6 && canUseChip(chip_flame)) {
+            while (canUseChip(chip_flame) && dist <= 6 && getTP() >= 4 && getLife(enemy) > 0) {
+                var result = useChip(chip_flame, enemy)
+                if (result == USE_SUCCESS) {
+                    markChipUsed(chip_flame)
+                    total_damage = total_damage + 29
+                    debug("    🔥 Post-weapon FLAME cleanup")
+                } else {
+                    break
+                }
+                if (getLife(enemy) <= 0) break
+                dist = getCellDistance(getCell(), getCell(enemy))
+            }
+        }
+    }
+
+    return total_damage
+}
+
+// =============================================================================
+// ADAPTIVE CHIP SELECTION
+// =============================================================================
+//
+// Higher-level chip strategy based on fight state:
+// - If enemy HP < 30%: FLAME spam (guaranteed 3x use, close range finish)
+// - If enemy HP 30-60%: FLASH first (range 10 > 7, bridge distance)
+// - If enemy HP > 60%: Conservative (save chips for emergency)
+// - If dist > 10: No chips (out of range), just move
+// - If dist <= 10 and > 6: FLASH (only chip that reaches)
+//
+
+function useAdaptiveChips(enemy) {
+    var total_damage = 0
+    if (enemy == null || getLife(enemy) <= 0) return 0
+
+    var dist = getCellDistance(getCell(), getCell(enemy))
+    var enemy_hp_pct = getLife(enemy) * 100 / enemy_start_hp
+
+    // Out of range for all damage chips
+    if (dist > 10) return 0
+
+    // Low enemy HP: Aggressive chip spam to finish
+    if (enemy_hp_pct < 30) {
+        // FLAME spam (3x per turn, 29 dmg each)
+        while (canUseChip(chip_flame) && dist <= 6 && getLife(enemy) > 0) {
+            var result = useChip(chip_flame, enemy)
+            if (result == USE_SUCCESS) {
+                markChipUsed(chip_flame)
+                total_damage = total_damage + 29
+                debug("    🎯 Adaptive FLAME (finishing)")
+            } else {
+                break
+            }
+            if (getLife(enemy) <= 0) break
+            dist = getCellDistance(getCell(), getCell(enemy))
+        }
+    }
+
+    // Medium enemy HP: Strategic chip usage
+    if (enemy_hp_pct >= 30 && enemy_hp_pct < 60) {
+        // Use FLASH for range bridging
+        if (canUseChip(chip_flash) && dist <= 10) {
+            var result = useChip(chip_flash, enemy)
+            if (result == USE_SUCCESS) {
+                markChipUsed(chip_flash)
+                total_damage = total_damage + 32
+                debug("    🎯 Adaptive FLASH (medium HP)")
+            }
+        }
+    }
+
+    // High enemy HP: Conservative, save chips for mid-game swing
+    // (No chips used in this case - save for turn 4+ recovery)
+
+    return total_damage
+}

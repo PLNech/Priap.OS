@@ -6,6 +6,8 @@
 
 global hp_pct
 
+var WEAPON_PISTOL = 37;
+
 var enemy = getNearestEnemy()
 if (enemy == null) return
 setWeapon(WEAPON_PISTOL)

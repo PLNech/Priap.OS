@@ -522,6 +522,98 @@ class LeekWarsAPI:
         response.raise_for_status()
         return response.json()
 
+    # --- Tournament Methods ---
+
+    def get_tournaments(self, power: int | None = None) -> dict[str, Any]:
+        """Get available tournaments for farmer.
+
+        Args:
+            power: Farmer power (sum of leek levels ^ 1.1). If None, auto-calculates.
+
+        Source: tools/leek-wars/src/component/farmer/farmer.vue:930
+        """
+        if power is None:
+            # Calculate power from farmer data
+            farmer = self.get_farmer(self.farmer_id) if self.farmer_id else {}
+            farmer_data = farmer.get("farmer", farmer)
+            leeks = farmer_data.get("leeks", {})
+            power = sum(l.get("level", 1) ** 1.1 for l in leeks.values())
+
+        response = self._client.get(
+            f"/tournament/range-farmer/{round(power)}",
+            headers=self._headers(),
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def get_tournament(self, tournament_id: int) -> dict[str, Any]:
+        """Get tournament details.
+
+        Source: tools/leek-wars/src/component/tournament/tournament.vue:72
+        """
+        response = self._client.get(
+            f"/tournament/get/{tournament_id}",
+            headers=self._headers(),
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def register_tournament(self, entity_type: str, entity_id: int) -> dict[str, Any]:
+        """Register for a tournament (farmer, leek, or team/composition).
+
+        Args:
+            entity_type: 'farmer', 'leek', or 'team'
+            entity_id: ID of the entity to register
+
+        Source:
+            - farmer: tools/leek-wars/src/component/farmer/farmer.vue:774
+            - leek: tools/leek-wars/src/component/leek/leek.vue:1027
+        """
+        if entity_type == "farmer":
+            response = self._client.post(
+                "/farmer/register-tournament",
+                headers=self._headers(),
+            )
+        elif entity_type == "leek":
+            response = self._client.post(
+                "/leek/register-tournament",
+                headers=self._headers(),
+                data={"leek_id": entity_id},
+            )
+        else:
+            raise ValueError(f"Unknown entity type: {entity_type}")
+
+        response.raise_for_status()
+        return response.json()
+
+    def unregister_tournament(self, entity_type: str, entity_id: int) -> dict[str, Any]:
+        """Unregister from a tournament.
+
+        Args:
+            entity_type: 'farmer', 'leek', or 'team'
+            entity_id: ID of the entity to unregister
+
+        Source:
+            - farmer: tools/leek-wars/src/component/farmer/farmer.vue:771
+            - leek: tools/leek-wars/src/component/leek/leek.vue:1024
+        """
+        if entity_type == "farmer":
+            response = self._client.post(
+                "/farmer/unregister-tournament",
+                headers=self._headers(),
+            )
+        elif entity_type == "leek":
+            response = self._client.post(
+                "/leek/unregister-tournament",
+                headers=self._headers(),
+                data={"leek_id": entity_id},
+            )
+        else:
+            raise ValueError(f"Unknown entity type: {entity_type}")
+
+        response.raise_for_status()
+        return response.json()
+
     def close(self):
         """Close HTTP client."""
         self._client.close()
