@@ -207,24 +207,39 @@ def run_fights(api: LeekWarsAPI, count: int) -> dict:
 
             winner = fight.get("winner", 0)
 
+            # Helper: extract leek ID from various formats (dict or int)
+            def get_leek_id(leek):
+                if isinstance(leek, dict):
+                    return leek.get("id")
+                elif isinstance(leek, int):
+                    return leek
+                return None
+
             # Determine which team we're on (don't assume team 1!)
             my_team = None
             leeks1 = fight.get("leeks1", [])
             leeks2 = fight.get("leeks2", [])
+
             for leek in leeks1:
-                if leek.get("id") == leek_id:
+                if get_leek_id(leek) == leek_id:
                     my_team = 1
                     break
             if my_team is None:
                 for leek in leeks2:
-                    if leek.get("id") == leek_id:
+                    if get_leek_id(leek) == leek_id:
                         my_team = 2
                         break
 
-            # Fallback if we couldn't find ourselves (shouldn't happen)
-            if my_team is None:
-                my_team = 1
-                log(f"  [{i+1}/{count}] WARNING: Couldn't determine team, assuming 1")
+            # Handle cancelled fights (winner=-1) or unknown team
+            if winner == -1 or my_team is None:
+                if winner == -1:
+                    result_char = "C"  # Cancelled
+                    crashes += 1  # Count as non-result
+                elif my_team is None:
+                    my_team = 1
+                    result_char = "?"
+                    log(f"  [{i+1}/{count}] WARNING: Couldn't determine team, assuming 1")
+                continue  # Skip DB update for cancelled/unknown fights
 
             if winner == 0:
                 draws += 1

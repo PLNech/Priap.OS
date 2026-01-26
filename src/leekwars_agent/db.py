@@ -39,8 +39,9 @@ def db_connection():
 
 
 def init_db():
-    """Initialize database schema."""
+    """Initialize database schema with migration support."""
     with db_connection() as conn:
+        # Create table if not exists
         conn.executescript("""
             -- Core fight data
             CREATE TABLE IF NOT EXISTS fights (
@@ -50,7 +51,7 @@ def init_db():
                 status INTEGER,
                 context INTEGER,
                 seed INTEGER,
-                duration INTEGER,  -- turns
+                duration INTEGER,
                 data JSON,
                 fetched_at TEXT,
                 parsed_at TEXT
@@ -93,6 +94,81 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_participants_leek ON fight_participants(leek_id);
             CREATE INDEX IF NOT EXISTS idx_leeks_talent ON leeks(talent DESC);
         """)
+        
+        # Migration: Add missing columns if they don't exist
+        try:
+            conn.execute("ALTER TABLE fights ADD COLUMN status INTEGER")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        try:
+            conn.execute("ALTER TABLE fights ADD COLUMN seed INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        
+        try:
+            conn.execute("ALTER TABLE fights ADD COLUMN duration INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        
+        try:
+            conn.execute("ALTER TABLE fights ADD COLUMN fetched_at TEXT")
+        except sqlite3.OperationalError:
+            pass
+
+        # Migration for leeks table
+        try:
+            conn.execute("ALTER TABLE leeks ADD COLUMN farmer_id INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE leeks ADD COLUMN farmer_name TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE leeks ADD COLUMN last_seen TEXT")
+        except sqlite3.OperationalError:
+            pass
+
+        # Migration for fight_participants table (create if not exists)
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS fight_participants (
+                fight_id INTEGER,
+                leek_id INTEGER,
+                team INTEGER,
+                strength INTEGER,
+                agility INTEGER,
+                wisdom INTEGER,
+                resistance INTEGER,
+                science INTEGER,
+                magic INTEGER,
+                frequency INTEGER,
+                ops_used INTEGER,
+                damage_dealt INTEGER,
+                damage_taken INTEGER,
+                PRIMARY KEY (fight_id, leek_id),
+                FOREIGN KEY (fight_id) REFERENCES fights(id),
+                FOREIGN KEY (leek_id) REFERENCES leeks(id)
+            );
+        """)
+
+        # Add missing columns to fight_participants
+        for col, type_ in [
+            ("strength", "INTEGER"),
+            ("agility", "INTEGER"),
+            ("wisdom", "INTEGER"),
+            ("resistance", "INTEGER"),
+            ("science", "INTEGER"),
+            ("magic", "INTEGER"),
+            ("frequency", "INTEGER"),
+            ("ops_used", "INTEGER"),
+            ("damage_dealt", "INTEGER"),
+            ("damage_taken", "INTEGER"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE fight_participants ADD COLUMN {col} {type_}")
+            except sqlite3.OperationalError:
+                pass
 
 
 def store_fight(fight_data: dict) -> int:
