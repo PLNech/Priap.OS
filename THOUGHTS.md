@@ -7,12 +7,11 @@
 
 ## TODOs (Next Session)
 
-1. 🔴 **Rethink v14 strategy** - FLASH isn't enough vs WIS sustain builds (see Session 21)
-2. 🟠 **Analyze losses by enemy WIS** - What % are to sustain tanks?
-3. 🟠 **Consider DOUBLE chip** - 2x burst might overwhelm healing
-4. 🟠 **Run scraper backfill** - 979 fights queued, run `leek scrape run`
-5. 🟢 **Buy Laser** - Need to verify habs, then purchase
-6. 🟢 **Solo tournament automation** - Daily 12:00-14:00 CET
+1. 🔴 **Validate v11 fix** - Check tomorrow's 5x10 batches for clean execution (Task #86)
+2. 🟠 **Re-evaluate v14** - May not need opening burst if bug was the real problem
+3. 🟠 **Run scraper backfill** - 979 fights queued, run `leek scrape run`
+4. 🟢 **Buy Laser** - Need to verify habs, then purchase (L38+)
+5. 🟢 **Solo tournament automation** - Daily 12:00-14:00 CET
 
 ---
 
