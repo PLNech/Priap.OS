@@ -1,12 +1,15 @@
 name: Daily Fights
 
-# Spread 150 fights across 3 runs per day (UTC times)
-# Progressive: 35% + 35% + 100% of remaining = guaranteed full usage
+# Spread 50 fights across 5 runs per day (~10 each)
+# Times in Paris (CET/CEST) converted to UTC
+# Progressive batches allow monitoring and stopping if issues detected
 on:
   schedule:
-    - cron: '0 17 * * *'   # 17:00 UTC = 18:00 CET (batch 1: ~35%)
-    - cron: '0 20 * * *'   # 20:00 UTC = 21:00 CET (batch 2: ~35%)
-    - cron: '30 22 * * *'  # 22:30 UTC = 23:30 CET (final sweep: 100%)
+    - cron: '55 18 * * *'  # 18:55 UTC = 19:55 Paris (batch 1: 10 fights)
+    - cron: '55 19 * * *'  # 19:55 UTC = 20:55 Paris (batch 2: 10 fights)
+    - cron: '55 20 * * *'  # 20:55 UTC = 21:55 Paris (batch 3: 10 fights)
+    - cron: '55 21 * * *'  # 21:55 UTC = 22:55 Paris (batch 4: 10 fights)
+    - cron: '55 22 * * *'  # 22:55 UTC = 23:55 Paris (batch 5: remaining)
   workflow_dispatch:  # Manual trigger
     inputs:
       percent:
@@ -60,11 +63,12 @@ jobs:
             DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
             echo "Manual trigger: $PERCENT% (dry_run=$DRY_RUN) [UTC hour: $HOUR]"
           else
-            # Scheduled: progressive percentages based on UTC hour
-            if [ "$HOUR" = "17" ] || [ "$HOUR" = "20" ]; then
-              PERCENT=35  # Early batches: partial
-            else
+            # Scheduled: 5 batches of ~10 fights each (20% per batch)
+            # Last batch (22:55 UTC) sweeps remaining to ensure full usage
+            if [ "$HOUR" = "22" ]; then
               PERCENT=100  # Final sweep: all remaining
+            else
+              PERCENT=20   # ~10 fights per batch
             fi
             DRY_RUN="false"
             echo "Scheduled run: $PERCENT% at UTC hour $HOUR"
