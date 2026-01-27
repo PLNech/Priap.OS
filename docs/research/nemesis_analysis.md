@@ -199,6 +199,78 @@ if (turn >= force_engage_turn && fight_phase == "kite") {
 
 ---
 
+## Case Study: Fight #51234329 - The Sustain Problem
+
+**Date**: 2026-01-26
+**Result**: LOSS (6 turns)
+**Opponent**: Jermaine (L48, Jackson)
+
+### The Stat Comparison
+
+| Stat | IAdonis | Jermaine | Ratio |
+|------|---------|----------|-------|
+| Level | 38 | 48 | -10 |
+| HP | **211** | 741 | 3.5x disadvantage |
+| STR | 310 | 20 | 15x advantage |
+| WIS | 0 | **300** | ∞ disadvantage |
+| AGI | 10 | 40 | 4x disadvantage |
+| MP | 3 | **4** | Can't catch |
+| FREQ | 100 | 140 | Less TP regen |
+
+### The Fight Timeline
+
+| Turn | Our Action | Our DMG | Their DMG | Our HP | Their HP |
+|------|-----------|---------|-----------|--------|----------|
+| 1 | Move only | 0 | 0 | 211 | 741 |
+| 2 | Move only | 0 | 0 | 211 | 741 |
+| 3 | Move only | 0 | 0 | 211 | 741 |
+| 4 | Attack | 149 | 45 | 166 | 592 |
+| 5 | Attack | 250 | 95+130 heal | 71 | 472→602 |
+| 6 | - | - | 29 | **DEAD** | 579 |
+
+**Total damage dealt**: 399
+**Total damage taken**: 169
+**Total enemy healing**: 237 (MORE than our max HP!)
+
+### The Core Problem
+
+> **We dealt 2.4x more damage than we took, but still lost.**
+
+WIS=300 enables:
+1. **Chip 1** (CURE?) heals 99-101 HP per use
+2. **Chip 39** (VAMPIRISM?) heals 8-16 per hit
+3. Net healing > our damage output per turn
+
+### Why v14's FLASH Doesn't Solve This
+
+v14 adds ~32 damage turn 1 via FLASH. But:
+- They have 741 HP (we need 4-5 FLASHes worth to kill)
+- They heal 100+ HP/turn (FLASH barely dents sustain)
+- We still die before our STR=310 advantage materializes
+
+### The True Counter-Strategy
+
+This isn't an "opening" problem. It's a **build matchup** problem:
+
+| Our Build | Their Build | Outcome |
+|-----------|-------------|---------|
+| Glass cannon (211 HP, 310 STR) | Sustain tank (741 HP, 300 WIS) | We lose |
+
+**Required solutions** (any of):
+1. **More HP** - Respec some STR → HP to survive long enough
+2. **Anti-heal** - Does LeekWars have heal reduction chips?
+3. **Faster closing** - 4 MP to match their kiting (BOOTS chip?)
+4. **Burst multiplier** - DOUBLE chip (2x damage) to overwhelm healing
+
+### Strategic Recommendation
+
+At L40, we should consider:
+1. **Scouting phase**: If enemy WIS > 200, switch to kite/sustain mode ourselves
+2. **Equipment**: DOUBLE chip → burst 620 damage in one turn to overwhelm heals
+3. **Build**: Consider 50-100 HP allocation (sacrifice ~50 STR)
+
+---
+
 ## Equipment Gap Analysis
 
 ### Our Current Setup (L38)

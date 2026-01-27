@@ -198,14 +198,16 @@ def history(ctx: click.Context, limit: int) -> None:
 @click.option("--save/--no-save", default=False, help="Save fight data to data/fights/")
 @click.option("--analyze", is_flag=True, help="Show fight analysis")
 @click.option("--classify", is_flag=True, help="Classify opponent AI behavior")
+@click.option("-v", "--verbose", is_flag=True, help="Show turn-by-turn actions")
 @click.pass_context
-def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool, classify: bool) -> None:
+def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool, classify: bool, verbose: bool) -> None:
     """Fetch and display fight details by ID.
 
     Examples:
         leek fight get 50863105
         leek fight get 50863105 --save --analyze
         leek fight get 50863105 --classify  # Show opponent AI archetype
+        leek fight get 50863105 -v  # Show turn-by-turn
     """
     from leekwars_agent.fight_analyzer import classify_ai_behavior
 
@@ -227,17 +229,122 @@ def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool, clas
 
         # Basic display
         winner = fight.get("winner", 0)
-        winner_str = "Team 1" if winner == 1 else ("Draw" if winner == 0 else "Team 2")
+        report = fight.get("report", {})
+        duration = report.get("duration", "?")
+        data = fight.get("data", {})
+        data_leeks = data.get("leeks", [])
 
-        console.print(f"[bold]Fight #{fight_id}[/bold]")
-        console.print(f"  Winner: {winner_str}")
-
-        # Show teams
+        # Determine our team and result
         leeks1 = fight.get("leeks1", [])
         leeks2 = fight.get("leeks2", [])
+        my_team = 1
+        for leek in leeks2:
+            if leek.get("id") == LEEK_ID:
+                my_team = 2
+                break
+
+        we_won = (winner == my_team)
+        result_str = "[green]WIN[/green]" if we_won else ("[yellow]DRAW[/yellow]" if winner == 0 else "[red]LOSS[/red]")
+
+        console.print(f"[bold]Fight #{fight_id}[/bold] - {result_str}")
+        console.print(f"  Duration: {duration} turns")
+
+        # Show combatants with stats
+        console.print("\n[bold]Combatants:[/bold]")
+        for leek in data_leeks:
+            name = leek.get("name", "?")
+            level = leek.get("level", "?")
+            hp = leek.get("life", "?")
+            stren = leek.get("strength", 0)
+            wis = leek.get("wisdom", 0)
+            team = leek.get("team", 0)
+            is_us = (name == "IAdonis")
+            marker = " [cyan](us)[/cyan]" if is_us else ""
+            console.print(f"  {'→' if is_us else ' '} {name}{marker}: L{level} HP={hp} STR={stren} WIS={wis}")
+
+        # Parse actions for damage summary
+        actions = data.get("actions", [])
+        our_dmg = 0
+        their_dmg = 0
+        our_heals = 0
+        errors_found = []
+
+        for action in actions:
+            code = action[0]
+            if code == 101:  # Damage
+                target = action[1]
+                dmg = action[2]
+                # Entity 0 is usually team 1 first leek
+                if (my_team == 1 and target == 0) or (my_team == 2 and target != 0):
+                    their_dmg += dmg  # We took damage
+                else:
+                    our_dmg += dmg  # We dealt damage
+            elif code == 103:  # Heal
+                entity = action[1]
+                heal = action[2]
+                if (my_team == 1 and entity == 0) or (my_team == 2 and entity != 0):
+                    our_heals += heal
+
+        console.print(f"\n[bold]Combat Summary:[/bold]")
+        console.print(f"  Damage dealt: {our_dmg}")
+        console.print(f"  Damage taken: {their_dmg}")
+        if our_heals > 0:
+            console.print(f"  HP healed: {our_heals}")
+
+        # Show teams (legacy)
         leeks = leeks1 + leeks2
-        if leeks:
+        if not data_leeks and leeks:
             console.print(f"  Participants: {', '.join(l.get('name', '?') for l in leeks)}")
+
+        # Verbose turn-by-turn output
+        if verbose:
+            console.print("\n[bold]Turn-by-Turn:[/bold]")
+            # Build entity name map
+            entity_names = {leek.get("id", i): leek.get("name", f"Entity{i}") for i, leek in enumerate(data_leeks)}
+            current_turn = 0
+            current_entity = -1
+
+            for action in actions:
+                code = action[0]
+
+                if code == 7:  # Entity starts turn
+                    current_entity = action[1]
+                    entity_name = entity_names.get(current_entity, f"E{current_entity}")
+                    if current_entity == 0:  # First entity = new turn
+                        current_turn += 1
+                        console.print(f"\n  [dim]--- Turn {current_turn} ---[/dim]")
+                    is_us = (my_team == 1 and current_entity == 0) or (my_team == 2 and current_entity != 0)
+                    marker = "[cyan]→[/cyan]" if is_us else " "
+                    console.print(f"  {marker} [bold]{entity_name}[/bold]")
+
+                elif code == 10:  # Move
+                    path = action[3] if len(action) > 3 else []
+                    console.print(f"      Move {len(path)} cells")
+
+                elif code == 12:  # Chip used
+                    chip_id = action[1]
+                    # Common chip names
+                    chip_names = {1: "CURE", 4: "PROTEIN", 5: "MOTIVATION", 6: "BOOTS",
+                                  8: "SHIELD", 9: "FLAME", 10: "FLASH", 14: "BANDAGE", 15: "KNOWLEDGE"}
+                    name = chip_names.get(chip_id, f"Chip#{chip_id}")
+                    console.print(f"      Use {name}")
+
+                elif code == 101:  # Damage
+                    target = action[1]
+                    dmg = action[2]
+                    target_name = entity_names.get(target, f"E{target}")
+                    console.print(f"      [red]→ {target_name} -{dmg} HP[/red]")
+
+                elif code == 103:  # Heal
+                    entity = action[1]
+                    heal = action[2]
+                    entity_name = entity_names.get(entity, f"E{entity}")
+                    console.print(f"      [green]♥ {entity_name} +{heal} HP[/green]")
+
+                elif code == 5:  # Death
+                    dead_entity = action[1]
+                    dead_name = entity_names.get(dead_entity, f"E{dead_entity}")
+                    console.print(f"      [red bold]💀 {dead_name} DIED[/red bold]")
 
         if analyze:
             console.print("\n[bold]Analysis:[/bold]")

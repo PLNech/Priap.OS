@@ -137,6 +137,27 @@ Fight Online → Collect Data → Analyze Losses → Improve AI Offline
 
 The scaffolding lets us spin this flywheel 13,000x faster than manual iteration.
 
+### Post-Fight Verification (MANDATORY)
+
+> **After EVERY online fight batch**, grep the logs for errors before declaring success.
+
+**Session 21 Bug**: v11 had `count(Map)` type error causing `Accessible: me=0 enemy=0` EVERY TURN. The AI was flying blind. This ran for 50+ fights before detection.
+
+**The process failure**:
+1. ❌ Local simulation didn't surface the error (different execution path?)
+2. ❌ First online fight should have triggered log review
+3. ❌ Daily fight logs weren't being scanned for errors
+
+**Required checks** after fight deployment:
+```bash
+# Fetch a recent fight's log
+leek fight get <fight_id> --log 2>/dev/null | grep -i "error\|incompatible\|failed"
+
+# Or via the web report page - LOOK FOR RED ERROR MESSAGES
+```
+
+**Rule**: No AI is "deployed successfully" until you've verified one fight's logs show no runtime errors.
+
 ## Website & Brand Identity
 
 ### Concept: "The Digital Oracle"

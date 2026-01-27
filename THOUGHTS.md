@@ -7,10 +7,87 @@
 
 ## TODOs (Next Session)
 
-1. 🔴 **v14 Opening Burst design** - Address 41% WR in ≤5 turns (STRAND 5 ready)
-2. 🟠 **Run scraper backfill** - 979 fights queued, run `leek scrape run`
-3. 🟠 **Buy Laser** - Need to verify habs, then purchase
-4. 🟢 **Solo tournament automation** - Daily 12:00-14:00 CET
+1. 🔴 **Rethink v14 strategy** - FLASH isn't enough vs WIS sustain builds (see Session 21)
+2. 🟠 **Analyze losses by enemy WIS** - What % are to sustain tanks?
+3. 🟠 **Consider DOUBLE chip** - 2x burst might overwhelm healing
+4. 🟠 **Run scraper backfill** - 979 fights queued, run `leek scrape run`
+5. 🟢 **Buy Laser** - Need to verify habs, then purchase
+6. 🟢 **Solo tournament automation** - Daily 12:00-14:00 CET
+
+---
+
+## Session 21: The Sustain Counter Problem (2026-01-26)
+
+**Theme:** Fight analysis revealed a deeper problem than opening damage.
+
+### Key Discovery: Fight #51234329
+
+**Analyzed loss vs Jermaine (L48, WIS=300 build):**
+- We dealt **399 damage** (2.4x more than taken)
+- They healed **237 HP** (more than our max HP of 211!)
+- We still lost in 6 turns
+
+**The real problem:**
+| Our Build | Weakness |
+|-----------|----------|
+| 211 HP | Paper thin |
+| 310 STR | Useless if dead |
+| 3 MP | Can't close gap |
+
+| Their Build | Strength |
+|-------------|----------|
+| 741 HP | 3.5x tankier |
+| 300 WIS | 100+ HP heals |
+| 4 MP | Kites us |
+
+**Critical insight:**
+> v14's FLASH adds ~32 damage turn 1. But they heal 100+/turn. FLASH treats symptoms, not the disease.
+
+### BUT WAIT - Data Correction!
+
+After analyzing ALL 30 recent losses:
+- WIS sustain builds = **only 3%** of losses (1 fight)
+- HP tanks (>500 HP) = **36%** of losses
+- Balanced builds = **63%** of losses
+
+**Jermaine was an OUTLIER**, not the pattern. Most losses are to boring balanced builds.
+
+**The real finding:**
+| Enemies we beat | Enemies who beat us | Delta |
+|-----------------|---------------------|-------|
+| 456 HP | 491 HP | **+35 HP** |
+| 118 STR | 127 STR | +9 STR |
+| 43 WIS | 57 WIS | +14 WIS |
+
+**Our build is CLOSE to competitive.** The margins are tiny. Maybe HP investment > more STR?
+
+### Updated Strategy
+
+This isn't an **opening problem** OR a **build matchup** problem.
+
+**Options to explore:**
+1. **Scouting**: Detect WIS builds, change tactics
+2. **Anti-heal**: Does LeekWars have heal reduction?
+3. **DOUBLE chip**: 2x burst might overwhelm healing
+4. **Build respec**: Trade some STR for HP survival
+
+### Critical Bug Found
+
+**The v11 AI has been BLIND this whole time!**
+
+```
+"[471 : 0]" of type "Map" is incompatible with the expected type "Array (V4+)"
+Accessible: me=0 enemy=0  ← EVERY TURN
+```
+
+**Root cause**: `count(Map)` fails in LeekScript V4+. The fix was trivial - use `countAccessible()` which already existed!
+
+**Process failure**: This ran for 50+ fights before detection. Added mandatory post-fight log verification to CLAUDE.md.
+
+### Files Changed
+- `docs/research/nemesis_analysis.md` - Added case study
+- `ais/fighter_v11-v14.leek` - Fixed count() → countAccessible()
+- `CLAUDE.md` - Added post-fight verification protocol
 
 ---
 

@@ -1425,7 +1425,7 @@ if (fight_phase != "opening") {
     cached_danger_map = computeDangerMap(cached_my_accessible, enemy, enemy_mp)
 }
 
-debug("  Accessible: me=" + count(cached_my_accessible) + " enemy=" + (cached_enemy_accessible ? count(cached_enemy_accessible) : 0))
+debug("  Accessible: me=" + countAccessible(cached_my_accessible) + " enemy=" + (cached_enemy_accessible ? countAccessible(cached_enemy_accessible) : 0))
 
 // =============================================================================
 // STRATEGY SELECTION
