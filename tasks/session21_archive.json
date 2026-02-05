@@ -1,0 +1,31 @@
+{
+  "session": 21,
+  "date": "2026-01-27",
+  "completed_tasks": [
+    {
+      "task_id": 85,
+      "subject": "Fix Map/Array type error in v11",
+      "root_cause": "count(Map) fails in LeekScript V4+",
+      "solution": "Use countAccessible() helper instead",
+      "key_files": ["ais/fighter_v11*.leek", "ais/fighter_v12-14.leek"],
+      "learnings": ["Always grep fight logs for errors post-deploy", "count() only works on Arrays in LS4"]
+    },
+    {
+      "task_id": 84,
+      "subject": "Analyze recent 50 fights",
+      "findings": ["WIS builds = 3% of losses (outlier)", "HP tanks = 36%", "Balanced = 63%", "+35 HP margin between W/L"],
+      "learnings": ["Don't overfit to memorable outliers", "Data > intuition"]
+    },
+    {
+      "task_id": 30,
+      "subject": "Validate AI debug logging online",
+      "outcome": "Found critical bug via log analysis",
+      "learnings": ["Post-fight verification is mandatory"]
+    }
+  ],
+  "key_insights": [
+    "AI was BLIND for 50+ fights due to count(Map) bug",
+    "Jermaine fight was outlier - most losses to balanced/HP builds",
+    "Progressive fight batches (5x10) safer than 3 large batches"
+  ]
+}
