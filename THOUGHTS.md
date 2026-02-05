@@ -7,11 +7,46 @@
 
 ## TODOs (Next Session)
 
-1. 🔴 **Validate v11 fix** - Check tomorrow's 5x10 batches for clean execution (Task #86)
-2. 🟠 **Re-evaluate v14** - May not need opening burst if bug was the real problem
-3. 🟠 **Run scraper backfill** - 979 fights queued, run `leek scrape run`
-4. 🟢 **Buy Laser** - Need to verify habs, then purchase (L38+)
-5. 🟢 **Solo tournament automation** - Daily 12:00-14:00 CET
+1. 🔴 **Improve AI** - Raise Talent from 48 → 100 (pack profitability threshold)
+2. 🟠 **WebSocket for BR** - 10 free fights/day wasted (Task #88)
+3. 🟠 **Monitor v11 WR** - Is 47-48% stable? Improvement trend?
+4. 🟢 **Buy Laser** - L62 now, should have habs
+5. 🟢 **Consider 2nd leek** - Enables farmer fights (more XP/fight)
+
+---
+
+## Session 22: Infrastructure Health Check (2026-02-05)
+
+**Theme:** Reviewed 14 days of nightly operations, found gaps, fixed scraper.
+
+### Key Findings
+
+1. **L42 → L62 in 9 days** - Leveling is working!
+2. **Fight cumulation working** - 100 fights on some days (2 days stacked)
+3. **Scraper wasn't running** - 459 fights missing from analytics DB
+4. **Battle Royale unused** - 10/day wasted (requires WebSocket)
+
+### Mentor Insights (Fight Economy)
+
+| Feature | Status | Action |
+|---------|--------|--------|
+| 50 free/day (cumul to 100) | ✅ Working | Keep using |
+| 50 pack/day buyable | Skip | T48 < T100, not profitable |
+| Farmer fights | ❌ | Need 2nd leek |
+| Battle Royale | ❌ | Need WebSocket |
+
+**Pack ROI formula**: If Talent > 100 (level average), packs pay for themselves.
+
+### Fixes Applied
+
+1. **Scraper auto-runs** after daily fights (backfills meta DB)
+2. **Backfilled 459 fights** from leek history
+3. **Verified workflow** - 5x10 batches running correctly
+
+### Files Changed
+- `scripts/auto_daily_fights.py` - Added post-fight scraping
+- `docs/ROADMAP.md` - Created strategic roadmap
+- `tasks/session21_archive.json` - Archived completed tasks
 
 ---
 
