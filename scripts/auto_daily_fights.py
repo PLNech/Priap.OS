@@ -397,6 +397,35 @@ def main():
     log(f"Results: {results['wins']}W-{results['losses']}L-{results['draws']}D "
         f"({results['win_rate']:.1f}% WR) | {results['crashes']} crashes")
 
+    # Scrape recent fights to meta DB for analytics
+    try:
+        from leekwars_agent.scraper.scraper import FightScraper
+        from leekwars_agent.scraper.db import FightDB
+        import sqlite3
+
+        log("Scraping recent fights to meta DB...")
+
+        # Get recent fight IDs from leek history
+        history = api.get_leek_history(LEEK_ID)
+        recent_fights = [f['id'] for f in history.get('fights', [])[:to_run + 10]]
+
+        # Check which are missing from meta DB
+        meta_db = sqlite3.connect('data/fights_meta.db')
+        existing = set(r[0] for r in meta_db.execute('SELECT fight_id FROM fights').fetchall())
+        missing = [fid for fid in recent_fights if fid not in existing]
+
+        if missing:
+            scraper = FightScraper(api)
+            scraped = 0
+            for fid in missing[:50]:  # Limit to avoid rate limits
+                if scraper.process_fight(fid):
+                    scraped += 1
+            log(f"  Scraped {scraped}/{len(missing)} fights to meta DB")
+        else:
+            log("  All recent fights already in meta DB")
+    except Exception as e:
+        log(f"  Scraping failed (non-fatal): {e}")
+
     # Final status
     final_status = get_status(api)
     log(f"Final: {final_status['fights_available']} fights remaining | "
