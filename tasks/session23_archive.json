@@ -1,0 +1,63 @@
+{
+  "session": 23,
+  "date": "2026-02-10",
+  "completed_tasks": [
+    {
+      "task_id": 89,
+      "subject": "Backfill 5 days of fight data + analyze WR trends",
+      "solution": "Scraped 312 missing fights via local scraper, ran analytics on 866 total",
+      "key_files": ["docs/research/session23_analysis.md", "data/fights_meta.db"],
+      "learnings": ["HP delta (+98) is primary loss factor", "Opening WR 44.9% vs mid-game 49%", "Draw rate 4.7% confirms stalemate fix"]
+    },
+    {
+      "task_id": 90,
+      "subject": "Spend 195 capital on STR",
+      "solution": "Spent 194 capital: STR 310→452. Discovered capital cost scaling (~2 cap/pt at high STR)",
+      "key_files": ["src/leekwars_agent/api.py", "src/leekwars_agent/cli/commands/build.py"],
+      "learnings": ["Capital cost NOT 1:1 - scales with stat level", "API needs _request() retry for rate limits"]
+    },
+    {
+      "task_id": 91,
+      "subject": "Fix GH Actions + team detection bug",
+      "root_cause": "get_fight() returns data at top level, not under 'fight' key. Empty dict fallback killed team detection.",
+      "solution": "Changed fallback to fight_data itself. Simplified GH Actions from 5 to 3 corrective crons.",
+      "key_files": ["scripts/auto_daily_fights.py", ".github/workflows/daily-fights.yml"],
+      "learnings": ["Use data.get('key', data) not data.get('key', {}) for API responses", "Corrective scheduling > progressive scheduling"]
+    },
+    {
+      "task_id": 75,
+      "subject": "Buy Laser weapon",
+      "solution": "Bought Laser (12,120 habs), removed Pistol, equipped. Loadout: Magnum + Laser",
+      "key_files": ["src/leekwars_agent/api.py"],
+      "learnings": ["Weapon slot limit = 2", "DELETE API needs JSON body not query params", "add_weapon needs _request() retry"]
+    },
+    {
+      "task_id": 86,
+      "subject": "Validate v11 fix impact",
+      "solution": "866 fights confirm 47.5% WR, 4.7% draw rate (down from 21%)",
+      "key_files": ["docs/research/session23_analysis.md"],
+      "learnings": ["v11 stalemate fix working well"]
+    },
+    {
+      "task_id": 92,
+      "subject": "Test Battle Royale",
+      "solution": "Fixed WS: cookie auth + connected event + circular import. Connects and registers. Needs peak hours for actual BR.",
+      "key_files": ["src/leekwars_agent/battle_royale.py"],
+      "learnings": ["WS needs JWT as both subprotocol AND cookie", "BR needs 10 concurrent players - time-sensitive"]
+    },
+    {
+      "task_id": 88,
+      "subject": "WebSocket support for BR",
+      "solution": "Superseded by #92. WS client functional.",
+      "key_files": ["src/leekwars_agent/battle_royale.py"],
+      "learnings": []
+    },
+    {
+      "task_id": 25,
+      "subject": "Fix buy_fights 401",
+      "solution": "Added global _request() with exponential backoff to api.py",
+      "key_files": ["src/leekwars_agent/api.py"],
+      "learnings": ["Centralized retry logic beats per-method error handling"]
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+[2026-02-10 20:29:56] ==================================================
+[2026-02-10 20:29:56] BR DAEMON - Starting
+[2026-02-10 20:29:56]   Cycle: 15min | Queue timeout: 15s | Max: 10/day
+[2026-02-10 20:29:57]   Logged in as PriapOS | AI: unknown
+[2026-02-10 20:29:57] Cycle start (0/10 BR today)
+[2026-02-10 20:29:57]   Re-authenticated
+[2026-02-10 20:29:58]   Queuing for BR (timeout=15s)...
+[2026-02-10 20:30:13]   No BR started (queue empty or not enough players)
+[2026-02-10 20:30:13]   No BR this cycle
+[2026-02-10 20:30:13]   Sleeping 15min until next attempt...
+[2026-02-10 20:30:25] Received signal 15, shutting down gracefully...
+[2026-02-10 20:30:28] BR DAEMON - Stopped
+[2026-02-10 20:30:28] ==================================================
+[2026-02-10 20:30:59] ==================================================
+[2026-02-10 20:30:59] BR DAEMON - Starting
+[2026-02-10 20:30:59]   Cycle: 15min | Queue timeout: 5s | Max: 10/day
+[2026-02-10 20:31:00]   Logged in as PriapOS | AI: fighter_v11_flat
+[2026-02-10 20:31:00] Cycle start (0/10 BR today)
+[2026-02-10 20:31:00]   Queuing for BR (timeout=5s)...
+[2026-02-10 20:31:05]   No BR started (queue empty or not enough players)
+[2026-02-10 20:31:05]   No BR this cycle
+[2026-02-10 20:31:05]   Sleeping 15min until next attempt...
+[2026-02-10 20:31:17] Received signal 15, shutting down gracefully...
+[2026-02-10 20:31:20] BR DAEMON - Stopped
+[2026-02-10 20:31:20] ==================================================
+[2026-02-10 20:32:20] ==================================================
+[2026-02-10 20:32:20] ==================================================
+[2026-02-10 20:32:20] BR DAEMON - Starting
+[2026-02-10 20:32:20] BR DAEMON - Starting
+[2026-02-10 20:32:20]   Cycle: 15min | Queue timeout: 600s | Max: 10/day
+[2026-02-10 20:32:20]   Cycle: 15min | Queue timeout: 600s | Max: 10/day
+[2026-02-10 20:32:21]   Logged in as PriapOS | AI: fighter_v11_flat
+[2026-02-10 20:32:21]   Logged in as PriapOS | AI: fighter_v11_flat
+[2026-02-10 20:32:21] Cycle start (0/10 BR today)
+[2026-02-10 20:32:21] Cycle start (0/10 BR today)
+[2026-02-10 20:32:21]   Queuing for BR (timeout=600s)...
+[2026-02-10 20:32:21]   Queuing for BR (timeout=600s)...
+[2026-02-10 20:32:52] Received signal 15, shutting down gracefully...
+[2026-02-10 20:32:52] Received signal 15, shutting down gracefully...
+[2026-02-10 20:33:58] ==================================================
+[2026-02-10 20:33:58] BR DAEMON - Starting
+[2026-02-10 20:33:58]   Cycle: 15min | Queue timeout: 600s | Max: 10/day
+[2026-02-10 20:33:59]   Logged in as PriapOS | AI: fighter_v11_flat
+[2026-02-10 20:33:59] Cycle start (0/10 BR today)
+[2026-02-10 20:33:59]   Queuing for BR (timeout=600s)...

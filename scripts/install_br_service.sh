@@ -5,7 +5,7 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-SERVICE_NAME="priap-br"
+SERVICE_NAME="priapos"
 SERVICE_FILE="$PROJECT_DIR/systemd/$SERVICE_NAME.service"
 USER_SYSTEMD_DIR="$HOME/.config/systemd/user"
 

@@ -1,5 +1,5 @@
 [Unit]
-Description=Priap.OS Battle Royale Daemon
+Description=Priap.OS - Battle Royale Daemon
 After=network-online.target
 Wants=network-online.target
 
@@ -15,9 +15,9 @@ RestartSec=60
 KillSignal=SIGTERM
 TimeoutStopSec=30
 
-# Logging (also goes to journalctl)
-StandardOutput=append:/home/pln/Work/Perso/Priap.OS/logs/br_daemon.log
-StandardError=append:/home/pln/Work/Perso/Priap.OS/logs/br_daemon.log
+# Let daemon handle file logging; journalctl captures stdout/stderr
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=default.target
