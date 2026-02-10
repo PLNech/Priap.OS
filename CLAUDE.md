@@ -339,23 +339,24 @@ docs/                  # Living documentation
 ## Current State (Session 23 - 2026-02-10)
 - **Level**: 73
 - **Talent**: 67
-- **Rank**: 81,528
+- **Rank**: 23,700 (farmer)
 - **Win rate**: 47.5% (866 fights since v11)
 - **Draw rate**: 4.7% (down from 21%)
 - **Build**: STR=452, AGI=10, HP=316
-- **AI Deployed**: fighter_v11_flat.leek (1509 lines)
+- **AI Deployed**: fighter_v11_flat.leek (1509 lines, AI ID 455913)
 - **Chips**: 6/6 equipped (PROTEIN, MOTIVATION, CURE, BOOTS, FLASH, FLAME)
-- **Weapons**: 2/2 (Pistol + Magnum)
-- **Fights**: GitHub Actions 3x daily (only 3 of 5 crons fire - fix pending #91)
+- **Weapons**: 2/2 (Magnum + Laser) - swapped Pistol for Laser this session
+- **Fights**: GitHub Actions 3x daily (corrective model, fixed from 5 broken crons)
+- **BR Daemon**: `systemctl --user start priapos` - 15min cycles, 10/day max
 - **Website**: https://plnech.github.io/Priap.OS/
 - **Scraper**: 5,327 fights in meta DB
-- **Research**: See `docs/research/` for strategy, chip stats, meta analysis
+- **Habs**: 23,957
 - **Capital**: 1 remaining (194 spent on STR this session)
 
 ### Immediate Priorities
-1. Fix team detection bug + GH Actions (#91) - root cause found
-2. Test Battle Royale (#92) - client built, never tested
-3. Improve AI → raise Talent 67 → 100
+1. **Improve AI** (#76 v14 Opening Burst) - address 44.9% opening WR, biggest talent lever
+2. **AI version tracking** (#94) - local SOTA pointer, `leek ai status`
+3. Monitor `priapos` BR daemon - verify it catches peak-hour BRs
 
 ### Active Learnings
 **See `THOUGHTS.md`** for session analysis, hypotheses, and discoveries.
@@ -364,6 +365,9 @@ docs/                  # Living documentation
 - **`get_fight()` response has NO "fight" wrapper** - data at top level
 - **Capital cost scales**: ~2 capital/point at STR 400+ (not 1:1)
 - **Rate limiting**: rapid POST calls → 401. Use `api._request()` with backoff
+- **DELETE requests need JSON body** with `content-type: application/json`, not query params
+- **WebSocket auth**: JWT needed as BOTH subprotocol AND cookie header
+- **`leek.ai` is a dict** `{id, name, valid, version, total_lines}`, not just an integer
 
 ### AI Versions
 | Version | Codename | Key Feature | Status |

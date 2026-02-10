@@ -7,11 +7,11 @@
 
 ## TODOs (Next Session / Continue)
 
-1. 🔴 **Fix team detection bug** (Task #91) - Root cause FOUND: `get_fight()` returns data at top level, not under `"fight"` key. Fix: `fight_data.get("fight", fight_data)`. Also simplify GH Actions to 3 corrective crons.
-2. 🔴 **Test Battle Royale** (Task #92) - Client fully built, CLI ready: `leek br status`, `leek br join`
-3. 🟠 **Improve AI** - Raise Talent from 67 → 100 (pack profitability threshold)
-4. 🟢 **Buy Laser** - L73 now, should have habs
-5. 🟢 **Consider 2nd leek** - Enables farmer fights (more XP/fight)
+1. 🔴 **Improve AI → v14 Opening Burst** (#76) - Address 44.9% opening WR. Biggest talent lever.
+2. 🟠 **AI version tracking** (#94) - Local SOTA pointer (symlink), `leek ai status` CLI
+3. 🟢 **Monitor `priapos` service** - BR daemon running, check if it catches peak-hour BRs
+4. 🟢 **Consider 2nd leek** - Enables farmer fights (more XP/fight)
+5. 🟢 **Verify GH Actions** - 3 corrective crons deployed, check tomorrow's logs
 
 ---
 
