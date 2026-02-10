@@ -336,34 +336,42 @@ docs/                  # Living documentation
 - Account: PriapOS (Farmer ID: 124831)
 - Leek: IAdonis (ID: 131321)
 
-## Current State (Session 18 - 2026-01-24)
-- **Level**: 34
-- **Talent**: 38
-- **Win rate**: 38% raw / 48% excluding draws
-- **Build**: STR=310, AGI=10
-- **AI Deployed**: fighter_v8.leek "Architect"
-- **Chips**: 6/6 equipped ✓ (PROTEIN, MOTIVATION, CURE, BOOTS, FLASH, FLAME)
-- **Weapons**: 1/2 (Pistol equipped)
-- **Fights**: GitHub Actions running 3x daily
+## Current State (Session 23 - 2026-02-10)
+- **Level**: 73
+- **Talent**: 67
+- **Rank**: 81,528
+- **Win rate**: 47.5% (866 fights since v11)
+- **Draw rate**: 4.7% (down from 21%)
+- **Build**: STR=452, AGI=10, HP=316
+- **AI Deployed**: fighter_v11_flat.leek (1509 lines)
+- **Chips**: 6/6 equipped (PROTEIN, MOTIVATION, CURE, BOOTS, FLASH, FLAME)
+- **Weapons**: 2/2 (Pistol + Magnum)
+- **Fights**: GitHub Actions 3x daily (only 3 of 5 crons fire - fix pending #91)
 - **Website**: https://plnech.github.io/Priap.OS/
-- **Priority Bug**: 21% draw rate from kite stalemates → v10 fix ready to deploy
-- **Scraper**: 2,417 fights, 11,712 observations (L25-100 meta data)
+- **Scraper**: 5,327 fights in meta DB
 - **Research**: See `docs/research/` for strategy, chip stats, meta analysis
+- **Capital**: 1 remaining (194 spent on STR this session)
 
-### Phase 1 Focus (This Week)
-1. Validate v10 offline (#58)
-2. Deploy v10 (#59)
-3. Measure draw rate < 10% (#60)
+### Immediate Priorities
+1. Fix team detection bug + GH Actions (#91) - root cause found
+2. Test Battle Royale (#92) - client built, never tested
+3. Improve AI → raise Talent 67 → 100
 
 ### Active Learnings
 **See `THOUGHTS.md`** for session analysis, hypotheses, and discoveries.
 
+### API Quirks (Hard-Won Knowledge)
+- **`get_fight()` response has NO "fight" wrapper** - data at top level
+- **Capital cost scales**: ~2 capital/point at STR 400+ (not 1:1)
+- **Rate limiting**: rapid POST calls → 401. Use `api._request()` with backoff
+
 ### AI Versions
 | Version | Codename | Key Feature | Status |
 |---------|----------|-------------|--------|
-| v10 | Phoenix | Stalemate fix (force_engage turn 30) | Ready to validate |
-| v8 | Architect | 5-module subsystems, ops-optimized | **DEPLOYED** |
-| v6 | Oracle | TTK + counter-kiter | Baseline |
+| v11_flat | Hydra | Stalemate fix + countAccessible() | **DEPLOYED** |
+| v14 | Opening Burst | FLASH turn 1 | Ready (needs eval) |
+| v10 | Phoenix | Stalemate fix (force_engage turn 30) | Superseded |
+| v8 | Architect | 5-module subsystems, ops-optimized | Retired |
 
 ## Session 4 Achievements
 **Critical Discovery:**

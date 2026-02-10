@@ -5,13 +5,61 @@
 
 ---
 
-## TODOs (Next Session)
+## TODOs (Next Session / Continue)
 
-1. 🔴 **Improve AI** - Raise Talent from 48 → 100 (pack profitability threshold)
-2. 🟠 **WebSocket for BR** - 10 free fights/day wasted (Task #88)
-3. 🟠 **Monitor v11 WR** - Is 47-48% stable? Improvement trend?
-4. 🟢 **Buy Laser** - L62 now, should have habs
+1. 🔴 **Fix team detection bug** (Task #91) - Root cause FOUND: `get_fight()` returns data at top level, not under `"fight"` key. Fix: `fight_data.get("fight", fight_data)`. Also simplify GH Actions to 3 corrective crons.
+2. 🔴 **Test Battle Royale** (Task #92) - Client fully built, CLI ready: `leek br status`, `leek br join`
+3. 🟠 **Improve AI** - Raise Talent from 67 → 100 (pack profitability threshold)
+4. 🟢 **Buy Laser** - L73 now, should have habs
 5. 🟢 **Consider 2nd leek** - Enables farmer fights (more XP/fight)
+
+---
+
+## Session 23: Quick Wins Sprint (2026-02-10)
+
+**Theme:** Backfilled 312 fights, spent 195 capital, discovered API quirks.
+
+### Key Findings
+
+1. **Capital cost SCALES with stat level** - NOT 1:1!
+   - STR 310-350: ~1 capital/point
+   - STR 350-420: ~2 capital/point
+   - Total: 194 capital bought 142 STR points (avg 1.37 cap/pt)
+   - **Action**: Fix CLI display to show actual cost, not assume 1:1
+
+2. **Team detection bug ROOT CAUSE** - `api.get_fight()` returns fight data at TOP LEVEL
+   ```
+   fight_data keys: ['id', 'date', 'winner', 'leeks1', 'leeks2', ...]
+   fight_data.get("fight", {}) → {} (empty! no "fight" wrapper!)
+   ```
+   Fix: `fight = fight_data.get("fight", fight_data)` (scraper already does this!)
+
+3. **API rate limits** - Rapid successive POST calls return 401
+   - Added `_request()` with exponential backoff to api.py
+   - Pattern: 3s, 6s, 12s retry on 401/429
+
+4. **866 fights analyzed** (Jan 26 - Feb 10)
+   - WR: 47.5% (411W-414L-41D) - flat, no trend
+   - Draw rate: 4.7% (down from 21%) - stalemate fix confirmed
+   - HP delta is primary loss factor (+98 HP gap)
+   - Opening WR: 44.9% (turns 1-5) vs 49.0% (turns 6-15)
+
+5. **GH Actions: only 3 of 5 crons fire** - losing ~20 fights/day
+   - Plan: simplify to 3 corrective crons (each runs ALL remaining)
+
+### State After Session
+| Metric | Before | After |
+|--------|--------|-------|
+| Level | 73 | 73 |
+| STR | 310 | **452** (+46%) |
+| Capital | 195 | 1 |
+| Talent | 67 | 67 |
+| Fights DB | 5,015 | **5,327** (+312) |
+
+### Files Changed
+- `src/leekwars_agent/api.py` - Added `_request()` retry, `spend_capital()` method
+- `src/leekwars_agent/cli/commands/build.py` - Uses api.spend_capital(), re-fetches after spend
+- `docs/research/session23_analysis.md` - 866-fight analysis with opponent stat comparison
 
 ---
 
