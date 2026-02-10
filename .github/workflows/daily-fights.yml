@@ -1,15 +1,13 @@
 name: Daily Fights
 
-# Spread 50 fights across 5 runs per day (~10 each)
+# Corrective model: 3 triggers, each runs ALL remaining fights.
+# If batch 1 uses everything, batches 2-3 see 0 and skip. Tolerates missed crons.
 # Times in Paris (CET/CEST) converted to UTC
-# Progressive batches allow monitoring and stopping if issues detected
 on:
   schedule:
-    - cron: '55 18 * * *'  # 18:55 UTC = 19:55 Paris (batch 1: 10 fights)
-    - cron: '55 19 * * *'  # 19:55 UTC = 20:55 Paris (batch 2: 10 fights)
-    - cron: '55 20 * * *'  # 20:55 UTC = 21:55 Paris (batch 3: 10 fights)
-    - cron: '55 21 * * *'  # 21:55 UTC = 22:55 Paris (batch 4: 10 fights)
-    - cron: '55 22 * * *'  # 22:55 UTC = 23:55 Paris (batch 5: remaining)
+    - cron: '55 18 * * *'  # 18:55 UTC = 19:55 Paris (first attempt)
+    - cron: '55 20 * * *'  # 20:55 UTC = 21:55 Paris (sweep 1)
+    - cron: '55 22 * * *'  # 22:55 UTC = 23:55 Paris (final sweep)
   workflow_dispatch:  # Manual trigger
     inputs:
       percent:
@@ -55,26 +53,19 @@ jobs:
           LEEKWARS_USER: ${{ secrets.LEEKWARS_USER }}
           LEEKWARS_PASS: ${{ secrets.LEEKWARS_PASS }}
         run: |
-          # Determine percent based on trigger
+          # Corrective model: each trigger runs ALL remaining fights.
+          # If 0 remaining, script exits gracefully.
           HOUR=$(date -u +%H)
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # Manual trigger: use inputs
             PERCENT="${{ github.event.inputs.percent || '100' }}"
             DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
-            echo "Manual trigger: $PERCENT% (dry_run=$DRY_RUN) [UTC hour: $HOUR]"
+            echo "Manual trigger: $PERCENT% (dry_run=$DRY_RUN)"
           else
-            # Scheduled: 5 batches of ~10 fights each (20% per batch)
-            # Last batch (22:55 UTC) sweeps remaining to ensure full usage
-            if [ "$HOUR" = "22" ]; then
-              PERCENT=100  # Final sweep: all remaining
-            else
-              PERCENT=20   # ~10 fights per batch
-            fi
+            PERCENT=100
             DRY_RUN="false"
-            echo "Scheduled run: $PERCENT% at UTC hour $HOUR"
+            echo "Scheduled sweep at UTC hour $HOUR - running all remaining fights"
           fi
 
-          # --no-buy: Only use free 50/day, don't spend habs on extra packs
           if [ "$DRY_RUN" = "true" ]; then
             poetry run python scripts/auto_daily_fights.py --percent $PERCENT --no-buy --dry-run
           else

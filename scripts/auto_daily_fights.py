@@ -194,7 +194,7 @@ def run_fights(api: LeekWarsAPI, count: int) -> dict:
             time.sleep(3)  # Wait for fight to complete
 
             fight_data = api.get_fight(fight_id)
-            fight = fight_data.get("fight", {})
+            fight = fight_data.get("fight", fight_data)
 
             # Store fight in database for analysis
             try:
