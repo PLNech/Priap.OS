@@ -551,25 +551,26 @@ class Simulator:
         scenario_dict = scenario.to_dict()
         map_id = scenario_dict.get("map", {}).get("id", 0)
 
-        # Copy AI files to generator directory
+        # Copy AI files to generator directory (skip if already there)
         copied_files: set[str] = set()
-        # entities is [team1_list, team2_list]
         for team_entities in scenario_dict.get("entities", []):
             for entity in team_entities:
                 ai_path = entity.get("ai", "")
                 if ai_path and ai_path not in copied_files:
+                    # If the AI file already exists in generator dir (pre-copied by caller), skip
+                    if (self.generator_path / ai_path).exists():
+                        copied_files.add(ai_path)
+                        continue
                     try:
                         source_path = Path(ai_path)
                         if source_path.is_absolute():
                             name, _ = copy_ai_to_generator(source_path)
                         else:
-                            # Relative path - resolve from project root
                             full_path = PROJECT_ROOT / ai_path
                             name, _ = copy_ai_to_generator(full_path)
                         entity["ai"] = name
                         copied_files.add(ai_path)
                     except Exception as e:
-                        # Log but continue - generator will fail if AI is missing
                         import sys
                         print(f"Warning: Failed to copy AI file {ai_path}: {e}", file=sys.stderr)
 

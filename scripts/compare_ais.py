@@ -1,115 +1,68 @@
 #!/usr/bin/env python3
 """Compare two AI versions by running simulated fights.
 
+Defaults to our leek's current build (from sim_defaults.py).
+Mirror match: both AIs get identical stats unless overridden.
+
 Usage:
-    poetry run python scripts/compare_ais.py ais/fighter_v1.leek ais/fighter_v2.leek
-    poetry run python scripts/compare_ais.py v1.leek v2.leek -n 1000
-    poetry run python scripts/compare_ais.py v1.leek v2.leek --level 4 --str1 96 --agi1 10
+    # Mirror match at our build (no stat args needed!)
+    poetry run python scripts/compare_ais.py ais/fighter_v11.leek ais/fighter_v14.leek -n 500
+
+    # Override stats for one side
+    poetry run python scripts/compare_ais.py v1.leek v2.leek --str2 200
+
+    # Bare-bones (level 1, no stats)
+    poetry run python scripts/compare_ais.py v1.leek v2.leek --bare
 """
 
 import sys
 import os
-import re
 import argparse
 from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from leekwars_agent.simulator import Simulator, EntityConfig, ScenarioConfig, GENERATOR_PATH
-
-# Default chips matching our leek (from GROUND_TRUTH.md)
-# CURE=4, FLAME=5, FLASH=6, PROTEIN=8, BOOTS=14, MOTIVATION=15
-DEFAULT_CHIPS = [4, 5, 6, 8, 14, 15]
-
-
-def extract_includes(source: Path) -> list[Path]:
-    """Extract include() statements from a LeekScript file.
-
-    Returns list of included file paths (resolved relative to source).
-    """
-    includes = []
-    content = source.read_text()
-
-    # Match: include("filename") or include('filename')
-    pattern = r'include\s*\(\s*["\']([^"\']+)["\']\s*\)'
-
-    for match in re.finditer(pattern, content):
-        include_name = match.group(1)
-        # Handle both with and without .leek extension
-        include_file = include_name if include_name.endswith('.leek') else include_name + '.leek'
-
-        # Resolve relative to source file's directory
-        include_path = source.parent / include_name
-        if include_path.exists():
-            includes.append(include_path)
-            # Recursively check for nested includes
-            includes.extend(extract_includes(include_path))
-
-    # Remove duplicates while preserving order
-    seen = set()
-    unique = []
-    for p in includes:
-        if p not in seen:
-            seen.add(p)
-            unique.append(p)
-
-    return unique
-
-
-def copy_ai_to_generator(source: Path, name: str) -> tuple[str, list[str]]:
-    """Copy AI file and its includes to generator directory.
-
-    Returns tuple of (main_name, list_of_copied_files).
-    """
-    copied_files = []
-
-    # Copy main file
-    dest = GENERATOR_PATH / name
-    dest.write_text(source.read_text())
-    copied_files.append(name)
-
-    # Copy included files
-    for include_path in extract_includes(source):
-        include_dest = GENERATOR_PATH / include_path.name
-        include_dest.write_text(include_path.read_text())
-        copied_files.append(include_path.name)
-
-    return name, copied_files
+from leekwars_agent.simulator import (
+    Simulator, EntityConfig, ScenarioConfig,
+    GENERATOR_PATH, copy_ai_to_generator,
+)
+from sim_defaults import *  # noqa: F403 F401
 
 
 def compare_ais(
     ai1_path: str,
     ai2_path: str,
     n_fights: int = 100,
-    level: int = 1,
-    # AI1 stats
-    strength1: int = 0,
-    agility1: int = 0,
-    frequency1: int = 0,
-    wisdom1: int = 0,
-    resistance1: int = 0,
-    science1: int = 0,
-    magic1: int = 0,
-    life1: int = 100,
-    tp1: int = 10,
-    mp1: int = 3,
-    # AI2 stats
-    strength2: int = 0,
-    agility2: int = 0,
-    frequency2: int = 0,
-    wisdom2: int = 0,
-    resistance2: int = 0,
-    science2: int = 0,
-    magic2: int = 0,
-    life2: int = 100,
-    tp2: int = 10,
-    mp2: int = 3,
+    level: int = LEEK_LEVEL,
+    # AI1 stats (default = our build)
+    strength1: int = LEEK_STR,
+    agility1: int = LEEK_AGI,
+    frequency1: int = LEEK_FREQ,
+    wisdom1: int = LEEK_WIS,
+    resistance1: int = LEEK_RES,
+    science1: int = LEEK_SCI,
+    magic1: int = LEEK_MAG,
+    life1: int = LEEK_LIFE,
+    tp1: int = LEEK_TP,
+    mp1: int = LEEK_MP,
+    # AI2 stats (default = our build, mirror match)
+    strength2: int = LEEK_STR,
+    agility2: int = LEEK_AGI,
+    frequency2: int = LEEK_FREQ,
+    wisdom2: int = LEEK_WIS,
+    resistance2: int = LEEK_RES,
+    science2: int = LEEK_SCI,
+    magic2: int = LEEK_MAG,
+    life2: int = LEEK_LIFE,
+    tp2: int = LEEK_TP,
+    mp2: int = LEEK_MP,
     # Equipment
+    weapons1: list[int] | None = None,
+    weapons2: list[int] | None = None,
     chips1: list[int] | None = None,
     chips2: list[int] | None = None,
     # First-mover control
     attacker: int = 0,  # 0=random, 1=AI1 always first, 2=AI2 always first
-    # Debug
     verbose: bool = False,
 ) -> dict:
     """Run N fights between two AIs and return stats."""
@@ -117,7 +70,6 @@ def compare_ais(
     # Resolve paths
     ai1_path = Path(ai1_path)
     ai2_path = Path(ai2_path)
-
     if not ai1_path.is_absolute():
         ai1_path = Path.cwd() / ai1_path
     if not ai2_path.is_absolute():
@@ -128,142 +80,73 @@ def compare_ais(
     ai2_name, ai2_files = copy_ai_to_generator(ai2_path, f"test_ai2_{ai2_path.name}")
     all_copied_files = ai1_files + ai2_files
 
-    # Default to our standard chips if none specified
+    # Default equipment
+    weapons1 = weapons1 if weapons1 is not None else DEFAULT_WEAPONS
+    weapons2 = weapons2 if weapons2 is not None else DEFAULT_WEAPONS
     chips1 = chips1 if chips1 is not None else DEFAULT_CHIPS
     chips2 = chips2 if chips2 is not None else DEFAULT_CHIPS
 
     # Print config
-    chips1_display = chips1 if chips1 else "none"
-    chips2_display = chips2 if chips2 else "none"
     print(f"AI 1: {ai1_path.name}")
-    print(f"  Stats: STR={strength1} AGI={agility1} FREQ={frequency1} WIS={wisdom1} RES={resistance1} SCI={science1} MAG={magic1}")
-    print(f"  Base:  LIFE={life1} TP={tp1} MP={mp1} chips={chips1_display}")
+    print(f"  Stats: L{level} STR={strength1} AGI={agility1} LIFE={life1} TP={tp1} MP={mp1}")
+    print(f"  Weapons={weapons1} Chips={chips1}")
     print(f"AI 2: {ai2_path.name}")
-    print(f"  Stats: STR={strength2} AGI={agility2} FREQ={frequency2} WIS={wisdom2} RES={resistance2} SCI={science2} MAG={magic2}")
-    print(f"  Base:  LIFE={life2} TP={tp2} MP={mp2} chips={chips2_display}")
+    print(f"  Stats: L{level} STR={strength2} AGI={agility2} LIFE={life2} TP={tp2} MP={mp2}")
+    print(f"  Weapons={weapons2} Chips={chips2}")
     attacker_str = {0: "random", 1: "AI1", 2: "AI2"}.get(attacker, "random")
-    print(f"First mover: {attacker_str}")
-    print(f"Running {n_fights} fights at level {level}...")
-    if verbose:
-        print(f"[verbose] Chips loaded: AI1={len(chips1)} chips, AI2={len(chips2)} chips")
+    print(f"First mover: {attacker_str} | Fights: {n_fights}")
     print()
 
     sim = Simulator()
-
     wins1 = 0
     wins2 = 0
     draws = 0
 
     for i in range(n_fights):
         seed = i
-        # Swap teams every other fight to eliminate map bias
-        swap = (i % 2 == 1)
+        swap = (i % 2 == 1)  # Swap teams every other fight to eliminate map bias
 
-        if not swap:
-            # AI1 as team1, AI2 as team2
-            entity1 = EntityConfig(
-                id=0,
-                name="AI1",
-                ai=ai1_name,
-                level=level,
-                life=life1,
-                tp=tp1,
-                mp=mp1,
-                strength=strength1,
-                agility=agility1,
-                frequency=frequency1,
-                wisdom=wisdom1,
-                resistance=resistance1,
-                science=science1,
-                magic=magic1,
-                team=1,
-                weapons=[37],
-                chips=chips1,
-            )
-            entity2 = EntityConfig(
-                id=1,
-                name="AI2",
-                ai=ai2_name,
-                level=level,
-                life=life2,
-                tp=tp2,
-                mp=mp2,
-                strength=strength2,
-                agility=agility2,
-                frequency=frequency2,
-                wisdom=wisdom2,
-                resistance=resistance2,
-                science=science2,
-                magic=magic2,
-                team=2,
-                weapons=[37],
-                chips=chips2,
-            )
-        else:
-            # AI2 as team1, AI1 as team2 (swapped)
-            entity1 = EntityConfig(
-                id=0,
-                name="AI2",
-                ai=ai2_name,
-                level=level,
-                life=life2,
-                tp=tp2,
-                mp=mp2,
-                strength=strength2,
-                agility=agility2,
-                frequency=frequency2,
-                wisdom=wisdom2,
-                resistance=resistance2,
-                science=science2,
-                magic=magic2,
-                team=1,
-                weapons=[37],
-                chips=chips2,
-            )
-            entity2 = EntityConfig(
-                id=1,
-                name="AI1",
-                ai=ai1_name,
-                level=level,
-                life=life1,
-                tp=tp1,
-                mp=mp1,
-                strength=strength1,
-                agility=agility1,
-                frequency=frequency1,
-                wisdom=wisdom1,
-                resistance=resistance1,
-                science=science1,
-                magic=magic1,
-                team=2,
-                weapons=[37],
-                chips=chips1,
-            )
+        # Build entity configs (swap positions to eliminate map bias)
+        configs = [
+            (ai1_name, level, life1, tp1, mp1, strength1, agility1, frequency1,
+             wisdom1, resistance1, science1, magic1, weapons1, chips1),
+            (ai2_name, level, life2, tp2, mp2, strength2, agility2, frequency2,
+             wisdom2, resistance2, science2, magic2, weapons2, chips2),
+        ]
+        if swap:
+            configs = configs[::-1]
 
-        # Compute starter_team based on attacker setting
-        # attacker=0: random, attacker=1: AI1 first, attacker=2: AI2 first
+        t1, t2 = configs
+        entity1 = EntityConfig(
+            id=0, name="AI2" if swap else "AI1", ai=t1[0],
+            level=t1[1], life=t1[2], tp=t1[3], mp=t1[4],
+            strength=t1[5], agility=t1[6], frequency=t1[7],
+            wisdom=t1[8], resistance=t1[9], science=t1[10], magic=t1[11],
+            team=1, weapons=t1[12], chips=t1[13],
+        )
+        entity2 = EntityConfig(
+            id=1, name="AI1" if swap else "AI2", ai=t2[0],
+            level=t2[1], life=t2[2], tp=t2[3], mp=t2[4],
+            strength=t2[5], agility=t2[6], frequency=t2[7],
+            wisdom=t2[8], resistance=t2[9], science=t2[10], magic=t2[11],
+            team=2, weapons=t2[12], chips=t2[13],
+        )
+
+        # First-mover control
         if attacker == 0:
             starter_team = 0
         elif attacker == 1:
-            # AI1 goes first: when AI1=team1 (no swap), starter=1; when AI1=team2 (swap), starter=2
             starter_team = 1 if not swap else 2
-        else:  # attacker == 2
-            # AI2 goes first: when AI2=team2 (no swap), starter=2; when AI2=team1 (swap), starter=1
+        else:
             starter_team = 2 if not swap else 1
 
-        # Create scenario
         scenario = ScenarioConfig(
-            team1=[entity1],
-            team2=[entity2],
-            seed=seed,
-            starter_team=starter_team,
+            team1=[entity1], team2=[entity2],
+            seed=seed, starter_team=starter_team,
         )
 
-        # Run fight
         try:
             outcome = sim.run_scenario(scenario)
-
-            # Track wins for the correct AI (accounting for swap)
             if not swap:
                 if outcome.team1_won:
                     wins1 += 1
@@ -272,7 +155,6 @@ def compare_ais(
                 else:
                     draws += 1
             else:
-                # Teams swapped, so reverse the win tracking
                 if outcome.team1_won:
                     wins2 += 1
                 elif outcome.team2_won:
@@ -280,9 +162,8 @@ def compare_ais(
                 else:
                     draws += 1
 
-            # Progress indicator
             if (i + 1) % 100 == 0:
-                print(f"Progress: {i+1}/{n_fights} fights ({wins1}W-{wins2}L-{draws}D)")
+                print(f"Progress: {i+1}/{n_fights} ({wins1}W-{wins2}L-{draws}D)")
 
         except Exception as e:
             print(f"Fight {i+1} error: {e}")
@@ -290,125 +171,109 @@ def compare_ais(
 
     # Results
     total = wins1 + wins2 + draws
-    win_rate1 = (wins1 / total * 100) if total > 0 else 0
-    win_rate2 = (wins2 / total * 100) if total > 0 else 0
+    wr1 = (wins1 / total * 100) if total > 0 else 0
+    wr2 = (wins2 / total * 100) if total > 0 else 0
 
     print(f"\n=== Results ({total} fights) ===")
-    print(f"{ai1_path.name}: {wins1}W ({win_rate1:.1f}%)")
-    print(f"{ai2_path.name}: {wins2}W ({win_rate2:.1f}%)")
+    print(f"{ai1_path.name}: {wins1}W ({wr1:.1f}%)")
+    print(f"{ai2_path.name}: {wins2}W ({wr2:.1f}%)")
     print(f"Draws: {draws}")
 
     if wins1 > wins2:
-        delta = win_rate1 - win_rate2
-        print(f"\n✓ {ai1_path.name} wins by {delta:.1f}%")
+        print(f"\n> {ai1_path.name} wins by {wr1 - wr2:.1f}%")
     elif wins2 > wins1:
-        delta = win_rate2 - win_rate1
-        print(f"\n✓ {ai2_path.name} wins by {delta:.1f}%")
+        print(f"\n> {ai2_path.name} wins by {wr2 - wr1:.1f}%")
     else:
         print(f"\n= Tie!")
 
-    # Cleanup all copied files (including includes)
+    # Cleanup
     for f in all_copied_files:
         (GENERATOR_PATH / f).unlink(missing_ok=True)
 
     return {
-        "ai1": ai1_path.name,
-        "ai2": ai2_path.name,
-        "wins1": wins1,
-        "wins2": wins2,
-        "draws": draws,
-        "win_rate1": win_rate1,
-        "win_rate2": win_rate2,
+        "ai1": ai1_path.name, "ai2": ai2_path.name,
+        "wins1": wins1, "wins2": wins2, "draws": draws,
+        "win_rate1": wr1, "win_rate2": wr2,
     }
 
 
+def _parse_id_list(arg: str | None, default: list[int]) -> list[int] | None:
+    """Parse comma-separated int list. None=use default, 'none'=empty."""
+    if arg is None:
+        return None
+    if arg.lower() == 'none' or arg.strip() == '':
+        return []
+    return [int(c) for c in arg.split(",") if c.strip()]
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Compare two LeekScript AIs")
+    parser = argparse.ArgumentParser(
+        description="Compare two LeekScript AIs (defaults to our L73 build)")
     parser.add_argument("ai1", help="Path to first AI file")
     parser.add_argument("ai2", help="Path to second AI file")
-    parser.add_argument("-n", "--num-fights", type=int, default=100, help="Number of fights")
-    parser.add_argument("--level", type=int, default=1, help="Leek level")
-    # AI1 stats
-    parser.add_argument("--str1", type=int, default=0, help="AI1 strength")
-    parser.add_argument("--agi1", type=int, default=0, help="AI1 agility")
-    parser.add_argument("--freq1", type=int, default=0, help="AI1 frequency")
-    parser.add_argument("--wis1", type=int, default=0, help="AI1 wisdom")
-    parser.add_argument("--res1", type=int, default=0, help="AI1 resistance")
-    parser.add_argument("--sci1", type=int, default=0, help="AI1 science")
-    parser.add_argument("--mag1", type=int, default=0, help="AI1 magic")
-    parser.add_argument("--life1", type=int, default=100, help="AI1 base life")
-    parser.add_argument("--tp1", type=int, default=10, help="AI1 turn points")
-    parser.add_argument("--mp1", type=int, default=3, help="AI1 move points")
-    # AI2 stats
-    parser.add_argument("--str2", type=int, default=0, help="AI2 strength")
-    parser.add_argument("--agi2", type=int, default=0, help="AI2 agility")
-    parser.add_argument("--freq2", type=int, default=0, help="AI2 frequency")
-    parser.add_argument("--wis2", type=int, default=0, help="AI2 wisdom")
-    parser.add_argument("--res2", type=int, default=0, help="AI2 resistance")
-    parser.add_argument("--sci2", type=int, default=0, help="AI2 science")
-    parser.add_argument("--mag2", type=int, default=0, help="AI2 magic")
-    parser.add_argument("--life2", type=int, default=100, help="AI2 base life")
-    parser.add_argument("--tp2", type=int, default=10, help="AI2 turn points")
-    parser.add_argument("--mp2", type=int, default=3, help="AI2 move points")
-    # Equipment (defaults to our standard chips if not specified)
+    parser.add_argument("-n", "--num-fights", type=int, default=100)
+    parser.add_argument("--level", type=int, default=LEEK_LEVEL)
+    parser.add_argument("--bare", action="store_true",
+                        help="Use bare defaults (L1, no stats) instead of our build")
+    # AI1 stats (default=our build from sim_defaults)
+    parser.add_argument("--str1", type=int, default=LEEK_STR)
+    parser.add_argument("--agi1", type=int, default=LEEK_AGI)
+    parser.add_argument("--freq1", type=int, default=LEEK_FREQ)
+    parser.add_argument("--wis1", type=int, default=LEEK_WIS)
+    parser.add_argument("--res1", type=int, default=LEEK_RES)
+    parser.add_argument("--sci1", type=int, default=LEEK_SCI)
+    parser.add_argument("--mag1", type=int, default=LEEK_MAG)
+    parser.add_argument("--life1", type=int, default=LEEK_LIFE)
+    parser.add_argument("--tp1", type=int, default=LEEK_TP)
+    parser.add_argument("--mp1", type=int, default=LEEK_MP)
+    # AI2 stats (same defaults = mirror match)
+    parser.add_argument("--str2", type=int, default=LEEK_STR)
+    parser.add_argument("--agi2", type=int, default=LEEK_AGI)
+    parser.add_argument("--freq2", type=int, default=LEEK_FREQ)
+    parser.add_argument("--wis2", type=int, default=LEEK_WIS)
+    parser.add_argument("--res2", type=int, default=LEEK_RES)
+    parser.add_argument("--sci2", type=int, default=LEEK_SCI)
+    parser.add_argument("--mag2", type=int, default=LEEK_MAG)
+    parser.add_argument("--life2", type=int, default=LEEK_LIFE)
+    parser.add_argument("--tp2", type=int, default=LEEK_TP)
+    parser.add_argument("--mp2", type=int, default=LEEK_MP)
+    # Equipment
+    parser.add_argument("--weapons1", type=str, default=None,
+                        help=f"AI1 weapons (comma-separated IDs). Default: {DEFAULT_WEAPONS}")
+    parser.add_argument("--weapons2", type=str, default=None,
+                        help=f"AI2 weapons (comma-separated IDs). Default: {DEFAULT_WEAPONS}")
     parser.add_argument("--chips1", type=str, default=None,
-                        help=f"AI1 chips (comma-separated IDs). Default: {DEFAULT_CHIPS}. Use 'none' for no chips.")
+                        help=f"AI1 chips (comma-separated IDs). Default: {DEFAULT_CHIPS}")
     parser.add_argument("--chips2", type=str, default=None,
-                        help=f"AI2 chips (comma-separated IDs). Default: {DEFAULT_CHIPS}. Use 'none' for no chips.")
-    # First-mover control
-    parser.add_argument("--attacker", type=int, default=0, choices=[0, 1, 2],
-                        help="Who attacks first: 0=random, 1=AI1, 2=AI2")
-    # Debug options
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Show verbose output including chip detection")
+                        help=f"AI2 chips (comma-separated IDs). Default: {DEFAULT_CHIPS}")
+    # First-mover
+    parser.add_argument("--attacker", type=int, default=0, choices=[0, 1, 2])
+    parser.add_argument("-v", "--verbose", action="store_true")
 
     args = parser.parse_args()
 
-    # Parse chips (None = use default, 'none' or empty = no chips)
-    def parse_chips(chips_arg):
-        if chips_arg is None:
-            return None  # Will use DEFAULT_CHIPS
-        if chips_arg.lower() == 'none' or chips_arg.strip() == '':
-            return []  # Explicitly no chips
-        return [int(c) for c in chips_arg.split(",") if c.strip()]
-
-    chips1 = parse_chips(args.chips1)
-    chips2 = parse_chips(args.chips2)
+    # --bare: reset to minimal defaults
+    if args.bare:
+        args.level = 1
+        for attr in ['str1', 'agi1', 'freq1', 'wis1', 'res1', 'sci1', 'mag1',
+                      'str2', 'agi2', 'freq2', 'wis2', 'res2', 'sci2', 'mag2']:
+            setattr(args, attr, 0)
+        args.life1 = args.life2 = 100
 
     compare_ais(
-        args.ai1,
-        args.ai2,
-        n_fights=args.num_fights,
-        level=args.level,
-        # AI1 stats
-        strength1=args.str1,
-        agility1=args.agi1,
-        frequency1=args.freq1,
-        wisdom1=args.wis1,
-        resistance1=args.res1,
-        science1=args.sci1,
-        magic1=args.mag1,
-        life1=args.life1,
-        tp1=args.tp1,
-        mp1=args.mp1,
-        # AI2 stats
-        strength2=args.str2,
-        agility2=args.agi2,
-        frequency2=args.freq2,
-        wisdom2=args.wis2,
-        resistance2=args.res2,
-        science2=args.sci2,
-        magic2=args.mag2,
-        life2=args.life2,
-        tp2=args.tp2,
-        mp2=args.mp2,
-        # Equipment
-        chips1=chips1,
-        chips2=chips2,
-        # First-mover
-        attacker=args.attacker,
-        # Debug
-        verbose=args.verbose,
+        args.ai1, args.ai2,
+        n_fights=args.num_fights, level=args.level,
+        strength1=args.str1, agility1=args.agi1, frequency1=args.freq1,
+        wisdom1=args.wis1, resistance1=args.res1, science1=args.sci1, magic1=args.mag1,
+        life1=args.life1, tp1=args.tp1, mp1=args.mp1,
+        strength2=args.str2, agility2=args.agi2, frequency2=args.freq2,
+        wisdom2=args.wis2, resistance2=args.res2, science2=args.sci2, magic2=args.mag2,
+        life2=args.life2, tp2=args.tp2, mp2=args.mp2,
+        weapons1=_parse_id_list(args.weapons1, DEFAULT_WEAPONS),
+        weapons2=_parse_id_list(args.weapons2, DEFAULT_WEAPONS),
+        chips1=_parse_id_list(args.chips1, DEFAULT_CHIPS),
+        chips2=_parse_id_list(args.chips2, DEFAULT_CHIPS),
+        attacker=args.attacker, verbose=args.verbose,
     )
 
 
