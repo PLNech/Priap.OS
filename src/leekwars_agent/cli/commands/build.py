@@ -1,6 +1,5 @@
 """Build commands - manage leek stats and capital."""
 
-import json
 import click
 from ..output import output_json, success, error, console
 from ..constants import LEEK_ID
@@ -132,24 +131,25 @@ def spend_capital(ctx: click.Context, stat: str, points: int, dry_run: bool) -> 
             return
 
         # Spend via API
-        # API expects: {"characteristics": json.dumps({stat: points})}
-        result = api._client.post(
-            "/leek/spend-capital",
-            headers=api._headers(),
-            data={"leek_id": LEEK_ID, "characteristics": json.dumps({stat_name: points})},
-        )
-        result.raise_for_status()
+        api.spend_capital(LEEK_ID, {stat_name: points})
+
+        # Re-fetch actual values to confirm
+        after = api.get_leek(LEEK_ID)
+        after_leek = after.get("leek", after)
+        new_value = after_leek.get(stat_name, current + points)
+        new_capital = after_leek.get("capital", available - points)
 
         success(f"Spent {points} capital on {stat_name}!")
-        console.print(f"  {stat_name}: {current} → {current + points}")
-        console.print(f"  Capital: {available} → {available - points}")
+        console.print(f"  {stat_name}: {current} → [bold green]{new_value}[/bold green]")
+        console.print(f"  Capital: {available} → {new_capital}")
 
         if ctx.obj.get("json"):
             output_json({
                 "stat": stat_name,
                 "points": points,
-                "new_value": current + points,
-                "capital_remaining": available - points,
+                "before": current,
+                "after": new_value,
+                "capital_remaining": new_capital,
             })
 
     finally:

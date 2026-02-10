@@ -1,7 +1,13 @@
 """LeekWars API client."""
 
+import json
+import logging
+import time
+
 import httpx
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class LeekWarsAPI:
@@ -25,6 +31,19 @@ class LeekWarsAPI:
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
         return headers
+
+    def _request(self, method: str, path: str, retries: int = 3, **kwargs) -> httpx.Response:
+        """Make an HTTP request with retry and backoff for 401/429."""
+        for attempt in range(retries):
+            response = getattr(self._client, method)(path, **kwargs)
+            if response.status_code in (401, 429) and attempt < retries - 1:
+                wait = 3 * (2 ** attempt)  # 3s, 6s, 12s
+                logger.debug(f"HTTP {response.status_code} on {path}, retry in {wait}s")
+                time.sleep(wait)
+                continue
+            response.raise_for_status()
+            return response
+        return response  # unreachable, but satisfies type checker
 
     def _browser_headers(self, referer: str | None = None) -> dict[str, str]:
         """Return headers that mimic browser XHR requests."""
@@ -365,6 +384,23 @@ class LeekWarsAPI:
             data={"leek_id": leek_id, "chip_id": chip_id},
         )
         response.raise_for_status()
+        return response.json()
+
+    def spend_capital(self, leek_id: int, characteristics: dict[str, int]) -> dict[str, Any]:
+        """Spend capital points on stats.
+
+        Source: tools/leek-wars/src/component/leek/capital-dialog.vue:221
+
+        Args:
+            leek_id: Leek ID
+            characteristics: Dict of stat_name -> points, e.g. {"strength": 50}
+        """
+        response = self._request(
+            "post",
+            "/leek/spend-capital",
+            headers=self._headers(),
+            data={"leek_id": leek_id, "characteristics": json.dumps(characteristics)},
+        )
         return response.json()
 
     def add_weapon(self, leek_id: int, weapon_id: int) -> dict[str, Any]:
