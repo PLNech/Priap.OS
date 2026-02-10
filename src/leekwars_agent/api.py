@@ -405,12 +405,28 @@ class LeekWarsAPI:
 
     def add_weapon(self, leek_id: int, weapon_id: int) -> dict[str, Any]:
         """Equip a weapon to a leek."""
-        response = self._client.post(
+        response = self._request(
+            "post",
             "/leek/add-weapon",
             headers=self._headers(),
             data={"leek_id": leek_id, "weapon_id": weapon_id},
         )
-        response.raise_for_status()
+        return response.json()
+
+    def remove_weapon(self, weapon_id: int) -> dict[str, Any]:
+        """Unequip a weapon from a leek.
+
+        Source: tools/leek-wars/src/component/leek/leek.vue:1243
+        Frontend sends DELETE with JSON body (not query params).
+        """
+        headers = self._headers()
+        headers["content-type"] = "application/json"
+        response = self._request(
+            "delete",
+            "/leek/remove-weapon",
+            headers=headers,
+            content=json.dumps({"weapon_id": weapon_id}),
+        )
         return response.json()
 
     # =========================================================================
