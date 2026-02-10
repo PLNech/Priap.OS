@@ -346,7 +346,11 @@ def main():
     # Login via centralized auth (reads LEEKWARS_USER/LEEKWARS_PASS env vars)
     try:
         api = login_api()
-        log(f"Logged in as {api.farmer['name']}")
+        leek_data = api.get_leek(LEEK_ID)
+        leek_info = leek_data.get("leek", leek_data)
+        ai = leek_info.get("ai", {})
+        ai_name = ai.get("name", "unknown") if isinstance(ai, dict) else f"ai_{ai}"
+        log(f"Logged in as {api.farmer['name']} | AI: {ai_name}")
     except Exception as e:
         log(f"LOGIN FAILED: {e}")
         sys.exit(1)

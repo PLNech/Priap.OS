@@ -1,0 +1,23 @@
+[Unit]
+Description=Priap.OS Battle Royale Daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/pln/Work/Perso/Priap.OS
+EnvironmentFile=/home/pln/Work/Perso/Priap.OS/.env
+ExecStart=/home/pln/Work/Perso/Priap.OS/.venv/bin/python scripts/br_daemon.py
+Restart=on-failure
+RestartSec=60
+
+# Graceful shutdown
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Logging (also goes to journalctl)
+StandardOutput=append:/home/pln/Work/Perso/Priap.OS/logs/br_daemon.log
+StandardError=append:/home/pln/Work/Perso/Priap.OS/logs/br_daemon.log
+
+[Install]
+WantedBy=default.target
