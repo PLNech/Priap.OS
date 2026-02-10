@@ -11,7 +11,8 @@ from urllib.parse import urlparse
 import websocket
 
 from leekwars_agent.api import LeekWarsAPI
-from leekwars_agent.cli.constants import FARMER_ID
+
+FARMER_ID = 124831  # Avoid circular import with cli.constants
 
 logger = logging.getLogger(__name__)
 
@@ -145,20 +146,19 @@ class BattleRoyaleClient:
         try:
             self._ws = websocket.create_connection(
                 ws_url,
-                timeout=10.0,
+                timeout=timeout,  # Use BR timeout for recv() too
                 subprotocols=["leek-wars", token],
+                cookie=f"token={token}",
             )
         except Exception as e:
             return BattleRoyaleResult(success=False, error=f"WS connect failed: {e}")
 
+        # Connection established
+        self._connected.set()
+
         # Start listener thread
         listener = threading.Thread(target=self._listen, args=(timeout,), daemon=True)
         listener.start()
-
-        # Wait for connection
-        if not self._connected.wait(timeout=10.0):
-            self._cleanup()
-            return BattleRoyaleResult(success=False, error="Connection timeout")
 
         # Register for BR
         logger.info(f"Registering leek {leek_id} for Battle Royale...")
