@@ -99,23 +99,35 @@ function markChipUsed(chip) {
 // =============================================================================
 
 function shouldBuff() {
-    // CRITICAL: Don't trust TTK=999 (unknown)
-    // On turn 1, we haven't taken damage yet so enemy_ttk is unestimated
-    // At high STR levels, the real enemy_ttk could be 1-2 turns!
-    // Only buff on turn 2+ when we have REAL TTK data
-    if (enemy_ttk >= 999) {
-        debug("  Skip buffs: TTK unknown (turn 1)")
+    // Turn 1: Buff only if OUT OF RANGE (can't hit enemy anyway → invest in future).
+    // MOTIVATION (+2 TP for 3 turns = +6 TP net) + BOOTS (+2 MP for 2 turns).
+    // Online enemies start ~12-15 apart (buff!). Sim starts ~8-10 (attack!).
+    if (turn_count <= 1) {
+        var buff_enemy = getNearestEnemy()
+        if (buff_enemy != null) {
+            var buff_dist = getCellDistance(getCell(), getCell(buff_enemy))
+            if (buff_dist > 10) {
+                debug("  Buff: turn 1, out of range (dist=" + buff_dist + ")")
+                return true
+            }
+            debug("  Skip buffs: turn 1, enemy in range (dist=" + buff_dist + ")")
+            return false
+        }
         return false
     }
 
-    // Only buff if we have time (enemy won't kill us in 2 turns)
-    // This uses enemy_ttk from v8_state module
+    // Turn 2-3: Buff only if safe (enemy won't kill us in 2 turns)
     if (enemy_ttk <= 2) {
         debug("  Skip buffs: enemy_ttk=" + enemy_ttk)
         return false
     }
 
-    // Only buff on turn 2-3 (after we know TTK)
+    // TTK still unknown on turn 2+ means no damage exchanged yet → still safe
+    if (enemy_ttk >= 999) {
+        debug("  Buff window: TTK unknown (no damage exchanged)")
+        return true
+    }
+
     if (turn_count > 3) return false
 
     return true
