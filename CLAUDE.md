@@ -1,132 +1,41 @@
 # Priap.OS - LeekWars AI Agent
 
-> **Claude**: Keep `THOUGHTS.md` in context (Read at session start) and up-to-date (Edit as you learn). Track learnings, questions, hypotheses to test there - not here.
+> **Claude**: At session start, Read `docs/THESIS.md` (strategic north star). `MEMORY.md` auto-loads.
+> Update THESIS.md as data proves/disproves hypotheses. Update memory files for verified patterns.
+> Task system (#0001-#0500) is the source of truth for all planning — not this file.
 
-## Task Hierarchy (Source of Truth: Claude Code Tasks)
+## Document Architecture
 
-Strategic planning lives in the task system. High-level structure:
+| Document | Role | Update When |
+|----------|------|-------------|
+| **`docs/THESIS.md`** | Strategy: build philosophy, chip priorities, AI behavior, competitive landscape | Every session as data flows |
+| **`MEMORY.md`** *(auto-loaded)* | State + verified patterns: API quirks, peer data, architecture conventions | Patterns confirmed across sessions |
+| **`docs/GROUND_TRUTH.md`** | Equipment stats, TP costs, chip/weapon data from submodules | Submodule updates |
+| **`CLAUDE.md`** *(this)* | Stable conventions, safety protocols, tooling reference | Rarely |
+| **`docs/research/*.md`** | Analysis outputs (17+ files). Research compounds. **NEVER LOSE.** | After each analysis |
+| **`THOUGHTS.md`** | Historical session log (S8-S23). Archived — **not boot-time reading.** | Retired |
 
-| Task | Pillar | Purpose |
-|------|--------|---------|
-| #0001 | 🏆 North Star | Reach Top 10 Leaderboard |
-| #0100 | 🔧 Infrastructure | Tooling, flywheel, simulation |
-| #0200 | 🧠 AI Strategy | Combat logic, archetypes, stalemate fixes |
-| #0300 | 📊 Data & Analysis | Fight parsing, pattern detection, metrics |
-| #0400 | 🎮 Game Mechanics | Build, chips, stats, equipment |
-| #0500 | ⚙️ Operations | Daily fights, automation, maintenance |
+## Task Taxonomy
 
-Sub-tasks use notation like #0201, #0202 under their pillar.
+Source of truth: Claude Code task system. Archive completed to `tasks/sessionN_archive.json`.
 
-## Orchestration Strategy (Multi-Agent Sessions)
+| Range | Pillar |
+|-------|--------|
+| #0001 | 🏆 North Star: Top 10 Leaderboard |
+| #0100 | 🔧 Infrastructure: Tooling, flywheel, simulation |
+| #0200 | 🧠 AI Strategy: Combat logic, archetypes |
+| #0300 | 📊 Data & Analysis: Fight parsing, pattern detection |
+| #0400 | 🎮 Game Mechanics: Build, chips, stats, equipment |
+| #0500 | ⚙️ Operations: Daily fights, automation |
 
-When user says "orchestrator mode": delegate implementation, keep context clean.
-
-### Files
-- **`AGORA.md`** - Workers read/write progress here (create if missing)
-- **`docs/GANTT_SESSION*.md`** - Critical path visualization
-
-### Orchestrator Rules
-1. **Don't grep/read** - spawn `Task(subagent_type="Explore", model="haiku")` instead
-2. **Workers mark VERIFY, not DONE** - Orchestrator tests then marks DONE
-3. **Adversarial verification** (2-phase):
-   - **Phase 1 (Sonnet)**: Gather raw evidence. Prompt: `"Run these commands, show RAW output. Do NOT interpret. Include: [specific checks from success criteria]"`
-   - **Phase 2 (Opus/you)**: Review evidence adversarially. Ask: "Could worker have bluffed? Does evidence ACTUALLY meet criteria? What's missing?"
-4. **Update AGORA + Tasks** - after each worker report
-
-### Writing Good Strand Definitions (Workers are Myopic)
-
-Workers execute literally. They see the tree, not the forest. **Orchestrator must provide strategic context.**
-
-**Strand Template**:
-```markdown
-### STRAND N: [Name]
-**Status**: READY
-**Priority**: P0/P1/P2
-
-**Strategic Context** (WHY this matters):
-[1-2 sentences on how this fits the bigger picture. What breaks if we don't fix this? What unlocks if we do?]
-
-**Problem** (WHAT's broken - symptoms):
-[Observable symptoms. Error messages. User-facing impact.]
-
-**Investigation Steps** (before fixing):
-[Let worker discover root cause. Don't prescribe solution.]
-
-**Success Criteria** (WHAT success looks like - not HOW):
-[Functional tests. "User can X" not "Code does Y".]
-
-**Key Files**: [Starting points for investigation]
-```
-
-**Anti-patterns** (avoid these):
-| Bad | Good |
-|-----|------|
-| "Make `LocalSimulator` import work" | "Clarify canonical simulator import pattern" |
-| "Add alias for backward compat" | "Ensure scripts can import simulator cleanly" |
-| "Fix line 42 in foo.py" | "Fight logging shows all D - investigate why" |
-
-**Key insight**: Describe the *problem* and *what success looks like*. Let workers discover the *solution*. They may find a simpler fix than you imagined.
-
-### Verification Prompt Template
-```
-Gather evidence for STRAND X. Run these commands and show RAW output (no interpretation):
-1. `ls -la <expected_file>` - exists?
-2. `wc -l <file>` - has content?
-3. `head -50 <file>` - show actual content
-4. `<functional_test_command>` - does it work?
-
-Report raw outputs. Orchestrator will judge PASS/FAIL.
-```
-
-### Lesson Learned
-Worker found #57 "already implemented" → orchestrator verified via subagent → confirmed → task closed. **Always verify before building.**
-
-### Task Cleanup (End of Session)
-Archive completed tasks to `tasks/sessionN_archive.json`:
-```json
-{
-  "session": N,
-  "completed_tasks": [{
-    "task_id": X,
-    "subject": "...",
-    "root_cause": "...",      // if bug fix
-    "solution": "...",
-    "key_files": [],
-    "learnings": []           // CRITICAL: capture insights
-  }]
-}
-```
-Then mark tasks DONE in Claude Code task system. Learnings compound across sessions.
+Sub-tasks: #0201, #0202, etc.
 
 ## Project Overview
-Automated LeekWars agent aiming for **top 10 ladder**. The strategy: build infrastructure that lets us iterate faster than anyone else.
 
-## The Winning Formula
+Automated LeekWars agent → **top 10 ladder**. Build infrastructure to iterate 13,000x faster than manual play.
 
-### Core Insight
-- Online fights: 150/day (scarce, precious)
-- Offline fights: 1.8M/day potential (21.5 fights/sec)
-- **Leverage ratio: 13,000:1**
-
-**Principle**: Never test online what we can test offline. Every online fight is for data collection, not experimentation.
-
-### Online Fight Protocol (MANDATORY - NO EXCEPTIONS)
-
-> ⛔ **STOP**: Before running ANY online fight or triggering ANY workflow that runs fights, you MUST ask the user first. This includes `gh workflow run`, `leek fight run`, or any script that consumes fights.
-
-**Online fights are IRREPLACEABLE** (50/day free, that's it).
-
-| Action | Requires Permission? |
-|--------|---------------------|
-| `gh workflow run daily-fights.yml` | ✅ YES - ASK FIRST |
-| `leek fight run -n N` | ✅ YES - ASK FIRST |
-| `poetry run python scripts/auto_daily_fights.py` | ✅ YES - ASK FIRST |
-| Offline simulation (`compare_ais.py`) | ❌ No - run freely |
-| Test scenario API (`leek test run`) | ❌ No - unlimited |
-
-**The only exception**: User explicitly says "run fights" or "trigger the workflow".
-
-**Violation consequence**: 40 fights burned = 80% of daily budget = trust damaged.
+- Online fights: 50/day (scarce). Offline: 1.8M/day potential (21.5 fights/sec).
+- **Principle**: Never test online what we can test offline. Online = data collection only.
 
 ### The Flywheel
 ```
@@ -135,531 +44,258 @@ Fight Online → Collect Data → Analyze Losses → Improve AI Offline
      └──────────── Deploy Best Variant ←──────────────────┘
 ```
 
-The scaffolding lets us spin this flywheel 13,000x faster than manual iteration.
+---
+
+## Safety Rules
+
+### Online Fight Protocol (MANDATORY)
+
+> ⛔ Before running ANY online fight or workflow, **ASK THE USER FIRST**.
+
+| Action | Permission? |
+|--------|-------------|
+| `gh workflow run daily-fights.yml` | ✅ ASK FIRST |
+| `leek fight run -n N` | ✅ ASK FIRST |
+| `auto_daily_fights.py` | ✅ ASK FIRST |
+| Offline simulation (`compare_ais.py`) | ❌ Run freely |
+| Test scenario API (`leek test run`) | ❌ Unlimited |
 
 ### Post-Fight Verification (MANDATORY)
 
-> **After EVERY online fight batch**, grep the logs for errors before declaring success.
-
-**Session 21 Bug**: v11 had `count(Map)` type error causing `Accessible: me=0 enemy=0` EVERY TURN. The AI was flying blind. This ran for 50+ fights before detection.
-
-**The process failure**:
-1. ❌ Local simulation didn't surface the error (different execution path?)
-2. ❌ First online fight should have triggered log review
-3. ❌ Daily fight logs weren't being scanned for errors
-
-**Required checks** after fight deployment:
+After EVERY online fight batch, verify logs before declaring success:
 ```bash
-# Fetch a recent fight's log
 leek fight get <fight_id> --log 2>/dev/null | grep -i "error\|incompatible\|failed"
-
-# Or via the web report page - LOOK FOR RED ERROR MESSAGES
 ```
+No AI is "deployed successfully" until one fight's logs show no runtime errors.
 
-**Rule**: No AI is "deployed successfully" until you've verified one fight's logs show no runtime errors.
+### Grounding Protocol
 
-## Website & Brand Identity
+> You have hallucinated game values before. ALWAYS verify from ground truth.
 
-### Concept: "The Digital Oracle"
-Priapos (Greek god of gardens) meets LeekWars meets Cyberpunk Singularity.
-**Greco-Futurism**: Ancient wisdom encoded in neural networks.
+**Priority**: Submodules > API exports > Our code
 
-### Charte Graphique
-Full design system documented in [`docs/CHARTE_GRAPHIQUE.md`](docs/CHARTE_GRAPHIQUE.md).
-
-**Quick Reference**:
-| Element | Value |
-|---------|-------|
-| Background | `#1A1A2E` (Void Black) |
-| Text | `#E8E4D9` (Marble Cream) |
-| Primary Accent | `#00F5D4` (Oracle Cyan) |
-| Secondary Accent | `#7B2CBF` (Divine Purple) |
-| Success/Growth | `#90BE6D` (Leek Green) |
-| Highlight | `#B8860B` (Bronze) |
-| Headlines | Cinzel (serif, uppercase) |
-| Body | Inter (sans-serif) |
-| Code | JetBrains Mono |
-
-### Website Stack
-- **Generator**: Astro (in `docs/`)
-- **Hosting**: GitHub Pages
-- **Tone**: Playful mythological + tech blog casual with real code samples
-
-### Logo
-Oracle Eye pyramid with leek as pupil - see `docs/public/images/logo/`
-
-## Development Philosophy: Empirical Agentic TDD
-
-### Core Principles
-1. **Test First, Discover Second** - Write small probing tests before building abstractions
-2. **Iterative Discovery** - Use Playwright introspection to discover DOM/API structure empirically
-3. **Fail Fast, Learn Fast** - Run experiments immediately, capture failures as documentation
-4. **Living Documentation** - Update docs/ as discoveries are made, not after
-5. **Build Tools as You Go** - Every repeated task is a tooling opportunity
-
-### Tooling Philosophy
-- **Identify repetition** - If you do something twice, consider automating it
-- **Meta-tooling** - Tools that build tools accelerate exponentially
-- **Layered automation**:
-  - L0: Manual exploration (curl, browser)
-  - L1: Scripts for specific tasks (login, fight, upload)
-  - L2: Library abstractions (api.py, browser.py)
-  - L3: Orchestration (batch runners, pipelines)
-  - L4: Self-improving systems (RL, auto-tuning)
-- **Invest in tooling early** - Time spent on good tools pays compound interest
-- **Composable primitives** - Small, focused tools that combine well
-
-### Research Outputs (NEVER LOSE)
-**Rule**: All research, analysis, and data insights MUST be saved to `docs/research/`.
-- Chip stats, fight analysis, meta observations → markdown files
-- Research compounds - future sessions build on past discoveries
-- If you run analysis, write it to a file before responding
-
-Current research docs:
-- `docs/research/chip_stats.md` - Chip stats, costs, effects
-- `docs/research/fight_meta_analysis.md` - 10k fight analysis, duration vs win rate
-- `docs/research/strategy_path_to_top10.md` - Three-phase strategy to #1
-- `docs/research/meta_analysis_l25_50.md` - STR dominance, first-mover stats
-
-### Data Modeling (Pydantic-First)
-**Build lightweight Pydantic models incrementally** as you discover data structures:
-1. When you encounter new API response formats → add to `src/leekwars_agent/models/`
-2. Start minimal, add fields as you need them
-3. Trust your models - don't re-parse raw JSON when models exist
-4. Test models against real data as you go
-
-**Current models** (`src/leekwars_agent/models/`):
-- `fight.py` - Fight, FightReplayData, ReplayEntity, LeekObservation
-
-**Why this matters**: CLI showed "D" as "Draw" when it meant "Defender". Proper typing catches these misinterpretations early.
-
-### API Discovery Protocol (MANDATORY)
-**NEVER guess API endpoints.** Always verify from frontend source:
-1. Search `tools/leek-wars/src/` for endpoint: `grep -rn "LeekWars.post.*endpoint" tools/leek-wars/src`
-2. Check params and response format in the `.vue` or `.ts` file
-3. Document source location in api.py docstring
-
-**Example**: `ai/new` was wrong → frontend uses `ai/new-name` with `version` param.
-
-### CLI-First Development (MANDATORY)
-**NEVER make raw API calls in scripts or ad-hoc Python.** Always:
-1. Add/fix the method in `api.py` first
-2. Expose it via `leek` CLI command
-3. Use the CLI for the actual operation
-
-This ensures reusable tooling, not throwaway scripts. The CLI is the canonical interface.
-
-### When Adding New Features
-1. First: **Check frontend source** for correct endpoint (`tools/leek-wars/src/`)
-2. Second: curl/browser test the endpoint manually
-3. Third: Write a minimal probe script that captures the response
-4. Fourth: Document findings in relevant docs/*.md
-5. Fifth: Implement proper client method with error handling (cite source in docstring)
-6. Sixth: Add to test suite
-7. **Seventh: Git commit after each successful milestone**
-
-### Git Discipline
-- **Commit after each success** - Small, atomic commits after each working feature
-- **Descriptive messages** - What changed and why, not just "update"
-- **Clean history** - Each commit should be a logical unit of work
-- **Feature branches** - New features on branches, merge when stable
-
-### Testing Philosophy: "Whoops = Unit Test"
-**Rule**: Every "whoops" moment deserves a regression test.
-- If hardcoded data caused a bug → dynamic loading + validation test
-- If an API call failed unexpectedly → test the error path
-- If user input was mishandled → input validation test
-- **Every fix MUST have a regression test** — no exceptions
-- **Run tests often** — `poetry run pytest tests/ -v` after each change
-
-**Testing layers** (established Session 25):
-1. **Synthetic data tests** — controlled inputs, exact expected outputs
-2. **Real data integration** — validate against actual DB/files (skip if unavailable)
-3. **ID mapping regression** — chip/weapon triple-ID system must roundtrip
-4. **Statistical sanity** — winners deal more damage, backfill coverage > 50%
-
-**Current test files**:
-- `tests/test_fight_parser.py` — extraction, entity mapping, chip/weapon ID mapping, backfill integrity
-- `tests/test_market.py` — weapon ID regression
-- `tests/test_simulator.py` — offline sim validation
-
-**Example**: The "weapon_destroyer incident" (2026-01-23)
-- Bug: Hardcoded ID 40 as "weapon_magnum" when it's "weapon_destroyer"
-- Fix: Dynamic API loading with cache fallback
-- Tests: `TestWeaponDestroyerRegression` in `tests/test_market.py`
-
-## Grounding Protocol (MANDATORY)
-
-> **Claude**: You have hallucinated game values before. ALWAYS verify from ground truth.
-
-### Before ANY Combat Math
-1. **READ** `docs/GROUND_TRUTH.md` for equipment costs and TP budget
-2. **SUM** TP costs before proposing action sequences
-3. **VERIFY** totals ≤ available TP (usually 9-10 at L34)
-4. **CHECK** chip cooldowns and max_uses (FLAME = 3/turn max!)
-
-### Before Referencing Game Values
-**Ground truth priority**: Submodules > API exports > Our code
-
-| Data Type | Authoritative Source |
-|-----------|---------------------|
+| Data | Source |
+|------|--------|
 | Weapons | `tools/leek-wars/src/model/weapons.ts` |
 | Chips | `tools/leek-wars/src/model/chips.ts` |
 | Constants | `tools/leek-wars-generator/.../FightConstants.java` |
-| Our equipment | `docs/GROUND_TRUTH.md` (derived from above) |
+| Our equipment | `docs/GROUND_TRUTH.md` |
 
-### Red Flags (STOP AND VERIFY)
-- "costs about X TP" → WRONG, look up exact value
-- "I think the range is..." → WRONG, look up exact value
-- Math doesn't add up → STOP, recalculate with real values
-- "setWeapon() is free" → WRONG, it costs 1 TP!
+**Red flags**: "costs about X TP", "I think the range is...", math doesn't add up → STOP, look it up.
+**Hidden costs**: `setWeapon()` = 1 TP, `say()` = 1 TP. Use `debug()` instead (free).
 
-### Hidden Costs to Remember
-| Action | TP Cost | Notes |
-|--------|---------|-------|
-| `setWeapon()` | 1 | Often forgotten! |
-| `say()` | 1 | Use `debug()` instead (free) |
+---
 
-## Project Structure
+## Development Conventions
+
+### CLI-First (MANDATORY)
+Never raw API calls in scripts. Always: `api.py` method → CLI command → use CLI.
+
+### API Discovery (MANDATORY)
+Never guess endpoints. Verify from frontend source:
+```bash
+grep -rn "LeekWars.post.*endpoint" tools/leek-wars/src
 ```
-src/leekwars_agent/    # Core library
-  api.py               # HTTP API client
-  simulator.py         # Local fight simulation (21.5 fights/sec)
-  fight_parser.py      # Parse fight replays
-  visualizer.py        # Fight replay viewer
-  fight_analyzer.py    # Extract patterns from fights (TODO)
-scripts/               # Automation scripts
-  run_fights.py        # Online fight runner
-  compare_ais.py       # A/B test AI versions (TODO)
-  test_builds.py       # Capital allocation experiments (TODO)
-  fetch_fight.py       # Download fight by ID (TODO)
-  parse_history.py     # Scrape fight history (TODO)
-ais/                   # LeekScript AI files
-  fighter_v1.leek      # Current deployed AI
-  fighter_v2.leek      # Improved variant (TODO)
-data/                  # Fight data, configs
-  fights/              # Raw + parsed fight data
-docs/                  # Living documentation
-  API.md               # API endpoints discovered
-  LEEK.md              # Game mechanics & strategy
-```
+Document source location in api.py docstrings.
+
+### Feature Development Checklist
+1. Check frontend source for correct endpoint
+2. Probe/test the endpoint
+3. Document in `docs/research/` or relevant docs
+4. Implement in `api.py` with error handling (cite source)
+5. Expose via `leek` CLI
+6. Add regression test
+7. Git commit
+
+### Testing: "Whoops = Unit Test"
+- Every fix MUST have a regression test
+- Run `poetry run pytest tests/ -v` after changes
+- **Layers**: Synthetic data → Real data integration → ID mapping regression → Statistical sanity
+- **Three-tier validation**: Local sim (fast) → Server test (unlimited, real) → Garden fights (precious)
+
+### Git Discipline
+- Commit after each success (atomic, descriptive)
+- Feature branches for new features
+- Never push main without explicit request
+
+### Research Outputs (NEVER LOSE)
+All analysis → `docs/research/`. If you run analysis, write it to a file before responding.
+
+### Data Modeling
+Pydantic-first (`src/leekwars_agent/models/`). Start minimal, grow incrementally.
+
+---
 
 ## Credentials
+
 - Login: `leek@nech.pl`
 - Account: PriapOS (Farmer ID: 124831)
 - Leek: IAdonis (ID: 131321)
 
-## Current State (Session 24 - 2026-02-11)
-- **Level**: 74
-- **Talent**: 89
-- **Build**: STR=452, AGI=10, HP=316
-- **AI Deployed**: fighter_v11_flat.leek (1521 lines, AI ID 455913) — shouldBuff distance fix
-- **Chips**: 6/6 equipped (PROTEIN, MOTIVATION, CURE, BOOTS, FLASH, FLAME)
-- **Weapons**: 2/2 (Magnum + Laser)
-- **Fights**: GitHub Actions 3x daily (corrective model)
-- **BR Daemon**: `systemctl --user start priapos` - 15min cycles, 10/day max
-- **Website**: https://plnech.github.io/Priap.OS/
-- **Scraper**: 5,327+ fights in meta DB
-- **Capital**: 1 remaining (194 spent on STR session 23)
+## Project Structure
 
-### Immediate Priorities
-1. **AI version tracking** (#94) - local SOTA pointer, `leek ai status`
-2. Monitor shouldBuff fix impact on opening WR (was 44.9%)
-3. Monitor `priapos` BR daemon - verify it catches peak-hour BRs
-
-### Active Learnings
-**See `THOUGHTS.md`** for session analysis, hypotheses, and discoveries.
-
-### API Quirks (Hard-Won Knowledge)
-- **`get_fight()` response has NO "fight" wrapper** - data at top level
-- **Capital cost scales**: ~2 capital/point at STR 400+ (not 1:1)
-- **Rate limiting**: rapid POST calls → 401. Use `api._request()` with backoff
-- **DELETE requests need JSON body** with `content-type: application/json`, not query params
-- **WebSocket auth**: JWT needed as BOTH subprotocol AND cookie header
-- **`leek.ai` is a dict** `{id, name, valid, version, total_lines}`, not just an integer
-
-### Chip/Weapon ID Triple-Mapping (CRITICAL - TESTED)
-Three ID systems exist for chips (verified in `tests/test_fight_parser.py`):
-
-| System | Where used | Example (Flame) |
-|--------|-----------|-----------------|
-| **chips.json key** | API leek equipment `"template"` field | `5` |
-| **chips.json template** | Fight action log (`USE_CHIP [12, X, ...]`) | `10` |
-| **Instance ID** | API leek equipment `"id"` field | `2435820` |
-
-**Mapping for OUR equipped chips:**
-| Chip | API template | Action log ID |
-|------|-------------|---------------|
-| Protein | 8 | 24 |
-| Motivation | 15 | 33 |
-| Cure | 4 | 2 |
-| Boots | 14 | 30 |
-| Flash | 6 | 7 |
-| Flame | 5 | 10 |
-
-**To decode action log → name**: `chips.json[key].template == action_log_id` → `chips.json[key].name`
-**To decode API → action log**: `chips.json[api_template].template` → action log ID
-
-Same triple-mapping applies to weapons (`data/weapons.json`).
-
-### Fight Data Pipeline (Session 25)
-- **Scraper** (`scraper.py`) stores raw fight JSON in `fights.json_data`
-- **`extract_combat_stats()`** (`fight_parser.py`) parses action logs → per-leek stats
-- **Backfill** (`db.backfill_combat_stats()`) retroactively populates observations
-- **Columns populated**: `damage_dealt`, `damage_received`, `healing_done`, `cells_moved`, `weapons_used`, `chips_used`, `turns_alive`, `death_turn`, `ai_errors`
-- **New scrapes** auto-extract via `process_fight()` in scraper
-
-### AI Versions
-| Version | Codename | Key Feature | Status |
-|---------|----------|-------------|--------|
-| v11_flat | Hydra | Stalemate fix + countAccessible() + distance-based shouldBuff | **DEPLOYED** |
-| v14 | Opening Burst | FLASH turn 1 | Superseded (shouldBuff fix covers this) |
-| v10 | Phoenix | Stalemate fix (force_engage turn 30) | Superseded |
-| v8 | Architect | 5-module subsystems, ops-optimized | Retired |
-
-## Session 4 Achievements
-**Critical Discovery:**
-- Operations management is a core game mechanic (error 113 = too_much_ops)
-- `getCellDistance()` is expensive - minimize in loops
-- v3 kiting AI: 85x more ops-efficient than v1 (750 vs 65,000 ops)
-
-**Scripts Added:**
-- `scripts/debug_fight.py` - Single fight analysis with full action log
-- `scripts/get_recent_fights.py` - Fetch recent fight IDs
-- `api.get_leek_history()` - New API method
-
-**Key Finding:**
-- Kiting strategy LOSES at low damage levels (20% vs 49% win rate)
-- Extends fights to timeout instead of getting kills
-- Strategy must match damage output capability
-
-## Session 3 Achievements
-**Scaffolding Built:**
-- `scripts/compare_ais.py` - A/B test AIs offline (2.5 fights/sec)
-- `scripts/test_builds.py` - Capital allocation testing
-- `scripts/fetch_fight.py` - Download fight replays
-- `scripts/parse_history.py` - Fight history parser
-- `src/leekwars_agent/fight_analyzer.py` - Pattern extraction
-
-**Critical Bugs Fixed:**
-- Simulator had 96% team 1 bias → fixed with team swapping
-- AI file paths not found → copy to generator directory first
-
-**Tested & Validated:**
-- AI v2 (shoot-first): NO improvement (50.5% vs 49.5%)
-- Capital allocation: +STR/+AGI/+Frequency all 50% win rate
-- **Conclusion**: Strategy matters, stats don't (yet)
-
-## Key API Notes
-- Base URL: `https://leekwars.com/api/`
-- Auth: JWT token via cookie after login
-- Login requires: `login`, `password`, `keep_connected` params
-- Token in `set-cookie: token=<jwt>` header
-
-### Critical API Discoveries
-- `spend-capital`: POST with `characteristics` as JSON string: `data={'characteristics': json.dumps({'strength': 50})}`
-- `add-weapon`: Returns "already_equipped" if weapon in slot (good)
-- Weapons in slots ≠ weapon held. AI must call `setWeapon(WEAPON_PISTOL)` during combat
-- WEAPON_PISTOL item ID = **37** (not 1!) - this caused early bugs
-- `GET /fight/get/<fight_id>` - Full fight replay data
-- No bulk fight history API - must scrape `/leek/131321/history` or track locally
-
-## Commands - `leek` CLI (Primary Tool)
-
-**Always prefer the `leek` CLI** - it supports `--json` for Claude automation.
-
-```bash
-# Info commands
-leek info garden              # Fight status (fights remaining)
-leek info leek                # Leek stats
-leek info farmer              # Farmer stats + habs
-
-# Craft commands
-leek craft inventory          # List owned resources/components
-leek craft list               # Show craftable recipes
-leek craft make <scheme_id>   # Craft an item
-
-# Fight commands
-leek fight status             # Fights remaining + talent
-leek fight run -n 5           # Run 5 fights
-leek fight history            # Recent fight results
-
-# JSON output (for Claude automation)
-leek --json craft inventory   # Returns parseable JSON
-leek --json fight status      # Machine-readable status
+```
+src/leekwars_agent/        # Core library
+  api.py                   # HTTP API client (retry/backoff)
+  fight_parser.py          # Replay parser + extract_combat_stats()
+  fight_analyzer.py        # Classification, pattern extraction
+  simulator.py             # Local fight simulation (21.5 fights/sec)
+  battle_royale.py         # WebSocket BR client
+  scraper/                 # Fight scraper + SQLite DB
+    scraper.py             #   BFS graph traversal
+    db.py                  #   FightDB with combat stats pipeline
+  models/                  # Pydantic models
+  cli/                     # Click CLI (`leek` command)
+scripts/                   # Automation
+  auto_daily_fights.py     #   GH Actions daily runner
+  compare_ais.py           #   A/B test AIs offline
+  debug_fight.py           #   Single fight analysis
+  br_daemon.py             #   Battle Royale systemd daemon
+  sim_defaults.py          #   Single source of truth for sim config
+ais/                       # LeekScript AI files
+  current -> ...           #   Symlink to deployed version
+  fighter_v*.leek          #   Versioned AIs (v1-v14)
+  trophy_hunters/          #   Specialized trophy AIs
+data/                      # Fight data, configs
+  fights_meta.db           #   Canonical fight database (5,327+ fights)
+docs/                      # Living documentation
+  THESIS.md                #   Strategic north star
+  GROUND_TRUTH.md          #   Equipment stats from submodules
+  CHARTE_GRAPHIQUE.md      #   Design system (Greco-Futurism)
+  research/                #   17+ analysis files
+tests/                     # pytest test suite
+  test_fight_parser.py     #   Extraction, entity mapping, ID regression
+  test_market.py           #   Weapon ID regression
+  test_simulator.py        #   Offline sim validation
+systemd/                   # BR daemon service files
+tasks/                     # Session archives
 ```
 
-### Offline Simulation Scripts (local Java generator)
-```bash
-# A/B test AI versions offline (21.5 fights/sec)
-poetry run python scripts/compare_ais.py v1.leek v2.leek -n 1000
+## Commands Reference
 
-# Debug single fight
-poetry run python scripts/debug_fight.py v8.leek v6.leek
+### `leek` CLI (Primary Tool)
+```bash
+# Status
+leek info garden/leek/farmer    # Fight status, leek stats, farmer info
+leek fight status               # Fights remaining + talent
+
+# Combat
+leek fight run -n 5             # Run online fights (ASK FIRST!)
+leek fight history              # Recent results
+leek fight get <id> --log       # Fight replay + action log
+
+# AI Management
+leek ai list/deploy/local       # AI versions, deploy, local files
+
+# Build
+leek build show/spend           # Capital management
+
+# Analysis
+leek scrape discover/run        # Fight scraping (BFS traversal)
+leek analyze meta/level/stats   # Fight analytics
+
+# Other
+leek test list/run/create       # Unlimited server-side test fights
+leek craft inventory/list/make  # Crafting
+leek br status/join/run         # Battle Royale
+leek --json <cmd>               # Machine-readable output
 ```
 
-### Automation Scripts
+### Offline Simulation
 ```bash
-poetry run python scripts/auto_daily_fights.py  # GitHub Actions cron
+poetry run python scripts/compare_ais.py v1.leek v2.leek -n 1000  # A/B test
+poetry run python scripts/debug_fight.py v8.leek v6.leek           # Debug single
 ```
+**Sim ≠ Online**: Useful for AI logic testing and A/B comparison, NOT win rate prediction (93% team 1 bias).
 
-## Local Validation (Java)
-
-**Always prefer local validation over online API** - it's faster, reliable, and works offline.
-
-**IMPORTANT**: Simulation validates AI code automatically - skip standalone validator and go straight to testing:
-
+### Local Validation
 ```bash
-# Test AI directly (validates during simulation)
-poetry run python scripts/compare_ais.py v1.leek v2.leek -n 1000
-```
-
-Optional standalone validation (rarely needed):
-```bash
+# Sim validates automatically. Standalone (rarely needed):
 java -jar tools/leek-wars-generator/leekscript/leekscript.jar ais/fighter_v1.leek
+# Requires Java 21+ (sdk install java 21.0.5-tem)
 ```
 
-Requires Java 21+ (use SDKMAN: `sdk install java 21.0.5-tem`)
+---
 
-### LeekScript Gotchas
+## LeekScript Reference
+
+### Gotchas
 - `var` = block-scoped, `global` = file-scoped
-- Use `global` for variables reassigned across blocks
-- Error 33 = undefined reference, Error 35 = unused variable
-- `setWeapon()` costs 1 TP - only call once per fight!
-- LS4: `null` coerced to 0 in numeric contexts (arithmetic, comparisons)
-- LS4: Type annotations are FREE - zero runtime operation cost
-- `say(message)` costs 1 TP - use `debug()` instead (free)!
+- `setWeapon()` costs 1 TP — only call once per fight!
+- `say()` costs 1 TP — use `debug()` instead (free)!
+- LS4: `null` coerced to 0 in numeric contexts
+- Type annotations are FREE (zero runtime cost)
 
-### LeekScript Syntax (Compiler Requirements)
-**IMPORTANT**: These cause silent failures or cryptic errors if violated:
-- **Includes need `.leek` extension**: `include("module.leek")` NOT `include("module")`
-- **Semicolons after bare return**: `if (x) return;` NOT `if (x) return` (parser gets confused)
-- **Semicolons recommended**: While often optional, add `;` after statements to avoid parser ambiguity
-- **Empty maps**: `var m = [:]` is valid LeekScript syntax for empty associative array
-- **For-each syntax**: `for (var x in array)` or `for (var k : var v in map)` (BOTH vars need `var`!)
-- **C-style for loops**: `for (var i = 0; i < n; ++i)` - prefer pre-increment `++i`
+### Syntax Requirements
+- Includes: `include("module.leek")` (need `.leek` extension)
+- Semicolons after bare return: `if (x) return;`
+- Empty maps: `var m = [:]`
+- For-each: `for (var k : var v in map)` (BOTH need `var`)
 
-### LeekScript Debugging Meta-Approach
-When encountering LeekScript compiler errors:
-1. **Standalone compiler** (`leekscript.jar`) validates syntax but NOT fight functions
-   - `UNKNOWN_VARIABLE_OR_FUNCTION` on fight functions (isEmptyCell, getCell, etc.) is OK
-   - Use `compare_ais.py` or `debug_fight.py` for full validation with fight context
-2. **Common error patterns**:
-   - `CLOSING_PARENTHESIS_EXPECTED` → Check for missing semicolons on previous lines
-   - `VALUE_EXPECTED` → Parser in wrong state, likely missing semicolons above
-   - `AI_NOT_EXISTING` → Include path wrong (add `.leek` extension)
-3. **When fixing syntax errors**:
-   - Fix ONE error at a time, re-test immediately
-   - Document each fix in this file for future reference
-   - Apply fixes to ALL similar patterns (use sed/grep)
+### Debugging Errors
+1. Standalone compiler validates syntax but NOT fight functions (`UNKNOWN_VARIABLE_OR_FUNCTION` on getCell etc. is OK)
+2. `CLOSING_PARENTHESIS_EXPECTED` → missing semicolons above
+3. Fix ONE error at a time, re-test immediately
 
-### AI Logging Requirements (CRITICAL)
-**Every AI module MUST have comprehensive debug output** for online introspection.
-Without logging, we fly blind during online fights and can't diagnose behavior issues.
+### AI Logging (CRITICAL)
+Every AI MUST have comprehensive `debug()` output (FREE, no TP cost):
+- Turn/phase/HP state, strategy selection (which + WHY), movement, combat execution
 
-**Required debug points in every AI:**
-1. **State tracking**: Turn number, phase, HP, key metrics
-2. **Strategy selection**: Which strategy was chosen and WHY
-3. **Movement decisions**: Where we moved, what cell we targeted
-4. **Combat execution**: Attacks made, damage dealt, TP used
-5. **Positioning decisions**: Danger levels, safe cells found, retreat choices
-
-**Debug function checklist per module:**
+### Quick Reference
 ```leekscript
-// v8_state: debugState() → turn, phase, TTK, patterns
-// v8_danger_map: debugDangerMap() → min/max/avg danger, safest cell
-// v8_combat: logs after executeAttacks() → hits, damage, TP
-// v8_hide_seek: logs in getBestRetreatCell() → safe cell count, choice
-// fighter_v8: strategy_name logged, all subsystem debug calls
-```
-
-**Remember**: `debug()` is FREE (no TP cost). Use it liberally!
-
-### LeekScript Quick Reference
-```leekscript
-// Entity info
+// Entity
 getCell() / getCell(entity)     // Cell positions
 getLife() / getLife(entity)     // HP
 getMP() / getTP()               // Movement/Action points
 getNearestEnemy() / getEnemies() / getAllies()
 
-// Movement (NO moveToCell - only moveTowardCell!)
-moveToward(entity)              // Uses all MP toward entity
-moveToward(entity, n)           // Move n cells toward entity
-moveTowardCell(cell)            // Move toward a cell
-moveAwayFrom(entity)            // Move away from entity
-moveAwayFromCell(cell)          // Move away from cell
-getCellDistance(cell1, cell2)   // EXPENSIVE - cache result!
+// Movement (NO moveToCell — only moveTowardCell!)
+moveToward(entity) / moveToward(entity, n)
+moveTowardCell(cell) / moveAwayFrom(entity) / moveAwayFromCell(cell)
+getCellDistance(cell1, cell2)    // EXPENSIVE — cache it!
 
 // Combat
-setWeapon(WEAPON_PISTOL)        // Equip (costs 1 TP)
+setWeapon(WEAPON_PISTOL)        // Equip (costs 1 TP!)
 useWeapon(entity)               // Attack
-useChip(CHIP_CONSTANT, entity)  // Use spell
-
-// Weapon info
+useChip(CHIP_CONSTANT, entity)  // Use chip
 getWeaponCost(w) / getWeaponMinRange(w) / getWeaponMaxRange(w)
 
-// Debugging (FREE - no TP cost)
+// Debug (FREE)
 debug(value) / debugW(value) / debugE(value)
 
-// Return codes
+// Returns
 USE_SUCCESS, USE_FAILED, USE_NOT_ENOUGH_TP, USE_INVALID_TARGET
 ```
 
-### Simulator vs Online Differences (IMPORTANT)
+### Operations Management
+- Each leek has an ops limit per turn (upgradeable via cores)
+- Error 113 = `too_much_ops` → turn ends immediately
+- `getCellDistance()` expensive — cache results
+- Limit loop iterations explicitly
 
-The local simulator (Java generator) differs from online fights:
+---
 
-| Aspect | Simulator | Online |
-|--------|-----------|--------|
-| First-mover advantage | ~0% impact | ~58% (attacker wins) |
-| Team 1 position bias | ~93% win rate | Varies by map |
-| Turn order | Random or `starter_team` | Attacker always first |
+## Orchestration Mode
 
-**Key findings:**
-- `starter_team` parameter added to generator (fork: `feature/starter-team`)
-- Even with `starter_team=1`, Team 1 wins 93%+ due to position advantage
-- Stats have minimal impact (2-3% difference)
-- Simulator is useful for AI logic testing, NOT for win rate prediction
+When user says "orchestrator mode": delegate to worker agents, keep context clean.
 
-**Use simulator for:**
-- Validating AI code compiles
-- Testing AI behavior/strategy
-- A/B testing AI variants (relative comparison)
-- Operations profiling
+**Files**: `AGORA.md` (worker progress), `docs/GANTT_SESSION*.md` (critical path)
 
-**Do NOT use simulator for:**
-- Predicting online win rates
-- Testing first-mover strategies
-- Absolute performance measurement
+**Rules**:
+1. Don't grep/read — spawn `Task(subagent_type="Explore", model="haiku")`
+2. Workers mark VERIFY, not DONE — Orchestrator tests then marks DONE
+3. Adversarial 2-phase verification: Sonnet gathers evidence, Opus judges
+4. Describe PROBLEMS not SOLUTIONS in strand definitions
 
-### Operations Management (CRITICAL)
-Each leek has an **operation limit per turn** (upgradeable via cores/memory).
-- Every function call, loop iteration, comparison costs operations
-- Error 113 = `too_much_ops` = AI exceeded operation limit → turn ends immediately
-- `getCellDistance()` is expensive - minimize calls in tight loops
-- Complex while loops can easily blow the budget
+**Strand template**: Strategic Context (WHY) → Problem (symptoms) → Investigation Steps → Success Criteria → Key Files
 
-**Key Efficiency Metrics:**
-- **Op Velocity** = operations per cell moved (movement efficiency)
-- **Op Lethality** = operations per damage dealt (combat efficiency)
-- **Op Budget** = % of limit used per turn (resource management)
+## Website
 
-**Best Practices:**
-- Cache expensive calculations (e.g., compute distance once, store in variable)
-- Use simple loop counters instead of recalculating conditions
-- Limit loop iterations explicitly (e.g., `for (var i = 0; i < 10; i++)`)
-- Profile operation usage in test fights
-
-## Fight Analysis Insights (Session 3)
-
-From analyzing fight 50863105 (a loss):
-- **Damage per shot**: Us 37 avg vs opponent 22 avg (70% stronger!)
-- **But we lost**: Opponent got 5 shots, we got 3
-- **Root cause**: Range timing - opponent reached attack range first
-- **Lesson**: Action economy > raw damage. First strike wins close fights.
+Greco-Futurism concept ("The Digital Oracle"). Design system: [`docs/CHARTE_GRAPHIQUE.md`](docs/CHARTE_GRAPHIQUE.md).
+Stack: Astro + GitHub Pages. URL: https://plnech.github.io/Priap.OS/
 
 ## Resources
+
 - [LeekWars API](https://leekwars.com/help/api)
 - [Fight Generator](https://github.com/leek-wars/leek-wars-generator)
 - [LeekScript](https://github.com/leek-wars/leekscript)
