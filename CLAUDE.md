@@ -336,26 +336,22 @@ docs/                  # Living documentation
 - Account: PriapOS (Farmer ID: 124831)
 - Leek: IAdonis (ID: 131321)
 
-## Current State (Session 23 - 2026-02-10)
-- **Level**: 73
-- **Talent**: 67
-- **Rank**: 23,700 (farmer)
-- **Win rate**: 47.5% (866 fights since v11)
-- **Draw rate**: 4.7% (down from 21%)
+## Current State (Session 24 - 2026-02-11)
+- **Level**: 74
+- **Talent**: 89
 - **Build**: STR=452, AGI=10, HP=316
-- **AI Deployed**: fighter_v11_flat.leek (1509 lines, AI ID 455913)
+- **AI Deployed**: fighter_v11_flat.leek (1521 lines, AI ID 455913) — shouldBuff distance fix
 - **Chips**: 6/6 equipped (PROTEIN, MOTIVATION, CURE, BOOTS, FLASH, FLAME)
-- **Weapons**: 2/2 (Magnum + Laser) - swapped Pistol for Laser this session
-- **Fights**: GitHub Actions 3x daily (corrective model, fixed from 5 broken crons)
+- **Weapons**: 2/2 (Magnum + Laser)
+- **Fights**: GitHub Actions 3x daily (corrective model)
 - **BR Daemon**: `systemctl --user start priapos` - 15min cycles, 10/day max
 - **Website**: https://plnech.github.io/Priap.OS/
-- **Scraper**: 5,327 fights in meta DB
-- **Habs**: 23,957
-- **Capital**: 1 remaining (194 spent on STR this session)
+- **Scraper**: 5,327+ fights in meta DB
+- **Capital**: 1 remaining (194 spent on STR session 23)
 
 ### Immediate Priorities
-1. **Improve AI** (#76 v14 Opening Burst) - address 44.9% opening WR, biggest talent lever
-2. **AI version tracking** (#94) - local SOTA pointer, `leek ai status`
+1. **AI version tracking** (#94) - local SOTA pointer, `leek ai status`
+2. Monitor shouldBuff fix impact on opening WR (was 44.9%)
 3. Monitor `priapos` BR daemon - verify it catches peak-hour BRs
 
 ### Active Learnings
@@ -372,8 +368,8 @@ docs/                  # Living documentation
 ### AI Versions
 | Version | Codename | Key Feature | Status |
 |---------|----------|-------------|--------|
-| v11_flat | Hydra | Stalemate fix + countAccessible() | **DEPLOYED** |
-| v14 | Opening Burst | FLASH turn 1 | Ready (needs eval) |
+| v11_flat | Hydra | Stalemate fix + countAccessible() + distance-based shouldBuff | **DEPLOYED** |
+| v14 | Opening Burst | FLASH turn 1 | Superseded (shouldBuff fix covers this) |
 | v10 | Phoenix | Stalemate fix (force_engage turn 30) | Superseded |
 | v8 | Architect | 5-module subsystems, ops-optimized | Retired |
 

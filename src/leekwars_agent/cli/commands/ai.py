@@ -181,6 +181,69 @@ def list_ais(ctx: click.Context) -> None:
         api.close()
 
 
+SOTA_SYMLINK = Path("ais/current")
+
+
+def _get_local_sota() -> tuple[str | None, Path | None]:
+    """Read ais/current symlink. Returns (target_name, resolved_path) or (None, None)."""
+    if not SOTA_SYMLINK.is_symlink():
+        return None, None
+    target = Path(SOTA_SYMLINK.readlink())
+    resolved = SOTA_SYMLINK.parent / target
+    return target.stem, resolved if resolved.exists() else None
+
+
+def _update_sota_symlink(file_path: Path) -> None:
+    """Update ais/current symlink to point at the deployed file."""
+    SOTA_SYMLINK.unlink(missing_ok=True)
+    # Relative symlink within ais/
+    SOTA_SYMLINK.symlink_to(file_path.name)
+
+
+@ai.command("status")
+@click.pass_context
+def status(ctx: click.Context) -> None:
+    """Show deployed AI status: server state + local SOTA pointer."""
+    api = login_api()
+    try:
+        data = api.get_leek(LEEK_ID)
+        leek = data.get("leek", data)
+        ai_info = leek.get("ai", {})
+
+        server_name = ai_info.get("name", "None")
+        ai_id = ai_info.get("id", "?")
+        is_valid = ai_info.get("valid", False)
+        lines = ai_info.get("total_lines", 0)
+
+        local_name, local_path = _get_local_sota()
+        local_lines = len(local_path.read_text().splitlines()) if local_path else 0
+
+        # Check sync
+        in_sync = local_name == server_name if local_name else False
+
+        if ctx.obj.get("json"):
+            output_json({
+                "server": {"name": server_name, "id": ai_id, "valid": is_valid, "lines": lines},
+                "local": {"name": local_name, "file": str(local_path) if local_path else None, "lines": local_lines},
+                "in_sync": in_sync,
+            })
+            return
+
+        valid_icon = "[green]✓[/green]" if is_valid else "[red]✗[/red]"
+        sync_icon = "[green]✓ synced[/green]" if in_sync else "[red]✗ out of sync[/red]"
+
+        console.print(f"[bold]AI Status[/bold]")
+        console.print(f"  Server: {server_name} (#{ai_id}) {valid_icon} — {lines} lines")
+        if local_name:
+            console.print(f"  Local:  ais/current → {local_name}.leek — {local_lines} lines")
+        else:
+            console.print(f"  Local:  [yellow]no ais/current symlink[/yellow]")
+        console.print(f"  Sync:   {sync_icon}")
+
+    finally:
+        api.close()
+
+
 @ai.command("current")
 @click.pass_context
 def current_ai(ctx: click.Context) -> None:
@@ -302,6 +365,10 @@ def deploy(ctx: click.Context, file_path: str, name: str | None, dry_run: bool, 
 
         # Set as leek's AI
         api.set_leek_ai(LEEK_ID, ai_id)
+
+        # Update local SOTA symlink
+        _update_sota_symlink(path)
+
         success(f"\nDeployed '{name}' to leek!")
 
         if ctx.obj.get("json"):
