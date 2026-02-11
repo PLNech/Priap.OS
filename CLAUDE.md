@@ -269,6 +269,19 @@ This ensures reusable tooling, not throwaway scripts. The CLI is the canonical i
 - If hardcoded data caused a bug → dynamic loading + validation test
 - If an API call failed unexpectedly → test the error path
 - If user input was mishandled → input validation test
+- **Every fix MUST have a regression test** — no exceptions
+- **Run tests often** — `poetry run pytest tests/ -v` after each change
+
+**Testing layers** (established Session 25):
+1. **Synthetic data tests** — controlled inputs, exact expected outputs
+2. **Real data integration** — validate against actual DB/files (skip if unavailable)
+3. **ID mapping regression** — chip/weapon triple-ID system must roundtrip
+4. **Statistical sanity** — winners deal more damage, backfill coverage > 50%
+
+**Current test files**:
+- `tests/test_fight_parser.py` — extraction, entity mapping, chip/weapon ID mapping, backfill integrity
+- `tests/test_market.py` — weapon ID regression
+- `tests/test_simulator.py` — offline sim validation
 
 **Example**: The "weapon_destroyer incident" (2026-01-23)
 - Bug: Hardcoded ID 40 as "weapon_magnum" when it's "weapon_destroyer"

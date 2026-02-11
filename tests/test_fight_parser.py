@@ -404,3 +404,144 @@ class TestChipIdMapping:
                 f"API template {api_template} ({expected_name}) → "
                 f"action template {action_template} should roundtrip"
             )
+
+
+# =============================================================================
+# Weapon ID mapping regression tests
+# =============================================================================
+
+class TestWeaponIdMapping:
+    """Verify weapon ID mapping between API and data files.
+
+    Weapons use a DIFFERENT mapping than chips:
+    - API leek equipment "template" → weapons.json "item" field (NOT the key)
+    - Fight action log → weapons.json "template" field
+
+    Example: Magnum → API template 45, weapons.json key 5 (item=45), action template 5
+    """
+
+    WEAPONS_PATH = Path("data/weapons.json")
+
+    @pytest.fixture
+    def weapons_data(self):
+        if not self.WEAPONS_PATH.exists():
+            pytest.skip("weapons.json not available")
+        with open(self.WEAPONS_PATH) as f:
+            data = json.load(f)
+        return data.get("weapons", data)
+
+    # API template (item field) → expected weapon name
+    EQUIPPED_API_TEMPLATES = {
+        45: "magnum",
+        42: "laser",
+    }
+
+    # Peer weapons for validation
+    PEER_API_TEMPLATES = {
+        37: "pistol",
+        39: "double_gun",
+        40: "destroyer",
+        41: "shotgun",
+        108: "broadsword",
+    }
+
+    def test_our_weapons_by_item(self, weapons_data):
+        """Our weapon API templates should decode via item field."""
+        item_to_name = {
+            w["item"]: w["name"]
+            for w in weapons_data.values()
+            if w.get("item")
+        }
+        for api_template, expected_name in self.EQUIPPED_API_TEMPLATES.items():
+            assert api_template in item_to_name, (
+                f"No weapon with item={api_template}"
+            )
+            assert item_to_name[api_template] == expected_name, (
+                f"Weapon item {api_template} should be {expected_name}, "
+                f"got {item_to_name[api_template]}"
+            )
+
+    def test_peer_weapons_by_item(self, weapons_data):
+        """Peer weapon API templates should also decode via item field."""
+        item_to_name = {
+            w["item"]: w["name"]
+            for w in weapons_data.values()
+            if w.get("item")
+        }
+        for api_template, expected_name in self.PEER_API_TEMPLATES.items():
+            assert api_template in item_to_name, (
+                f"No weapon with item={api_template}"
+            )
+            assert item_to_name[api_template] == expected_name, (
+                f"Weapon item {api_template} should be {expected_name}, "
+                f"got {item_to_name[api_template]}"
+            )
+
+    def test_weapon_action_log_format(self, weapons_data):
+        """Weapon IDs in fight action log should use weapons.json template field."""
+        # Magnum: key=5, template=5, item=45
+        magnum = weapons_data.get("5")
+        assert magnum is not None, "Magnum should be at key 5"
+        assert magnum["name"] == "magnum"
+        assert magnum["template"] == 5, "Magnum action log template should be 5"
+        assert magnum["item"] == 45, "Magnum API item should be 45"
+
+        # Laser: key=6, template=6, item=42
+        laser = weapons_data.get("6")
+        assert laser is not None, "Laser should be at key 6"
+        assert laser["name"] == "laser"
+        assert laser["template"] == 6, "Laser action log template should be 6"
+        assert laser["item"] == 42, "Laser API item should be 42"
+
+
+# =============================================================================
+# Backfill integrity tests
+# =============================================================================
+
+class TestBackfillIntegrity:
+    """Verify that backfilled data is consistent and complete."""
+
+    DB_PATH = Path("data/fights_meta.db")
+
+    @pytest.fixture
+    def db(self):
+        if not self.DB_PATH.exists():
+            pytest.skip("fights_meta.db not available")
+        import sqlite3
+        conn = sqlite3.connect(self.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        yield conn
+        conn.close()
+
+    def test_backfill_coverage(self, db):
+        """At least 50% of observations should have damage data."""
+        total = db.execute("SELECT COUNT(*) FROM leek_observations").fetchone()[0]
+        with_damage = db.execute(
+            "SELECT COUNT(*) FROM leek_observations WHERE damage_dealt > 0 OR damage_received > 0"
+        ).fetchone()[0]
+        ratio = with_damage / total if total > 0 else 0
+        assert ratio > 0.5, f"Only {ratio:.1%} of observations have damage data"
+
+    def test_iadonis_has_fights(self, db):
+        """IAdonis should have both wins and losses with damage data."""
+        wins = db.execute(
+            "SELECT COUNT(*) FROM leek_observations WHERE leek_id=131321 AND won=1 AND damage_dealt > 0"
+        ).fetchone()[0]
+        losses = db.execute(
+            "SELECT COUNT(*) FROM leek_observations WHERE leek_id=131321 AND won=0 AND damage_received > 0"
+        ).fetchone()[0]
+        assert wins > 100, f"Expected 100+ wins with damage data, got {wins}"
+        assert losses > 100, f"Expected 100+ losses with damage data, got {losses}"
+
+    def test_winners_deal_more_damage_on_average(self, db):
+        """Statistical sanity: winners should deal more damage on average."""
+        row = db.execute("""
+            SELECT
+                AVG(CASE WHEN won=1 THEN damage_dealt END) as win_dmg,
+                AVG(CASE WHEN won=0 THEN damage_dealt END) as loss_dmg
+            FROM leek_observations
+            WHERE leek_id=131321 AND damage_dealt > 0
+        """).fetchone()
+        assert row["win_dmg"] > row["loss_dmg"], (
+            f"Winners should deal more: win={row['win_dmg']:.0f} vs loss={row['loss_dmg']:.0f}"
+        )
