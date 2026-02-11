@@ -45,30 +45,36 @@ As capital becomes available, rebalance toward survivability:
 
 ## Chip Strategy
 
-### Equipped (6/6 slots)
-| Chip | Action Log ID | Role | Status |
-|------|--------------|------|--------|
-| Flame | 10 | Primary damage | OK — 61% WR when sole chip |
-| Flash | 7 | AoE damage | PROBLEM — 16% WR when sole chip |
-| Protein | 24 | STR buff (+80) | UNUSED — not appearing in fight logs |
-| Motivation | 33 | TP buff (+2) | UNUSED — not appearing in fight logs |
-| Boots | 30 | MP buff | UNUSED — not appearing in fight logs |
-| Cure | 2 | Heal (38 HP) | 93% WR is SURVIVOR BIAS (S26 sim). Heal post-combat at 40% HP |
+### Equipped (6/6 slots) — Updated S26
+| Chip | Template | TP | Role | Status |
+|------|----------|-----|------|--------|
+| Flame | 5 | 4 | Primary damage (29 dmg, range 2-7) | OK — 61% WR |
+| Flash | 6 | 3 | Secondary damage (32 dmg, range 1-10, AoE) | Supplement only |
+| Cure | 4 | 4 | Heal (38 HP, CD 2) | Post-combat at 40% HP |
+| Motivation | 15 | 4 | +2 TP for 3 turns (net +2 TP gain) | Turn 1 buff when distance > 10 |
+| **Helmet** | 21 | 3 | -15 dmg reduction, 2 turns, CD 3 | **NEW S26** — every turn when off CD |
+| **Shield** | 20 | 4 | -20 dmg reduction, 3 turns, CD 4 | **NEW S26** — every turn when off CD |
 
-### Chips To Buy (Priority Order)
-| Chip | Why | Level Req | Evidence |
-|------|-----|-----------|----------|
-| **Helmet** | Flat damage reduction (15, 2t). Every peer has it. | L10 | Opponents with Helmet beat us 71-87% |
-| **Shield** | Stronger damage reduction (20, 3t). Every peer has it. | L35 | Same — defensive chips counter our burst |
-| **Spark** | No-LOS damage. Opponents using it beat us 63%+ | L19 | Session 25 chip correlation analysis |
-| **Bandage** | Secondary heal (23 HP, CD 1). Double healing = sustain | L3 | Peers with dual heals out-sustain us |
-| **Solidification** | +180 RES buff (3t). RipInPeace/SmartThing/StockFiish use it | L40 | Peer builds analysis |
+### In Inventory (not equipped)
+| Chip | Template | TP | Notes |
+|------|----------|-----|-------|
+| Protein | 8 | 3 | Swapped out S26 — +80 STR on 452 is diminishing |
+| Boots | 14 | 3 | Swapped out S26 — showed UNUSED in fight logs |
+| Spark | 18 | 3 | Bought S26 — no-LOS 8 dmg, for future loadout experiments |
+| Bandage | 3 | 2 | Bought S26 — 23 HP heal CD 1, for dual-heal loadout |
+
+### Chips To Buy (Next Priority)
+| Chip | Why | Level Req | Cost |
+|------|-----|-----------|------|
+| **Solidification** | +180 RES buff (3t). Top peers use it. | L40 | 24,400 |
+| **Wall** | Damage reduction. Stronger than Shield. | L18 | 8,700 |
+| **Armor** | Best damage reduction (unlocked at L74!) | L74 | 85,500 |
 
 ### Chip Usage Rules (for AI logic)
-1. **Cure**: Post-combat only, HP < 40%. Pre-attack heal at 60% = 10.8% WR (sim-verified catastrophic). 93% WR was survivor bias, not causation.
-2. **Flame > Flash**: Always prefer Flame (range 2-7) as primary. Flash as supplement only. Flame-only=61%, Flash-only=16%.
-3. **Buffs**: Use turn 1 when distance > 10 (shouldBuff fix deployed). Verify in post-fight logs.
-4. **Helmet/Shield** (when bought): Use proactively before taking damage, not reactively.
+1. **Cure**: Post-combat only, HP < 40%. Pre-attack heal at 60% = 10.8% WR (sim-verified catastrophic).
+2. **Flame > Flash**: Always prefer Flame as primary. Flash as supplement only.
+3. **Motivation**: Turn 1 only, when distance > 10 (always true online). 4 TP → +6 TP over 3 turns.
+4. **Helmet/Shield**: Use EVERY turn when off cooldown. Not gated by shouldBuff. -35 dmg/hit when both active.
 
 ---
 
@@ -121,7 +127,8 @@ As capital becomes available, rebalance toward survivability:
 ## Open Questions
 
 - [ ] **Does the shouldBuff fix actually produce buff usage?** Need post-deployment fight log analysis.
-- [ ] **What are components and how do we get them?** Peers have 4-8, we have 0.
+- [x] **What are components?** Craftable items giving stat bonuses (Core: +4 cores, Fan: +40 freq, Apple: +100 HP). We have 7 recipes ready, 8 empty slots. They do NOT affect max_chips.
+- [ ] **What controls max_chips?** We have 6, SmartThing has 9, both RAM 6. Server-side formula unknown.
 - [ ] **Can we respec stats?** Moving STR → TP/HP might be transformative.
 - [ ] **What's SmartThing's AI strategy?** Scrape their fight replays for decision patterns.
 - [ ] **What causes our AI errors?** 213 errors in losses vs 130 in wins — ops limit? bad positioning?
@@ -138,6 +145,8 @@ As capital becomes available, rebalance toward survivability:
 | S23 | AI quality is secondary | 5 days of data showed 50% WR | Recognized AI as primary lever |
 | S24 | SmartThing has 20 cores | API scrape showed cores=1 | Corrected — same cores, different strategy |
 | S25 | Our damage should win | Flash-only = 16% WR, Cure = 93% WR | **Survivability > damage. Chip usage is THE lever.** |
+| S26 | Buy + equip defensive chips | Helmet+Shield give -35 dmg/hit. v13 sim 51.2% vs v12 | Defensive chips used EVERY turn, not just buff turns |
+| S26 | Sim spawns were wrong (dist 4) | Rewrote to generator quadrant formula (dist 18-34) | v12 61.4% vs v11 only visible with correct spawns |
 
 ---
 
@@ -146,6 +155,8 @@ As capital becomes available, rebalance toward survivability:
 | Date | Decision | Rationale | Result |
 |------|----------|-----------|--------|
 | S25 | Backfill 5,327 fights with combat stats | Can't analyze what we can't measure | 18,076 observations enriched, 0 errors |
-| S25 | Prioritize Cure fix over new chips | Free (code change), highest expected impact | Pending |
+| S26 | Buy Helmet+Shield+Spark+Bandage (20,960 Habs) | Every peer has defensive chips, we had none | Equipped, v13 deployed |
+| S26 | Swap Protein+Boots for Helmet+Shield | Protein (+80 STR on 452 = diminishing), Boots UNUSED | Loadout: Flame/Flash/Cure/Motivation/Helmet/Shield |
+| S25 | Prioritize Cure fix over new chips | Free (code change), highest expected impact | Completed — v12 Asclepius |
 | S24 | Deploy shouldBuff distance fix | Buff when far (>10), attack when close | Deployed, monitoring |
 | S23 | Spend 194 capital on STR | Data said STR dominant at our level | STR 452, but now data says it's overkill |
