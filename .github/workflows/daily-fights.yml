@@ -48,6 +48,12 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction --no-root
 
+      - name: Ensure tournament registration
+        env:
+          LEEKWARS_USER: ${{ secrets.LEEKWARS_USER }}
+          LEEKWARS_PASS: ${{ secrets.LEEKWARS_PASS }}
+        run: poetry run leek tournament register leek || true
+
       - name: Run daily fights
         env:
           LEEKWARS_USER: ${{ secrets.LEEKWARS_USER }}

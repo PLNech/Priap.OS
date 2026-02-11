@@ -2,39 +2,35 @@
 
 import click
 from ..output import output_json, success, error, console
+from ..constants import LEEK_ID
 from leekwars_agent.auth import login_api
-from leekwars_agent.api import LeekWarsAPI
 
 
 @click.group()
 def tournament():
-    """Tournament management - participate in tournaments.
+    """Tournament management - register and track tournaments.
 
-    Tournaments are daily events with brackets (solo, farmer, team, BR).
-    Register to participate and climb the ladder!
+    Tournaments are daily bracket events (solo leek, farmer, team).
+    Register to participate and earn ranking points!
 
     Examples:
-        leek tournament list              # Show available tournaments
-        leek tournament register          # Register for tournament
         leek tournament status            # Check registration status
+        leek tournament register          # Register our leek (solo)
+        leek tournament register farmer   # Register as farmer
     """
     pass
 
 
 @tournament.command("list")
-@click.option("--json", is_flag=True, help="Output as JSON")
-def tournament_list(json: bool) -> None:
-    """Show your tournament eligibility (power range).
-
-    Tournaments are auto-generated based on your power.
-    Register to participate in the next tournament!
-    """
+@click.pass_context
+def tournament_list(ctx: click.Context) -> None:
+    """Show your tournament eligibility (power range)."""
     api = login_api()
 
     try:
         result = api.get_tournaments()
 
-        if json:
+        if ctx.obj.get("json"):
             output_json(result)
             return
 
@@ -44,130 +40,134 @@ def tournament_list(json: bool) -> None:
 
         console.print("[bold]Tournament Eligibility[/bold]\n")
         console.print(f"  Your power range: [cyan]{min_power}[/cyan] - [cyan]{max_power}[/cyan]")
-        console.print(f"  Runs every 30 minutes during tournament phases.")
-        console.print("\n  Register: [cyan]leek tournament register farmer[/cyan]")
+        console.print("\n  Register: [cyan]leek tournament register[/cyan]")
 
     except Exception as e:
         error(f"Failed to fetch tournament range: {e}")
 
 
 @tournament.command("register")
-@click.argument("entity_type", type=click.Choice(["farmer", "leek"]), default="farmer")
+@click.argument("entity_type", type=click.Choice(["farmer", "leek"]), default="leek")
 @click.argument("entity_id", type=int, required=False)
-@click.option("--json", is_flag=True, help="Output as JSON")
-def tournament_register(entity_type: str, entity_id: int | None, json: bool) -> None:
+@click.pass_context
+def tournament_register(ctx: click.Context, entity_type: str, entity_id: int | None) -> None:
     """Register for a tournament.
 
-    ENTITY_TYPE is 'farmer' (you) or 'leek' (specific leek).
-    ENTITY_ID is required for 'leek' type.
-
-    Requirements:
-    - Tournaments enabled for your account
-    - 2+ leeks for farmer registration
+    ENTITY_TYPE is 'leek' (solo, default) or 'farmer' (requires 2+ leeks).
+    ENTITY_ID defaults to our leek for 'leek' type.
 
     Examples:
-        leek tournament register farmer        # Register yourself
-        leek tournament register leek 131321   # Register a specific leek
+        leek tournament register              # Register our leek (solo)
+        leek tournament register leek         # Same as above
+        leek tournament register farmer       # Register as farmer
     """
     api = login_api()
 
     if entity_type == "leek" and not entity_id:
-        error("entity_id required for 'leek' registration")
-        return
+        entity_id = LEEK_ID
 
     try:
         result = api.register_tournament(entity_type, entity_id or 0)
 
-        if json:
+        if ctx.obj.get("json"):
             output_json(result)
             return
 
-        if result.get("success", True):
-            success(f"Registered for tournament as {entity_type}!")
+        err = result.get("error")
+        if err == "already_registered":
+            success(f"Already registered for tournament as {entity_type}!")
+        elif err:
+            error(f"Registration failed: {err}")
         else:
-            error(f"Registration failed: {result.get('error', 'Unknown error')}")
+            success(f"Registered for tournament as {entity_type}!")
 
     except Exception as e:
-        # Check for common issues
-        error_str = str(e)
-        if "401" in error_str:
-            error("Registration failed: Check requirements (2+ leeks needed for farmer tournaments)")
-        else:
-            error(f"Failed to register: {e}")
+        error(f"Failed to register: {e}")
 
 
 @tournament.command("unregister")
-@click.argument("entity_type", type=click.Choice(["farmer", "leek"]), default="farmer")
+@click.argument("entity_type", type=click.Choice(["farmer", "leek"]), default="leek")
 @click.argument("entity_id", type=int, required=False)
-@click.option("--json", is_flag=True, help="Output as JSON")
-def tournament_unregister(entity_type: str, entity_id: int | None, json: bool) -> None:
+@click.pass_context
+def tournament_unregister(ctx: click.Context, entity_type: str, entity_id: int | None) -> None:
     """Unregister from a tournament.
 
-    ENTITY_TYPE is 'farmer' (you) or 'leek' (specific leek).
-    ENTITY_ID is required for 'leek' type.
+    ENTITY_TYPE is 'leek' (default) or 'farmer'.
+    ENTITY_ID defaults to our leek for 'leek' type.
 
     Examples:
-        leek tournament unregister farmer       # Unregister yourself
-        leek tournament unregister leek 131321  # Unregister a specific leek
+        leek tournament unregister             # Unregister our leek
+        leek tournament unregister farmer      # Unregister as farmer
     """
     api = login_api()
 
     if entity_type == "leek" and not entity_id:
-        error("entity_id required for 'leek' unregistration")
-        return
+        entity_id = LEEK_ID
 
     try:
         result = api.unregister_tournament(entity_type, entity_id or 0)
 
-        if json:
+        if ctx.obj.get("json"):
             output_json(result)
             return
 
-        if result.get("success", True):
-            success(f"Unregistered from tournament as {entity_type}!")
+        err = result.get("error")
+        if err:
+            error(f"Unregistration failed: {err}")
         else:
-            error(f"Unregistration failed: {result.get('error', 'Unknown error')}")
+            success(f"Unregistered from tournament as {entity_type}!")
 
     except Exception as e:
         error(f"Failed to unregister: {e}")
 
 
 @tournament.command("status")
-@click.option("--json", is_flag=True, help="Output as JSON")
-def tournament_status(json: bool) -> None:
-    """Check tournament registration status."""
+@click.pass_context
+def tournament_status(ctx: click.Context) -> None:
+    """Check tournament registration status (leek + farmer)."""
     api = login_api()
 
     try:
+        leek_data = api.get_leek(LEEK_ID)
+        leek = leek_data.get("leek", leek_data)
+        leek_tournament = leek.get("tournament", {})
+
         farmer = api.get_farmer(api.farmer_id) if api.farmer_id else {}
         farmer_data = farmer.get("farmer", farmer)
+        enabled = farmer_data.get("tournaments_enabled", False)
 
-        if json:
+        if ctx.obj.get("json"):
             output_json({
-                "tournaments_enabled": farmer_data.get("tournaments_enabled", False),
-                "registered": farmer_data.get("tournament", {}).get("registered", False),
-                "current_tournament": farmer_data.get("tournament", {}).get("current", None),
+                "tournaments_enabled": enabled,
+                "leek": {
+                    "registered": leek_tournament.get("registered", False),
+                    "current": leek_tournament.get("current"),
+                },
+                "farmer": {
+                    "registered": farmer_data.get("tournament", {}).get("registered", False),
+                    "current": farmer_data.get("tournament", {}).get("current"),
+                },
             })
             return
 
         console.print("[bold]Tournament Status[/bold]\n")
 
-        enabled = farmer_data.get("tournaments_enabled", False)
-        registered = farmer_data.get("tournament", {}).get("registered", False)
-        current = farmer_data.get("tournament", {}).get("current", None)
-
-        status = "ENABLED" if enabled else "DISABLED"
         status_color = "green" if enabled else "yellow"
-        console.print(f"  Tournaments: [{status_color}]{status}[/{status_color}]")
+        console.print(f"  Tournaments: [{status_color}]{'ENABLED' if enabled else 'DISABLED'}[/{status_color}]")
 
-        reg_status = "REGISTERED" if registered else "Not registered"
-        reg_color = "green" if registered else "red"
-        console.print(f"  Registration: [{reg_color}]{reg_status}[/{reg_color}]")
+        # Leek (solo) tournament
+        leek_reg = leek_tournament.get("registered", False)
+        leek_cur = leek_tournament.get("current")
+        reg_icon = "[green]✓[/green]" if leek_reg else "[red]✗[/red]"
+        cur_str = f" → [cyan]#{leek_cur}[/cyan]" if leek_cur else ""
+        console.print(f"  Solo (leek):  {reg_icon}{cur_str}")
 
-        if current:
-            console.print(f"  Current: [cyan]Tournament #{current}[/cyan]")
-        else:
-            console.print("  Current: None")
+        # Farmer tournament
+        farmer_reg = farmer_data.get("tournament", {}).get("registered", False)
+        farmer_cur = farmer_data.get("tournament", {}).get("current")
+        reg_icon = "[green]✓[/green]" if farmer_reg else "[yellow]- (needs 2+ leeks)[/yellow]"
+        cur_str = f" → [cyan]#{farmer_cur}[/cyan]" if farmer_cur else ""
+        console.print(f"  Farmer:       {reg_icon}{cur_str}")
 
     except Exception as e:
         error(f"Failed to fetch status: {e}")
@@ -175,28 +175,23 @@ def tournament_status(json: bool) -> None:
 
 @tournament.command("view")
 @click.argument("tournament_id", type=int)
-@click.option("--json", is_flag=True, help="Output as JSON")
-def tournament_view(tournament_id: int, json: bool) -> None:
-    """View tournament details by ID.
-
-    Shows tournament bracket, participants, and progress.
-    Use this to check tournament status after registering.
-    """
+@click.pass_context
+def tournament_view(ctx: click.Context, tournament_id: int) -> None:
+    """View tournament details by ID."""
     api = login_api()
 
     try:
-        tournament = api.get_tournament(tournament_id)
+        data = api.get_tournament(tournament_id)
 
-        if json:
-            output_json(tournament)
+        if ctx.obj.get("json"):
+            output_json(data)
             return
 
         console.print(f"[bold]Tournament #{tournament_id}[/bold]\n")
 
-        t = tournament.get("tournament", tournament)
+        t = data.get("tournament", data)
         console.print(f"  Type: {t.get('type', '?')} | Date: {t.get('date', '?')}")
         console.print(f"  Size: {t.get('size', '?')} | Finished: {t.get('finished', '?')}")
-        console.print("\n  [cyan]View full bracket at:[/cyan] https://leekwars.com/tournament/{id}")
 
     except Exception as e:
         error(f"Failed to fetch tournament: {e}")

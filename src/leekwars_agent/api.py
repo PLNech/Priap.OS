@@ -617,6 +617,10 @@ class LeekWarsAPI:
             entity_type: 'farmer', 'leek', or 'team'
             entity_id: ID of the entity to register
 
+        Returns:
+            {"success": True} on success, or {"error": "already_registered"} etc.
+            Note: API returns 401 for business errors (already_registered, etc.)
+
         Source:
             - farmer: tools/leek-wars/src/component/farmer/farmer.vue:774
             - leek: tools/leek-wars/src/component/leek/leek.vue:1027
@@ -635,6 +639,9 @@ class LeekWarsAPI:
         else:
             raise ValueError(f"Unknown entity type: {entity_type}")
 
+        # API returns 401 for business errors (already_registered, etc.)
+        if response.status_code == 401:
+            return response.json()
         response.raise_for_status()
         return response.json()
 
