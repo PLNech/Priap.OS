@@ -8,15 +8,15 @@ All simulation scripts (compare_ais, debug_fight, etc.) import from here.
 # === Our Leek: IAdonis (ID: 131321) ===
 
 LEEK_LEVEL = 74
-LEEK_LIFE = 319
+LEEK_LIFE = 419   # 319 base + 100 (Apple component)
 LEEK_TP = 10
-LEEK_MP = 3
+LEEK_MP = 3       # No propulsor (the -30 RES wasn't worth +1 MP)
 
-# Stats
+# Stats (base + component bonuses)
 LEEK_STR = 452
-LEEK_AGI = 10
-LEEK_FREQ = 0
-LEEK_WIS = 0
+LEEK_AGI = 10     # 10 base (no propulsor)
+LEEK_FREQ = 140   # 100 base + 40 (Fan component)
+LEEK_WIS = 40     # 0 base + 40 (CD component)
 LEEK_RES = 0
 LEEK_SCI = 0
 LEEK_MAG = 0
