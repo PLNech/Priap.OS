@@ -53,7 +53,7 @@ As capital becomes available, rebalance toward survivability:
 | Protein | 24 | STR buff (+80) | UNUSED — not appearing in fight logs |
 | Motivation | 33 | TP buff (+2) | UNUSED — not appearing in fight logs |
 | Boots | 30 | MP buff | UNUSED — not appearing in fight logs |
-| Cure | 2 | Heal (38 HP) | UNDERUSED — 7% of fights, but 93% WR when used |
+| Cure | 2 | Heal (38 HP) | 93% WR is SURVIVOR BIAS (S26 sim). Heal post-combat at 40% HP |
 
 ### Chips To Buy (Priority Order)
 | Chip | Why | Level Req | Evidence |
@@ -65,8 +65,8 @@ As capital becomes available, rebalance toward survivability:
 | **Solidification** | +180 RES buff (3t). RipInPeace/SmartThing/StockFiish use it | L40 | Peer builds analysis |
 
 ### Chip Usage Rules (for AI logic)
-1. **Cure**: Use when HP < 60%. Not optional. 93% WR proves this.
-2. **Flame > Flash**: Always prefer Flame as primary damage. Flash as opener/supplement only.
+1. **Cure**: Post-combat only, HP < 40%. Pre-attack heal at 60% = 10.8% WR (sim-verified catastrophic). 93% WR was survivor bias, not causation.
+2. **Flame > Flash**: Always prefer Flame (range 2-7) as primary. Flash as supplement only. Flame-only=61%, Flash-only=16%.
 3. **Buffs**: Use turn 1 when distance > 10 (shouldBuff fix deployed). Verify in post-fight logs.
 4. **Helmet/Shield** (when bought): Use proactively before taking damage, not reactively.
 

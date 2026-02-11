@@ -79,7 +79,7 @@ def run_direct_matchup(sim: Simulator, ai1_name: str, ai2_name: str, n_fights: i
     # Manually construct scenario to bypass AI file copying
     from leekwars_agent.simulator import MapConfig
 
-    map_config = MapConfig.symmetric_empty(18, 18)
+    map_config = MapConfig.symmetric_empty()
 
     for seed in range(n_fights):
         # Build scenario dict directly

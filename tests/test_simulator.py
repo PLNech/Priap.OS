@@ -11,6 +11,7 @@ from leekwars_agent.simulator import (
     Simulator,
     EntityConfig,
     ScenarioConfig,
+    MapConfig,
     FightOutcome,
     GENERATOR_PATH,
 )
@@ -107,9 +108,11 @@ useWeapon(enemy)
         assert hasattr(outcome, "raw_output")
 
     def test_fight_deterministic_with_seed(self, simulator, test_ai_path):
-        """Same seed should produce same result."""
-        outcome1 = simulator.run_1v1(test_ai_path, test_ai_path, seed=12345)
-        outcome2 = simulator.run_1v1(test_ai_path, test_ai_path, seed=12345)
+        """Same seed + same map should produce same result."""
+        import random
+        fixed_map = MapConfig.symmetric_empty(rng=random.Random(0))
+        outcome1 = simulator.run_1v1(test_ai_path, test_ai_path, seed=12345, map_config=fixed_map)
+        outcome2 = simulator.run_1v1(test_ai_path, test_ai_path, seed=12345, map_config=fixed_map)
 
         assert outcome1.winner == outcome2.winner
         assert outcome1.turns == outcome2.turns

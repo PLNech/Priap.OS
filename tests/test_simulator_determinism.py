@@ -4,6 +4,8 @@ Verifies that the Java generator produces identical results when given
 the same seed, map, and entity configurations.
 """
 
+import random
+
 import pytest
 from pathlib import Path
 
@@ -27,24 +29,34 @@ pytestmark = pytest.mark.skipif(
 class TestDeterminism:
     """Test that same seed produces identical results."""
 
-    def test_same_seed_same_result_10_runs(self):
-        """CRITICAL: 10 runs with same seed + same map MUST produce identical outcomes.
+    @staticmethod
+    def _get_ai():
+        """Get a usable AI path, copying to generator dir if needed."""
+        from leekwars_agent.simulator import GENERATOR_PATH, copy_ai_to_generator
 
-        For true determinism, we must fix BOTH:
-        - The RNG seed (controls damage rolls, AI decisions)
-        - The map (get_random_map() uses Python random, which is NOT seeded)
-        """
+        # Prefer our current flat AI
+        for candidate in ["ais/fighter_v11_flat.leek", "ais/fighter_v8.leek"]:
+            p = Path(candidate)
+            if p.exists():
+                name, _ = copy_ai_to_generator(p)
+                return name
+
+        # Fallback: AI already in generator dir
+        for name in ["fighter_v8.leek", "fighter_v1.leek"]:
+            if (GENERATOR_PATH / name).exists():
+                return name
+
+        pytest.skip("No AI file available for sim tests")
+
+    def test_same_seed_same_result_10_runs(self):
+        """CRITICAL: 10 runs with same seed + same map MUST produce identical outcomes."""
         sim = Simulator()
         seed = 12345
         results = []
+        ai_path = self._get_ai()
 
-        # Use a simple AI that exists
-        ai_path = "fighter_v11.leek"
-        if not Path(f"tools/leek-wars-generator/ai/{ai_path}").exists():
-            ai_path = "fighter_v8.leek"  # Fallback
-
-        # Fix the map for determinism (random map selection uses Python random)
-        fixed_map = MapConfig.symmetric_empty()
+        # Fix the map for determinism
+        fixed_map = MapConfig.symmetric_empty(rng=random.Random(0))
 
         for i in range(10):
             outcome = sim.run_1v1(ai_path, ai_path, level=10, seed=seed, map_config=fixed_map)
@@ -70,18 +82,15 @@ class TestDeterminism:
         """Different seeds should produce statistical variance."""
         sim = Simulator()
         outcomes = set()
+        ai_path = self._get_ai()
 
-        ai_path = "fighter_v11.leek"
-        if not Path(f"tools/leek-wars-generator/ai/{ai_path}").exists():
-            ai_path = "fighter_v8.leek"
-
-        # Run with 20 different seeds
+        # Run with 20 different seeds, each with a fresh realistic map
         for seed in range(20):
-            outcome = sim.run_1v1(ai_path, ai_path, level=10, seed=seed)
+            map_config = MapConfig.symmetric_empty(rng=random.Random(seed * 31))
+            outcome = sim.run_1v1(ai_path, ai_path, level=10, seed=seed, map_config=map_config)
             outcomes.add((outcome.winner, outcome.turns))
 
-        # With 20 different seeds, we should see at least 3 unique outcomes
-        # (some variation in winner or turn count)
+        # With 20 different seeds + maps, we should see at least 2 unique outcomes
         assert len(outcomes) >= 2, \
             f"Expected variance with different seeds, got {len(outcomes)} unique outcomes"
 

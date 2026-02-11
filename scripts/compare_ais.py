@@ -23,7 +23,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from leekwars_agent.simulator import (
-    Simulator, EntityConfig, ScenarioConfig,
+    Simulator, EntityConfig, ScenarioConfig, MapConfig,
     GENERATOR_PATH, copy_ai_to_generator,
 )
 from sim_defaults import *  # noqa: F403 F401
@@ -102,9 +102,15 @@ def compare_ais(
     wins2 = 0
     draws = 0
 
+    import random as _random
+
     for i in range(n_fights):
         seed = i
         swap = (i % 2 == 1)  # Swap teams every other fight to eliminate map bias
+
+        # Generate realistic spawn positions per fight (online: distance 18-34, median 26)
+        map_rng = _random.Random(seed * 7919 + 42)  # Deterministic but decorrelated from fight seed
+        fight_map = MapConfig.symmetric_empty(rng=map_rng)
 
         # Build entity configs (swap positions to eliminate map bias)
         configs = [
@@ -142,6 +148,7 @@ def compare_ais(
 
         scenario = ScenarioConfig(
             team1=[entity1], team2=[entity2],
+            map_config=fight_map,
             seed=seed, starter_team=starter_team,
         )
 
