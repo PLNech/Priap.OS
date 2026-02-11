@@ -1,0 +1,56 @@
+{
+  "session": 24,
+  "date": "2026-02-11",
+  "completed_tasks": [
+    {
+      "task_id": 76,
+      "subject": "shouldBuff distance-based fix (was: v14 Opening Burst)",
+      "root_cause": "shouldBuff() returned false on turn 1 due to unknown TTK, preventing MOTIVATION+BOOTS buffs. Online enemies start 12-15 cells apart (out of range), so buffing is always correct at distance.",
+      "solution": "Distance check: buff if dist > 10, attack if close. 15-line change replaced entire v14 module (173 lines). Sim-neutral (51-49), expected positive online.",
+      "key_files": ["ais/v11_chips.leek", "ais/fighter_v11_flat.leek"],
+      "learnings": [
+        "Sim starts enemies ~8-10 cells; online ~12-15. Buff strategies must adapt to both.",
+        "Always buff turn 1 was catastrophic (18% WR) — distance guard is the correct pattern.",
+        "Mirror match 50/50 is the sanity check before deploying any AI change."
+      ]
+    },
+    {
+      "task_id": 94,
+      "subject": "AI version tracking — leek ai status + SOTA symlink",
+      "solution": "ais/current symlink → deployed file. leek ai status shows server + local + sync. deploy auto-updates symlink.",
+      "key_files": ["src/leekwars_agent/cli/commands/ai.py", "ais/current"],
+      "learnings": ["Symlink pattern: git-trackable, shell-composable, zero-dependency"]
+    },
+    {
+      "task_id": 77,
+      "subject": "Solo tournament automation",
+      "solution": "Tournament CLI fixed (defaults to leek, handles already_registered). Added ensure-registration step to GH Actions. Registration is persistent toggle.",
+      "key_files": ["src/leekwars_agent/cli/commands/tournament.py", "src/leekwars_agent/api.py", ".github/workflows/daily-fights.yml"],
+      "learnings": [
+        "LeekWars returns 401 for business errors (already_registered, too_much_weapons). Parse JSON body before raising.",
+        "Tournament registration is a persistent toggle — register once, stay registered."
+      ]
+    },
+    {
+      "task_id": 95,
+      "subject": "Refactor simulation scripts: shared build profile",
+      "solution": "Created scripts/sim_defaults.py as SSOT. Rewrote compare_ais.py and debug_fight.py. Deleted 6 redundant scripts.",
+      "key_files": ["scripts/sim_defaults.py", "scripts/compare_ais.py", "scripts/debug_fight.py"],
+      "learnings": ["Always validate sim scripts use correct defaults — wrong HP/weapons caused misleading results for weeks."]
+    },
+    {
+      "task_id": 59,
+      "subject": "Tournament participation automation",
+      "solution": "Covered by #77.",
+      "key_files": [],
+      "learnings": []
+    },
+    {
+      "task_id": 87,
+      "subject": "Fight Economy Optimization",
+      "solution": "All actionable items completed across #88 (BR WS), #89 (scraper backfill). Economy verified healthy.",
+      "key_files": [],
+      "learnings": ["Pack ROI needs Talent > 100 (we're at 89 now, getting close)"]
+    }
+  ]
+}
