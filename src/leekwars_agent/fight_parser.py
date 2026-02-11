@@ -240,6 +240,142 @@ def parse_fight(fight_data: dict) -> dict:
     return result
 
 
+def extract_combat_stats(fight_json: dict) -> dict[int, dict]:
+    """Extract per-leek combat stats from stored fight JSON.
+
+    Parses the full action log in a single pass to compute:
+    - damage_dealt/received, healing_done
+    - weapons_used, chips_used (template IDs)
+    - cells_moved, turns_alive, death_turn
+    - ai_errors count
+
+    Returns: {leek_id: {stat_name: value, ...}}
+    Entity IDs (0,1,...) in actions are mapped back to real leek IDs
+    via (team, farmer) matching between data.leeks and leeks1/leeks2.
+    """
+    fight = fight_json.get("fight", fight_json)
+    data = fight.get("data", {})
+    actions = data.get("actions", [])
+
+    if not actions:
+        return {}
+
+    # Build entity_id → leek_id mapping
+    entity_to_leek: dict[int, int] = {}
+    for entity in data.get("leeks", []):
+        if entity.get("summon"):
+            continue
+        eid = entity.get("id")
+        team = entity.get("team")
+        farmer = entity.get("farmer")
+        if eid is None or team is None:
+            continue
+        team_leeks = fight.get(f"leeks{team}", [])
+        for leek in team_leeks:
+            if leek.get("farmer") == farmer:
+                entity_to_leek[eid] = leek.get("id")
+                break
+
+    if not entity_to_leek:
+        return {}
+
+    # Initialize per-leek stats
+    stats: dict[int, dict] = {}
+    for leek_id in entity_to_leek.values():
+        stats[leek_id] = {
+            "damage_dealt": 0,
+            "damage_received": 0,
+            "healing_done": 0,
+            "weapons_used": set(),
+            "chips_used": set(),
+            "cells_moved": 0,
+            "turns_alive": 0,
+            "death_turn": 0,  # 0 = survived
+            "ai_errors": 0,
+        }
+
+    current_entity_id = None  # Track whose turn it is
+    current_turn_num = 0
+
+    for action in actions:
+        if not action:
+            continue
+        code = action[0]
+
+        if code == 6:  # NEW_TURN
+            current_turn_num = action[1] if len(action) > 1 else current_turn_num + 1
+
+        elif code == 7:  # LEEK_TURN
+            current_entity_id = action[1] if len(action) > 1 else None
+            leek_id = entity_to_leek.get(current_entity_id)
+            if leek_id and leek_id in stats:
+                stats[leek_id]["turns_alive"] += 1
+
+        elif code == 10:  # MOVE_TO — [10, entity, target_cell, path_list]
+            eid = action[1] if len(action) > 1 else None
+            leek_id = entity_to_leek.get(eid)
+            if leek_id and leek_id in stats:
+                path = action[3] if len(action) > 3 and isinstance(action[3], list) else []
+                stats[leek_id]["cells_moved"] += len(path) if path else 1
+
+        elif code == 12:  # USE_CHIP — [12, chip_template_id, ...]
+            chip_id = action[1] if len(action) > 1 else None
+            leek_id = entity_to_leek.get(current_entity_id)
+            if leek_id and leek_id in stats and chip_id is not None:
+                stats[leek_id]["chips_used"].add(chip_id)
+
+        elif code == 16:  # USE_WEAPON — [16, weapon_template_id, ...]
+            weapon_id = action[1] if len(action) > 1 else None
+            leek_id = entity_to_leek.get(current_entity_id)
+            if leek_id and leek_id in stats and weapon_id is not None:
+                stats[leek_id]["weapons_used"].add(weapon_id)
+
+        elif code == 101:  # LOST_LIFE — [101, target_entity, amount, ...]
+            eid = action[1] if len(action) > 1 else None
+            damage = action[2] if len(action) > 2 else 0
+            # Damage received by target
+            target_leek = entity_to_leek.get(eid)
+            if target_leek and target_leek in stats:
+                stats[target_leek]["damage_received"] += damage
+            # Damage dealt by active entity
+            dealer_leek = entity_to_leek.get(current_entity_id)
+            if dealer_leek and dealer_leek in stats and dealer_leek != target_leek:
+                stats[dealer_leek]["damage_dealt"] += damage
+
+        elif code == 103:  # HEAL — [103, entity, amount]
+            eid = action[1] if len(action) > 1 else None
+            heal = action[2] if len(action) > 2 else 0
+            # Healing attributed to the caster (active entity), not target
+            healer_leek = entity_to_leek.get(current_entity_id)
+            if healer_leek and healer_leek in stats:
+                stats[healer_leek]["healing_done"] += heal
+
+        elif code == 110:  # POISON_DAMAGE — [110, entity, amount, ...]
+            eid = action[1] if len(action) > 1 else None
+            damage = action[2] if len(action) > 2 else 0
+            target_leek = entity_to_leek.get(eid)
+            if target_leek and target_leek in stats:
+                stats[target_leek]["damage_received"] += damage
+
+        elif code == 5:  # PLAYER_DEAD — [5, entity]
+            eid = action[1] if len(action) > 1 else None
+            leek_id = entity_to_leek.get(eid)
+            if leek_id and leek_id in stats:
+                stats[leek_id]["death_turn"] = current_turn_num
+
+        elif code in (1000, 1002):  # ERROR / AI_ERROR
+            leek_id = entity_to_leek.get(current_entity_id)
+            if leek_id and leek_id in stats:
+                stats[leek_id]["ai_errors"] += 1
+
+    # Convert sets to sorted lists for JSON serialization
+    for leek_id in stats:
+        stats[leek_id]["weapons_used"] = sorted(stats[leek_id]["weapons_used"])
+        stats[leek_id]["chips_used"] = sorted(stats[leek_id]["chips_used"])
+
+    return stats
+
+
 def summarize_fight(fight_data: dict) -> str:
     """Generate human-readable fight summary."""
     parsed = parse_fight(fight_data)

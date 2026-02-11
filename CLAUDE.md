@@ -365,6 +365,37 @@ docs/                  # Living documentation
 - **WebSocket auth**: JWT needed as BOTH subprotocol AND cookie header
 - **`leek.ai` is a dict** `{id, name, valid, version, total_lines}`, not just an integer
 
+### Chip/Weapon ID Triple-Mapping (CRITICAL - TESTED)
+Three ID systems exist for chips (verified in `tests/test_fight_parser.py`):
+
+| System | Where used | Example (Flame) |
+|--------|-----------|-----------------|
+| **chips.json key** | API leek equipment `"template"` field | `5` |
+| **chips.json template** | Fight action log (`USE_CHIP [12, X, ...]`) | `10` |
+| **Instance ID** | API leek equipment `"id"` field | `2435820` |
+
+**Mapping for OUR equipped chips:**
+| Chip | API template | Action log ID |
+|------|-------------|---------------|
+| Protein | 8 | 24 |
+| Motivation | 15 | 33 |
+| Cure | 4 | 2 |
+| Boots | 14 | 30 |
+| Flash | 6 | 7 |
+| Flame | 5 | 10 |
+
+**To decode action log → name**: `chips.json[key].template == action_log_id` → `chips.json[key].name`
+**To decode API → action log**: `chips.json[api_template].template` → action log ID
+
+Same triple-mapping applies to weapons (`data/weapons.json`).
+
+### Fight Data Pipeline (Session 25)
+- **Scraper** (`scraper.py`) stores raw fight JSON in `fights.json_data`
+- **`extract_combat_stats()`** (`fight_parser.py`) parses action logs → per-leek stats
+- **Backfill** (`db.backfill_combat_stats()`) retroactively populates observations
+- **Columns populated**: `damage_dealt`, `damage_received`, `healing_done`, `cells_moved`, `weapons_used`, `chips_used`, `turns_alive`, `death_turn`, `ai_errors`
+- **New scrapes** auto-extract via `process_fight()` in scraper
+
 ### AI Versions
 | Version | Codename | Key Feature | Status |
 |---------|----------|-------------|--------|

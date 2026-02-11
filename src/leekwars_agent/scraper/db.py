@@ -57,14 +57,17 @@ CREATE TABLE IF NOT EXISTS leek_observations (
     frequency INTEGER,
     tp INTEGER,
     mp INTEGER,
-    -- Fight performance
+    -- Fight performance (backfilled from action log parsing)
     damage_dealt INTEGER DEFAULT 0,
     damage_received INTEGER DEFAULT 0,
+    healing_done INTEGER DEFAULT 0,
     cells_moved INTEGER DEFAULT 0,
     ops_used INTEGER DEFAULT 0,  -- Operations consumed (from fight.data.ops)
-    weapons_used TEXT,           -- JSON array of weapon IDs
-    chips_used TEXT,             -- JSON array of chip IDs
+    weapons_used TEXT,           -- JSON array of weapon template IDs
+    chips_used TEXT,             -- JSON array of chip template IDs
     turns_alive INTEGER DEFAULT 0,
+    death_turn INTEGER DEFAULT 0,  -- Turn of death (0 = survived)
+    ai_errors INTEGER DEFAULT 0,
     observed_at TEXT NOT NULL,
     PRIMARY KEY (fight_id, leek_id)
 );
@@ -175,9 +178,19 @@ class FightDB:
         self._init_schema()
 
     def _init_schema(self):
-        """Initialize database schema."""
+        """Initialize database schema and run migrations."""
         conn = self._get_conn()
         conn.executescript(SCHEMA)
+        # Migrate: add columns that may not exist in older DBs
+        for col, typedef in [
+            ("healing_done", "INTEGER DEFAULT 0"),
+            ("death_turn", "INTEGER DEFAULT 0"),
+            ("ai_errors", "INTEGER DEFAULT 0"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE leek_observations ADD COLUMN {col} {typedef}")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
         conn.commit()
 
     def _get_conn(self) -> sqlite3.Connection:
@@ -343,6 +356,80 @@ class FightDB:
             ),
         )
         conn.commit()
+
+    def backfill_combat_stats(self, progress_every: int = 500) -> dict:
+        """Re-parse all stored fight JSONs and backfill combat stats.
+
+        Reads json_data from fights table, runs extract_combat_stats(),
+        and updates leek_observations with damage/chips/weapons/turns data.
+
+        Returns: {processed: N, updated: N, errors: N}
+        """
+        from ..fight_parser import extract_combat_stats
+
+        conn = self._get_conn()
+        cursor = conn.execute("SELECT fight_id, json_data FROM fights")
+
+        processed = 0
+        updated = 0
+        errors = 0
+
+        for row in cursor:
+            fight_id = row["fight_id"]
+            try:
+                fight_json = json.loads(row["json_data"])
+                stats = extract_combat_stats(fight_json)
+
+                for leek_id, s in stats.items():
+                    conn.execute(
+                        """
+                        UPDATE leek_observations SET
+                            damage_dealt = ?,
+                            damage_received = ?,
+                            healing_done = ?,
+                            cells_moved = ?,
+                            weapons_used = ?,
+                            chips_used = ?,
+                            turns_alive = ?,
+                            death_turn = ?,
+                            ai_errors = ?
+                        WHERE fight_id = ? AND leek_id = ?
+                        """,
+                        (
+                            s["damage_dealt"],
+                            s["damage_received"],
+                            s["healing_done"],
+                            s["cells_moved"],
+                            json.dumps(s["weapons_used"]),
+                            json.dumps(s["chips_used"]),
+                            s["turns_alive"],
+                            s["death_turn"],
+                            s["ai_errors"],
+                            fight_id,
+                            leek_id,
+                        ),
+                    )
+                    if conn.total_changes:
+                        updated += 1
+
+            except Exception as e:
+                errors += 1
+                if errors <= 5:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        f"Backfill error fight {fight_id}: {e}"
+                    )
+
+            processed += 1
+            if processed % progress_every == 0:
+                conn.commit()
+                import logging
+                logging.getLogger(__name__).info(
+                    f"Backfill progress: {processed} fights processed, {updated} observations updated"
+                )
+
+        conn.commit()
+        return {"processed": processed, "updated": updated, "errors": errors}
 
     # =========================================================================
     # Alpha Strike Metrics

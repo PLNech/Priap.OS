@@ -4,6 +4,7 @@ Politely downloads fights from LeekWars API with rate limiting.
 Adapted from tagadai's architecture.
 """
 
+import json
 import time
 import logging
 from datetime import datetime
@@ -461,8 +462,31 @@ class FightScraper:
             ops_used = self._ops_for_entity(entity_id, ops_by_entity)
             self.db.store_leek_observation(fight_id, merged, team=2, won=(winner == 2), ops_used=ops_used)
 
-        # Note: We could discover more fights from participants' histories,
-        # but that's expensive (1 API call per leek). Bootstrap provides enough.
+        # Parse action log for combat stats (damage, chips, weapons, etc.)
+        try:
+            from ..fight_parser import extract_combat_stats
+            combat_stats = extract_combat_stats(data)
+            for leek_id, s in combat_stats.items():
+                conn = self.db._get_conn()
+                conn.execute(
+                    """
+                    UPDATE leek_observations SET
+                        damage_dealt = ?, damage_received = ?, healing_done = ?,
+                        cells_moved = ?, weapons_used = ?, chips_used = ?,
+                        turns_alive = ?, death_turn = ?, ai_errors = ?
+                    WHERE fight_id = ? AND leek_id = ?
+                    """,
+                    (
+                        s["damage_dealt"], s["damage_received"], s["healing_done"],
+                        s["cells_moved"], json.dumps(s["weapons_used"]),
+                        json.dumps(s["chips_used"]), s["turns_alive"],
+                        s["death_turn"], s["ai_errors"],
+                        fight_id, leek_id,
+                    ),
+                )
+                conn.commit()
+        except Exception as e:
+            logger.warning(f"Combat stats extraction failed for fight {fight_id}: {e}")
 
         return True
 
