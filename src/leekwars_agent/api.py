@@ -378,7 +378,8 @@ class LeekWarsAPI:
 
     def remove_chip(self, leek_id: int, chip_id: int) -> dict[str, Any]:
         """Remove a chip from a leek."""
-        response = self._client.post(
+        response = self._client.request(
+            "DELETE",
             "/leek/remove-chip",
             headers=self._headers(),
             data={"leek_id": leek_id, "chip_id": chip_id},

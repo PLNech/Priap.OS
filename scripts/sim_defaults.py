@@ -7,8 +7,8 @@ All simulation scripts (compare_ais, debug_fight, etc.) import from here.
 
 # === Our Leek: IAdonis (ID: 131321) ===
 
-LEEK_LEVEL = 73
-LEEK_LIFE = 316
+LEEK_LEVEL = 74
+LEEK_LIFE = 319
 LEEK_TP = 10
 LEEK_MP = 3
 
@@ -25,5 +25,5 @@ LEEK_MAG = 0
 # Weapons: Magnum(45, 5TP, range 1-8) + Laser(42, 6TP, range 2-9)
 DEFAULT_WEAPONS = [45, 42]
 
-# Chips: CURE(4), FLAME(5), FLASH(6), PROTEIN(8), BOOTS(14), MOTIVATION(15)
-DEFAULT_CHIPS = [4, 5, 6, 8, 14, 15]
+# Chips: CURE(4), FLAME(5), FLASH(6), MOTIVATION(15), SHIELD(20), HELMET(21)
+DEFAULT_CHIPS = [4, 5, 6, 15, 20, 21]
