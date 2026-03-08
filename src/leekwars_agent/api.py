@@ -279,6 +279,24 @@ class LeekWarsAPI:
             json={"item_id": item_id, "quantity": quantity},
         ).json()
 
+    def sell_item(self, item_id: int) -> dict[str, Any]:
+        """Sell an item from inventory for habs.
+
+        Source: tools/leek-wars/src/component/market/market.vue:484
+        POST market/sell-habs {item_id: template_id}
+
+        Args:
+            item_id: The item template ID (same as buy)
+
+        Raises:
+            LeekWarsError: not_found, etc.
+        """
+        return self._request(
+            "post", "/market/sell-habs",
+            headers=self._browser_headers("/market"),
+            json={"item_id": item_id},
+        ).json()
+
     # Inventory & Crafting
     def get_inventory(self) -> dict[str, Any]:
         """Get farmer's inventory (all items, resources, components).

@@ -128,6 +128,54 @@ def buy(ctx: click.Context, item_id: int, quantity: int, dry_run: bool) -> None:
         api.close()
 
 
+@market.command("sell")
+@click.argument("item_id", type=int)
+@click.option("--dry-run", is_flag=True, help="Show sell price without selling")
+@click.pass_context
+def sell(ctx: click.Context, item_id: int, dry_run: bool) -> None:
+    """Sell an item from inventory for habs.
+
+    ITEM_ID is the item template ID (use 'leek market list' to see IDs).
+
+    Examples:
+        leek market sell 40     # Sell Destroyer
+        leek market sell 42 --dry-run  # Check Laser sell price
+    """
+    item = get_item(item_id)
+    if not item:
+        error(f"Unknown item #{item_id}. Use 'leek market list' to see items.")
+        raise SystemExit(1)
+
+    api = login_api()
+    try:
+        inv = api.get_inventory()
+        habs = inv.get("habs", 0)
+
+        if dry_run:
+            console.print(f"[yellow]Would sell {item['name']} (#{item_id})[/yellow]")
+            console.print(f"  Sell price: {item.get('price', '?'):,} habs (buy price)")
+            console.print(f"  Current habs: {habs:,}")
+            if ctx.obj.get("json"):
+                output_json({"item": item, "habs": habs})
+            return
+
+        try:
+            result = api.sell_item(item_id)
+        except LeekWarsError as e:
+            error(f"Sell failed: {e.error}")
+            raise SystemExit(1)
+
+        if ctx.obj.get("json"):
+            output_json(result)
+        else:
+            success(f"Sold {item['name']}!")
+            new_habs = api.get_inventory().get("habs", 0)
+            console.print(f"  Habs: {habs:,} → {new_habs:,} (+{new_habs - habs:,})")
+
+    finally:
+        api.close()
+
+
 @market.command("equip")
 @click.argument("item_id", type=int)
 @click.pass_context
@@ -176,6 +224,57 @@ def equip(ctx: click.Context, item_id: int) -> None:
             item_data = get_item(template)
             name = item_data["name"] if item_data else f"item_{template}"
             success(f"Equipped {name} to leek!")
+
+    finally:
+        api.close()
+
+
+@market.command("unequip")
+@click.argument("item_id", type=int)
+@click.pass_context
+def unequip(ctx: click.Context, item_id: int) -> None:
+    """Unequip a chip or weapon from your leek.
+
+    ITEM_ID is the inventory item ID (not template ID).
+    Use 'leek info leek --json' to see equipped items with their IDs.
+    """
+    api = login_api()
+    try:
+        leek = api.get_leek(LEEK_ID)
+        found = None
+        item_type = None
+        for chip in leek.get("chips", []):
+            if chip.get("id") == item_id:
+                found = chip
+                item_type = "chip"
+                break
+        for weapon in leek.get("weapons", []):
+            if weapon.get("id") == item_id:
+                found = weapon
+                item_type = "weapon"
+                break
+
+        if not found:
+            error(f"Item #{item_id} not equipped on leek")
+            raise SystemExit(1)
+
+        try:
+            if item_type == "chip":
+                result = api.remove_chip(LEEK_ID, item_id)
+            else:
+                result = api.remove_weapon(item_id)
+        except LeekWarsError as e:
+            error(f"Unequip failed: {e.error}")
+            raise SystemExit(1)
+
+        template = found.get("template", 0)
+        item_data = get_item(template)
+        name = item_data["name"] if item_data else f"item_{template}"
+
+        if ctx.obj.get("json"):
+            output_json(result)
+        else:
+            success(f"Unequipped {name} from leek!")
 
     finally:
         api.close()
