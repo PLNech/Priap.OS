@@ -90,6 +90,7 @@ No AI is "deployed successfully" until one fight's logs show no runtime errors.
 
 ### CLI-First (MANDATORY)
 Never raw API calls in scripts. Always: `api.py` method → CLI command → use CLI.
+**Ad-hoc Python scripts are a smell.** Once is exploration, twice means it should be a CLI command. If you're writing `poetry run python3 -c "..."` to do something, ask: should this be `leek <command>`?
 
 ### API Discovery (MANDATORY)
 Never guess endpoints. Verify from frontend source:

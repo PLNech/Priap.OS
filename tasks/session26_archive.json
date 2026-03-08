@@ -1,0 +1,17 @@
+{
+  "archived_date": "2026-03-06",
+  "session": "S26-S27",
+  "tasks": [
+    {"id": 97, "subject": "Backfill fight observations with combat stats", "learnings": ["5327 fights backfilled", "extract_combat_stats() single-pass parser"]},
+    {"id": 98, "subject": "Rewrite CLAUDE.md for max efficiency", "learnings": ["670→302 lines", "THESIS.md as strategic north star"]},
+    {"id": 96, "subject": "Competitive Intelligence Sprint", "learnings": ["SmartThing T557 has TP14/MP5/HP576", "TP/MP matter MORE than STR"]},
+    {"id": 65, "subject": "Simulator: Fix map seeding for determinism", "learnings": ["Map seeding now deterministic"]},
+    {"id": 103, "subject": "Fix sim/online fidelity", "learnings": ["Spawn distance 4→26", "All previous sim results were meaningless", "Generator quadrant formula"]},
+    {"id": 102, "subject": "Buy priority chips", "learnings": ["Helmet+Shield+Spark+Bandage for 20,960 Habs", "remove-chip API expects DELETE not POST"]},
+    {"id": 100, "subject": "Test v12 vs v11 offline", "learnings": ["v12 61.4% vs v11 with correct spawns", "Was 50/50 with old spawns"]},
+    {"id": 104, "subject": "Create v13 AI (Helmet+Shield)", "learnings": ["Defensive buffs every turn, not gated by shouldBuff", "v13 51.2% vs v12 in sim"]},
+    {"id": 101, "subject": "Deploy v12 + run verification", "learnings": ["AI ID 457881, then 457884 for v13"]},
+    {"id": 105, "subject": "Craft components", "learnings": ["Apple +100HP, Core +4cores, Fan +40freq, CD +40wis", "Propulsor -30 RES removed", "Salt/Sand are resources not components"]},
+    {"id": 99, "subject": "Create v12 AI", "learnings": ["Flame-first, correct ranges, Cure at 40% post-combat"]}
+  ]
+}

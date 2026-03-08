@@ -5,6 +5,7 @@ from ..output import output_json, success, error, console
 from ..constants import LEEK_ID
 from ..items_loader import get_market_items, get_item, ITEM_TYPE_CHIP, ITEM_TYPE_WEAPON
 from leekwars_agent.auth import login_api
+from leekwars_agent.api import LeekWarsError
 
 
 @click.group()
@@ -110,7 +111,11 @@ def buy(ctx: click.Context, item_id: int, quantity: int, dry_run: bool) -> None:
             return
 
         # Actually buy
-        result = api.buy_item(item_id, quantity)
+        try:
+            result = api.buy_item(item_id, quantity)
+        except LeekWarsError as e:
+            error(f"Purchase failed: {e.error}")
+            raise SystemExit(1)
 
         if ctx.obj.get("json"):
             output_json(result)
@@ -155,10 +160,14 @@ def equip(ctx: click.Context, item_id: int) -> None:
             error(f"Item #{item_id} not found in inventory")
             raise SystemExit(1)
 
-        if item_type == "chip":
-            result = api.add_chip(LEEK_ID, item_id)
-        else:
-            result = api.add_weapon(LEEK_ID, item_id)
+        try:
+            if item_type == "chip":
+                result = api.add_chip(LEEK_ID, item_id)
+            else:
+                result = api.add_weapon(LEEK_ID, item_id)
+        except LeekWarsError as e:
+            error(f"Equip failed: {e.error}")
+            raise SystemExit(1)
 
         if ctx.obj.get("json"):
             output_json(result)

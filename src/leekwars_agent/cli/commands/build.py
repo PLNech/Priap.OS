@@ -4,6 +4,7 @@ import click
 from ..output import output_json, success, error, console
 from ..constants import LEEK_ID
 from leekwars_agent.auth import login_api
+from leekwars_agent.api import LeekWarsError
 
 
 @click.group()
@@ -81,6 +82,9 @@ def show_build(ctx: click.Context) -> None:
     "resistance", "res",
     "science", "sci",
     "magic", "mag",
+    "life", "hp",
+    "tp",
+    "mp",
 ]))
 @click.argument("points", type=int)
 @click.option("--dry-run", is_flag=True, help="Show what would happen without spending")
@@ -105,6 +109,9 @@ def spend_capital(ctx: click.Context, stat: str, points: int, dry_run: bool) -> 
         "res": "resistance", "resistance": "resistance",
         "sci": "science", "science": "science",
         "mag": "magic", "magic": "magic",
+        "hp": "life", "life": "life",
+        "tp": "tp",
+        "mp": "mp",
     }
     stat_name = stat_map[stat]
 
@@ -131,7 +138,11 @@ def spend_capital(ctx: click.Context, stat: str, points: int, dry_run: bool) -> 
             return
 
         # Spend via API
-        api.spend_capital(LEEK_ID, {stat_name: points})
+        try:
+            api.spend_capital(LEEK_ID, {stat_name: points})
+        except LeekWarsError as e:
+            error(f"Spend failed: {e.error}")
+            raise SystemExit(1)
 
         # Re-fetch actual values to confirm
         after = api.get_leek(LEEK_ID)
