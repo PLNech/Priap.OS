@@ -434,7 +434,7 @@ global chips_loaded = false
 
 // Cooldown tracking
 global tranq_uses_this_turn = 0
-global TRANQ_MAX_PER_TURN = 2  // 2 uses/turn = 6 TP, crippling but leave TP for Flame
+global TRANQ_MAX_PER_TURN = 1  // 1 use/turn = 3 TP. Damage > debuff (S29: near-miss losses)
 global cd_helmet = 0
 global cd_shield = 0
 global cd_armor = 0
@@ -788,10 +788,7 @@ if (strategy == "retreat") {
         }
     }
 
-    // Tranquilizer FIRST — cripple their next turn before we deal damage
-    debuffEnemy(enemy)
-
-    // Chip damage (Flame, range 2-7)
+    // Chip damage FIRST — every Flame matters more than a debuff
     useChipDamage(enemy)
 
     // Weapon attacks (Laser 2-9, Magnum 1-8)
@@ -804,13 +801,15 @@ if (strategy == "retreat") {
     }
     useChipDamage(enemy)
     executeAttacks(enemy)
+
+    // Tranquilizer LAST — spend leftover TP crippling their next turn
+    debuffEnemy(enemy)
 }
 
 // =============================================================================
-// PHASE 6: POST-COMBAT DEBUFF (Tranquilizer — spend remaining TP crippling enemy)
+// PHASE 6: POST-COMBAT DEBUFF (leftover TP → cripple enemy's next turn)
 // =============================================================================
 debuffEnemy(enemy)
-debuffEnemy(enemy)  // Try twice (2 uses/turn max, 3 TP each = 6 TP)
 
 // =============================================================================
 // END OF TURN
