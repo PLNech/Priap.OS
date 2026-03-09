@@ -181,7 +181,7 @@ def list_ais(ctx: click.Context) -> None:
         api.close()
 
 
-SOTA_SYMLINK = Path("ais/current")
+SOTA_SYMLINK = Path(__file__).resolve().parents[4] / "ais" / "current"
 
 
 def _get_local_sota() -> tuple[str | None, Path | None]:
