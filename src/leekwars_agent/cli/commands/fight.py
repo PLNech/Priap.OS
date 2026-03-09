@@ -323,9 +323,18 @@ def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool, clas
 
                 elif code == 12:  # Chip used
                     chip_id = action[1]
-                    # Common chip names
-                    chip_names = {1: "CURE", 4: "PROTEIN", 5: "MOTIVATION", 6: "BOOTS",
-                                  8: "SHIELD", 9: "FLAME", 10: "FLASH", 14: "BANDAGE", 15: "KNOWLEDGE"}
+                    # Template ID → name (from tools/leek-wars/src/model/chips.ts)
+                    chip_names = {
+                        1: "BANDAGE", 2: "CURE", 3: "DRIP", 4: "REGENERATION",
+                        5: "VACCINE", 6: "SHOCK", 7: "FLASH", 8: "LIGHTNING",
+                        9: "SPARK", 10: "FLAME", 11: "METEORITE", 12: "PEBBLE",
+                        13: "ROCK", 14: "ROCKFALL", 15: "ICE", 16: "STALACTITE",
+                        17: "ICEBERG", 18: "SHIELD", 19: "HELMET", 20: "ARMOR",
+                        21: "WALL", 22: "RAMPART", 23: "FORTRESS", 24: "PROTEIN",
+                        25: "STEROID", 33: "MOTIVATION", 40: "PUNY_BULB",
+                        43: "ROCKY_BULB", 48: "CARAPACE", 49: "RESURRECTION",
+                        51: "WHIP", 57: "TRANQUILIZER", 66: "FEROCITY",
+                    }
                     name = chip_names.get(chip_id, f"Chip#{chip_id}")
                     console.print(f"      Use {name}")
 
