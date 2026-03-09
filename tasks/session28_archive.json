@@ -1,0 +1,44 @@
+[
+  {
+    "id": "106",
+    "subject": "Analyze recent fights (v13 performance at L108)",
+    "description": "Scrape and analyze recent fights to understand v13 Aegis performance. Check: Helmet/Shield usage, AI errors, WR trend, damage patterns. This informs the v14 AI design.",
+    "status": "completed",
+    "session": "S28"
+  },
+  {
+    "id": "107",
+    "subject": "Spend 221 capital (data-driven build)",
+    "description": "Spend all 221 unspent capital. Data says: TP/MP critically low vs peers, RES=0, HP low. Optimal allocation TBD after fight analysis. Use leek/spend-capital API endpoint.",
+    "status": "completed",
+    "session": "S28"
+  },
+  {
+    "id": "108",
+    "subject": "Buy Armor chip (85,500 Habs)",
+    "description": "Buy Armor chip (85,500 Habs). Need to sell obsolete items first: Destroyer (36,256) + Pistol (720) + Protein (2,816) = ~39,792 Habs \u2192 total ~114,800 Habs. Requires implementing sell API + CLI. Also buy Tranquilizer (opponent TP shackle), and b_laser when we reach L95 funds. Armor confirmed important by opponent analysis: our WR drops when we can't survive early burst.",
+    "status": "completed",
+    "session": "S28"
+  },
+  {
+    "id": "109",
+    "subject": "Create v14 AI exploiting new stats + chips",
+    "description": "Create v14 AI based on S28 opponent analysis findings:\\n1. REMOVE Flash as default attack \u2014 only use when target is adjacent (range 1-2) and Flame is on cooldown\\n2. Defensive-first: Helmet+Shield turn 1 ALWAYS (longer fights = higher WR: 73% at 12+ turns)\\n3. Add Tranquilizer usage (if bought): shackle enemy TP before they burst\\n4. Anti-kite logic: detect high-MP opponents, use moveTowardCell aggressively\\n5. With TP 14: full rotation = Helmet(3)+Shield(4)+Flame(4)+weapon(3-5) = 14-16 TP\\n6. Drop Protein from consideration (Ferocity at L107 replaces it)\\n7. Optimize for b_laser when available (5TP, damage + self-heal)\\nKey stats: TP 14, MP 4, HP 771, STR 452",
+    "status": "completed",
+    "session": "S28"
+  },
+  {
+    "id": "110",
+    "subject": "Fix API error handling for LeekWars 401 business errors",
+    "description": "LeekWars returns HTTP 401 for business logic errors (not_enough_habs, too_much_chips, wrong_method, etc.), not just auth failures. Our API layer crashes with HTTPStatusError on every one. Fix: parse JSON body on 401, raise a proper LeekWarsError with the actual error message. This has bitten us in S24, S26, and S28. Also add a `market buy` CLI command and pre-flight balance check.",
+    "status": "completed",
+    "session": "S28"
+  },
+  {
+    "id": "111",
+    "subject": "Implement market sell API + CLI command",
+    "description": "Add sell_item() to api.py using POST /market/sell-habs with {item_id: template_id}. Add 'leek market sell' CLI command. Needed to fund Armor chip purchase (sell Destroyer 36,256 + Pistol 720 + Protein 2,816).",
+    "status": "completed",
+    "session": "S28"
+  }
+]
