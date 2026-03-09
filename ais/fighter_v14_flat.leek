@@ -1,14 +1,17 @@
 // Fighter v14 "Phalanx" - FLATTENED for online deployment
-// Based on v13 Aegis + S28 opponent analysis (1,420 fights)
+// Based on v13 Aegis + S28/S29 analysis (1,420 + 12 online fights)
 // =============================================================================
-// Design: Defensive-first attrition. Data says longer fights = we win (73% at 12+ turns).
-// Key changes from v13:
+// Design: Defensive-first attrition + TP denial.
+// S29 changes:
+//   - REPLACED Cure with Tranquilizer (Cure: 0 heals in 12 fights = dead weight)
+//   - Tranquilizer: 3 TP, 50% TP shackle, range 1-8, CD 0, 4 uses
+//   - Fire Tranq BEFORE Flame: cripple enemy's next turn
+// Prior changes (S28):
 //   1. REMOVED Flash (15.7% solo WR → freed slot for Armor)
-//   2. ADDED Armor chip (-25 abs, 4t, CD5) → triple-layer defense (-60 abs stacked)
+//   2. ADDED Armor chip (-25 abs, 4t, CD5) → triple-layer defense
 //   3. Defensive-first: ALL shields before ANY offense
-//   4. Staggered cooldown rotation for permanent mitigation
-//   5. Anti-kite: aggressive closing vs retreating opponents
-//   6. TP 14 budget: Motivation gives 16 TP turns → full rotation
+//   4. Anti-kite: aggressive closing vs retreating opponents
+//   5. TP 14 budget: Motivation gives 16 TP turns → full rotation
 // =============================================================================
 
 // === STATE MODULE ===
@@ -421,7 +424,7 @@ function canAttackFrom(cell, enemy) {
 // Staggered cooldown rotation for permanent mitigation
 
 // Chip references
-global chip_cure = null       // 4 TP, heal 38±8, CD 2
+global chip_tranq = null      // 3 TP, 50% TP shackle, range 1-8, CD 0, 4 uses
 global chip_flame = null      // 4 TP, 29±2 dmg, range 2-7, CD 0, 3 uses/turn
 global chip_helmet = null     // 3 TP, -15 abs, 2t, CD 3
 global chip_shield = null     // 4 TP, -20 abs, 3t, CD 4
@@ -430,7 +433,8 @@ global chip_motivation = null // 4 TP, +2 TP, 3t, CD 6
 global chips_loaded = false
 
 // Cooldown tracking
-global cd_cure = 0
+global tranq_uses_this_turn = 0
+global TRANQ_MAX_PER_TURN = 2  // 2 uses/turn = 6 TP, crippling but leave TP for Flame
 global cd_helmet = 0
 global cd_shield = 0
 global cd_armor = 0
@@ -446,7 +450,7 @@ function loadChips() {
     debug("  Loading " + count(my_chips) + " chips...")
     for (var chip in my_chips) {
         var name = getChipName(chip)
-        if (name == "cure") chip_cure = chip
+        if (name == "tranquilizer") chip_tranq = chip
         else if (name == "flame") chip_flame = chip
         else if (name == "helmet") chip_helmet = chip
         else if (name == "shield") chip_shield = chip
@@ -457,7 +461,7 @@ function loadChips() {
 }
 
 function updateChipCooldowns() {
-    if (cd_cure > 0) cd_cure--
+    tranq_uses_this_turn = 0
     if (cd_helmet > 0) cd_helmet--
     if (cd_shield > 0) cd_shield--
     if (cd_armor > 0) cd_armor--
@@ -468,7 +472,7 @@ function updateChipCooldowns() {
 function canUseChip(chip) {
     if (chip == null) return false
     if (getTP() < getChipCost(chip)) return false
-    if (chip == chip_cure && cd_cure > 0) return false
+    if (chip == chip_tranq && tranq_uses_this_turn >= TRANQ_MAX_PER_TURN) return false
     if (chip == chip_helmet && cd_helmet > 0) return false
     if (chip == chip_shield && cd_shield > 0) return false
     if (chip == chip_armor && cd_armor > 0) return false
@@ -478,7 +482,7 @@ function canUseChip(chip) {
 }
 
 function markChipUsed(chip) {
-    if (chip == chip_cure) cd_cure = 2
+    if (chip == chip_tranq) tranq_uses_this_turn++
     else if (chip == chip_helmet) cd_helmet = 3
     else if (chip == chip_shield) cd_shield = 4
     else if (chip == chip_armor) cd_armor = 5
@@ -585,20 +589,24 @@ function useChipDamage(enemy) {
 }
 
 // =============================================================================
-// HEALING — Post-combat only (pre-attack heal = 10.8% WR in sims)
+// TRANQUILIZER — Cripple enemy TP economy (replaces Cure, S29 data: 0 heals/12 fights)
 // =============================================================================
+// 3 TP, 50% TP shackle (1 turn), range 1-8, CD 0, 4 uses/fight
+// Fire early in combat: halving enemy TP is better than any heal.
+// 2 uses/turn max to preserve TP for Flame.
 
-function healIfNeeded() {
-    var hp_pct = getLife() * 100 / my_start_hp
+function debuffEnemy(enemy) {
+    if (!canUseChip(chip_tranq)) return false
 
-    // Heal at 40% HP, post-combat only
-    if (hp_pct < 40 && canUseChip(chip_cure)) {
-        var result = useChip(chip_cure, getEntity())
-        if (result == USE_SUCCESS) {
-            markChipUsed(chip_cure)
-            debug("    CURE! HP was " + getLife() + " (" + hp_pct + "%)")
-            return true
-        }
+    var dist = getCellDistance(getCell(), getCell(enemy))
+    // Range 1-8, needs LOS
+    if (dist < 1 || dist > 8) return false
+
+    var result = useChip(chip_tranq, enemy)
+    if (result == USE_SUCCESS) {
+        markChipUsed(chip_tranq)
+        debug("    TRANQ! Enemy TP halved for 1 turn")
+        return true
     }
     return false
 }
@@ -661,7 +669,7 @@ if (force_engage) {
 
     // Even in all-in, apply any available defenses (free survivability)
     applyDefensiveBuffs()
-    healIfNeeded()
+    debuffEnemy(enemy)
 
     // Close gap completely
     while (getMP() > 0) {
@@ -750,6 +758,8 @@ if (strategy == "retreat") {
     if (safe_cell != null) {
         moveTowardCell(safe_cell)
     }
+    // Tranquilizer has range 8 — works even while retreating
+    debuffEnemy(enemy)
     // Still try to attack if in range
     useChipDamage(enemy)
     executeAttacks(enemy)
@@ -778,6 +788,9 @@ if (strategy == "retreat") {
         }
     }
 
+    // Tranquilizer FIRST — cripple their next turn before we deal damage
+    debuffEnemy(enemy)
+
     // Chip damage (Flame, range 2-7)
     useChipDamage(enemy)
 
@@ -794,9 +807,10 @@ if (strategy == "retreat") {
 }
 
 // =============================================================================
-// PHASE 6: POST-COMBAT HEAL
+// PHASE 6: POST-COMBAT DEBUFF (Tranquilizer — spend remaining TP crippling enemy)
 // =============================================================================
-healIfNeeded()
+debuffEnemy(enemy)
+debuffEnemy(enemy)  // Try twice (2 uses/turn max, 3 TP each = 6 TP)
 
 // =============================================================================
 // END OF TURN
