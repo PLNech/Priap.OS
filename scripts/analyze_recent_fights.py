@@ -239,7 +239,8 @@ def main():
             data = api.get_leek_history(LEEK_ID)
             history = data.get("fights", [])
             if not args.all_contexts:
-                history = [f for f in history if f.get("context") == 1]
+                # context 1=garden, 2=matchmaking/ladder — include both by default
+                history = [f for f in history if f.get("context") in (1, 2)]
             fight_ids = [f["id"] for f in history[:args.n]]
 
         if not fight_ids:

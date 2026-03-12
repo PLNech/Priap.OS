@@ -1,7 +1,10 @@
 """Pydantic models for LeekWars data structures."""
 
 from .fight import (
+    ActionCode,
+    ChipIdLayer,
     Fight,
+    FightContext,
     FightReplayData,
     FightResponse,
     LeekObservation,
@@ -11,7 +14,10 @@ from .fight import (
 )
 
 __all__ = [
+    "ActionCode",
+    "ChipIdLayer",
     "Fight",
+    "FightContext",
     "FightReplayData",
     "FightResponse",
     "LeekObservation",

@@ -1,17 +1,19 @@
 // Fighter v14 "Phalanx" - FLATTENED for online deployment
-// Based on v13 Aegis + S28/S29 analysis (1,420 + 12 online fights)
+// Based on v13 Aegis + S28/S29/S30 analysis (50+ online fights)
 // =============================================================================
-// Design: Defensive-first attrition + TP denial.
+// Design: Defensive-first attrition + TP denial + life-steal weapon.
+// S30 changes:
+//   - ADDED b_laser (50±10 dmg + 50±10 heal, 5 TP, range 2-8, 3/fight)
+//   - Dynamic approach target: weapon max range (8) not hardcoded Flame range (7)
+//   - Anti-oscillation: force aggro after 3 turns w/o damage (was 5)
+//   - Weapon-first at distance 8: b_laser reaches where Flame can't
 // S29 changes:
 //   - REPLACED Cure with Tranquilizer (Cure: 0 heals in 12 fights = dead weight)
-//   - Tranquilizer: 3 TP, 50% TP shackle, range 1-8, CD 0, 4 uses
-//   - Fire Tranq BEFORE Flame: cripple enemy's next turn
-// Prior changes (S28):
-//   1. REMOVED Flash (15.7% solo WR → freed slot for Armor)
-//   2. ADDED Armor chip (-25 abs, 4t, CD5) → triple-layer defense
-//   3. Defensive-first: ALL shields before ANY offense
-//   4. Anti-kite: aggressive closing vs retreating opponents
-//   5. TP 14 budget: Motivation gives 16 TP turns → full rotation
+//   - Flame-first, Tranq-last rotation (data: 60% vs 33% WR)
+// S28 changes:
+//   - Triple-layer defense (Helmet+Shield+Armor), Armor replaced Flash
+//   - Defensive-first: ALL shields before ANY offense
+//   - TP 14 budget: Motivation gives 16 TP turns → full rotation
 // =============================================================================
 
 // === STATE MODULE ===
@@ -153,9 +155,9 @@ function detectStalemate() {
         return;
     }
 
-    if (turns_no_damage >= 5) {
+    if (turns_no_damage >= 3) {
         force_engage = true
-        debug("  STALEMATE: " + turns_no_damage + " consecutive turns with no damage")
+        debug("  STALEMATE: " + turns_no_damage + " consecutive turns with no damage — forcing aggro")
         return;
     }
 }
@@ -348,7 +350,7 @@ function getBestWeapon(enemy, remaining_tp) {
 
         var uses_this_turn = weapon_uses[w]
         if (uses_this_turn == null) uses_this_turn = 0
-        if (uses_this_turn >= 2) continue  // Laser/Magnum = 2 uses max
+        if (uses_this_turn >= 2) continue  // Per-turn cap; game enforces per-fight max_uses
 
         if (dist < min_range || dist > max_range) continue;
         if (!lineOfSight(getCell(), getCell(enemy))) continue;
@@ -644,7 +646,7 @@ debug("  TTK: us=" + my_ttk + " them=" + enemy_ttk + " winning=" + winning_race)
 if (force_engage) debug("  FORCE ENGAGE MODE")
 
 // =============================================================================
-// EQUIP WEAPON (once, prefer Laser for range)
+// EQUIP WEAPON (once, prefer b_laser for range+heal)
 // =============================================================================
 if (getWeapon() == null) {
     var weapons = getWeapons()
@@ -767,9 +769,10 @@ if (strategy == "retreat") {
 } else {
     // AGGRO: Close and attack
 
-    // Approach to Flame range (7) first — Flame is our bread and butter
-    var approach_target = 7
-    if (approach_target > w_max) approach_target = w_max
+    // Dynamic approach target — b_laser range 8 > Flame range 7
+    // Use our longest weapon range as the approach threshold
+    var approach_target = w_max  // b_laser=8, Laser=7, Magnum=6
+    if (approach_target < 7) approach_target = 7  // Flame range minimum
 
     // Anti-kite: spend ALL MP closing if enemy is running
     if (enemy_pattern == "kiting") {
@@ -788,11 +791,19 @@ if (strategy == "retreat") {
         }
     }
 
-    // Chip damage FIRST — every Flame matters more than a debuff
-    useChipDamage(enemy)
-
-    // Weapon attacks (Laser 2-9, Magnum 1-8)
-    executeAttacks(enemy)
+    // At distance 8: weapon-first (b_laser reaches, Flame doesn't)
+    // At distance <=7: Flame-first (chip damage before weapon)
+    dist = getCellDistance(getCell(), getCell(enemy))
+    if (dist > 7) {
+        debug("  Long range (" + dist + "): weapon-first (b_laser reach)")
+        executeAttacks(enemy)
+        debuffEnemy(enemy)
+        useChipDamage(enemy)
+    } else {
+        // Chip damage FIRST — every Flame matters more than a debuff
+        useChipDamage(enemy)
+        executeAttacks(enemy)
+    }
 
     // Use remaining MP to close further, then attack more
     while (getMP() > 0) {

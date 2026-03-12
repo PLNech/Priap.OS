@@ -47,6 +47,7 @@ from leekwars_agent.auth import login_api
 from leekwars_agent.db import store_fight, init_db
 from leekwars_agent.fight_parser import parse_fight
 from leekwars_agent.fight_analyzer import classify_ai_behavior
+from leekwars_agent.models.fight import ActionCode
 
 # Config
 LEEK_ID = 131321
@@ -259,16 +260,18 @@ def run_fights(api: LeekWarsAPI, count: int) -> dict:
 
             # Extract useful stats for logging
             opponent_name = target.get("name", "Unknown")
-            turn_count = len(fight.get("data", {}).get("actions", {}).keys()) if fight.get("data") else "?"
+            # Actions is a flat list; count NEW_TURN entries for turn count
+            actions_list = fight.get("data", {}).get("actions", [])
+            turn_count = sum(1 for a in actions_list if a[0] == ActionCode.NEW_TURN) if actions_list else "?"
 
             # Get final HP if available
             my_hp = "?"
             enemy_hp = "?"
             if fight.get("data", {}).get("leeks"):
-                for lid, ldata in fight["data"]["leeks"].items():
-                    if int(lid) == leek_id:
+                for ldata in fight["data"]["leeks"]:
+                    if ldata.get("id") == leek_id:
                         my_hp = ldata.get("life", "?")
-                    else:
+                    elif ldata.get("team") != my_team:
                         enemy_hp = ldata.get("life", "?")
 
             # Classify opponent archetype

@@ -9,8 +9,66 @@ Data sources:
 """
 
 from datetime import datetime
+from enum import IntEnum
 from typing import Any
 from pydantic import BaseModel, Field
+
+
+# =============================================================================
+# Enums & Constants
+# =============================================================================
+
+class ActionCode(IntEnum):
+    """Fight action codes from the replay action list.
+
+    Actions are stored as flat lists: [code, ...params].
+    Source: tools/leek-wars/src/component/player/game/action.ts
+    """
+    START = 0
+    DEAD = 5
+    NEW_TURN = 6
+    ENTITY_TURN = 7    # [7, entity_id]
+    END_TURN = 8
+    SUMMON = 9          # [9, entity_id, cell]
+    MOVE_TO = 10        # [10, cell]
+    SET_WEAPON = 13     # [13, weapon_template_id]
+    USE_CHIP = 12       # [12, chip_template_id, target_cell, ...]
+    USE_WEAPON = 16     # [16, target_cell, ...]
+    LOST_PT = 100       # [100, entity_id, tp_lost, mp_lost]
+    DAMAGE = 101        # [101, target_entity_id, amount]
+    HEAL = 102          # [102, target_entity_id, amount]
+
+
+class FightContext(IntEnum):
+    """Fight context indicating how the fight was initiated.
+
+    Source: verified empirically (S30) from 766 fights in leek history.
+    - context=1: Garden fights (manual, against neighbors) — rare
+    - context=2: Matchmaking/ladder fights (auto_daily_fights daemon) — 99%+
+    - context=3: Tournament or test fights
+    """
+    GARDEN = 1
+    MATCHMAKING = 2
+    TOURNAMENT = 3
+
+
+class ChipIdLayer:
+    """Documentation for the two chip ID systems in LeekWars.
+
+    CRITICAL: These are NOT interchangeable! Mixing them up causes silent
+    wrong-chip display in fight logs and incorrect equipment management.
+
+    Layer 1 — chip_id (chips.ts key):
+        Used by: API inventory, sim_defaults.py, DEFAULT_CHIPS, equipment endpoints
+        Example: Flame = 5, Tranquilizer = 94
+
+    Layer 2 — template (chips.ts template field):
+        Used by: Fight replay actions (USE_CHIP), LeekScript constants (CHIP_FLAME)
+        Example: Flame = 10, Tranquilizer = 57
+
+    Verified S29: See docs/research/v14_online_evaluation_s29.md
+    """
+    pass
 
 
 # =============================================================================
@@ -117,7 +175,7 @@ class Fight(BaseModel):
 
     # Metadata
     type: int | None = Field(default=None, description="Fight type (solo, team, etc)")
-    context: str | None = None
+    context: int | None = Field(default=None, description="FightContext enum: 1=garden, 2=matchmaking, 3=tournament")
     tournament: int | None = None
 
     def get_ops_by_leek_name(self) -> dict[str, int]:
