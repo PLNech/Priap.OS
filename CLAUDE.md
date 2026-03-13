@@ -72,14 +72,26 @@ No AI is "deployed successfully" until one fight's logs show no runtime errors.
 
 > You have hallucinated game values before. ALWAYS verify from ground truth.
 
-**Priority**: Submodules > API exports > Our code
+**Priority**: Equipment Registry > Submodules > API exports > Our code
 
 | Data | Source |
 |------|--------|
-| Weapons | `tools/leek-wars/src/model/weapons.ts` |
-| Chips | `tools/leek-wars/src/model/chips.ts` |
+| Chip/Weapon IDs, templates, stats | `from leekwars_agent.models.equipment import CHIP_REGISTRY, WEAPON_REGISTRY` |
+| Raw chip/weapon TS definitions | `tools/leek-wars/src/model/{chips,weapons}.ts` |
 | Constants | `tools/leek-wars-generator/.../FightConstants.java` |
 | Our equipment | `docs/GROUND_TRUTH.md` |
+
+### Equipment Registry (MANDATORY)
+**NEVER hardcode chip_id↔template mappings.** Use the registry:
+```python
+from leekwars_agent.models.equipment import CHIP_REGISTRY, WEAPON_REGISTRY
+
+# Decode a fight action template ID
+chip = CHIP_REGISTRY.by_template(57)  # -> Chip(name='tranquilizer', id=94, ...)
+weapon = WEAPON_REGISTRY.by_name("b_laser")  # -> Weapon(template=13, item=60, ...)
+```
+The registry parses `chips.ts`/`weapons.ts` at import time. It is the single source of truth.
+If you see a hardcoded dict like `{10: 'Flame', 20: 'Tranquilizer'}` — **that's a bug**. Use the registry.
 
 **Red flags**: "costs about X TP", "I think the range is...", math doesn't add up → STOP, look it up.
 **Hidden costs**: `setWeapon()` = 1 TP, `say()` = 1 TP. Use `debug()` instead (free).

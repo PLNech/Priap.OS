@@ -60,13 +60,13 @@ class ChipIdLayer:
 
     Layer 1 — chip_id (chips.ts key):
         Used by: API inventory, sim_defaults.py, DEFAULT_CHIPS, equipment endpoints
-        Example: Flame = 5, Tranquilizer = 94
 
     Layer 2 — template (chips.ts template field):
         Used by: Fight replay actions (USE_CHIP), LeekScript constants (CHIP_FLAME)
-        Example: Flame = 10, Tranquilizer = 57
 
-    Verified S29: See docs/research/v14_online_evaluation_s29.md
+    DO NOT hardcode mappings here. Use the equipment registry instead:
+        from leekwars_agent.models.equipment import CHIP_REGISTRY
+        chip = CHIP_REGISTRY.by_template(57)  # -> Chip(name='tranquilizer', ...)
     """
     pass
 
