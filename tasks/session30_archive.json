@@ -1,0 +1,23 @@
+{
+  "session": 30,
+  "date": "2026-03-13",
+  "completed_tasks": [
+    {"id": "#118", "tag": "#0100", "subject": "Fix auto_daily_fights.py crash (list vs dict bugs)", "learning": "Fight actions are flat list not dict, leeks is list not dict. Same bug pattern as S29 — codified in ActionCode enum now."},
+    {"id": "#119", "tag": "#0100", "subject": "Fix analyze_recent_fights.py context filter", "learning": "context=1 garden (rare), context=2 matchmaking (99%+), context=3 tournament. Codified in FightContext enum."},
+    {"id": "#120", "tag": "#0300", "subject": "Analyze 3-day fight results (March 10-12)", "learning": "52% WR over 50 fights. RES 200+ opponents are kryptonite. 0-damage oscillation bug found. Bulb opponents help us (64% WR)."},
+    {"id": "#121", "tag": "#0100", "subject": "Create long-term Gantt chart with ordonnanced tasks", "learning": "Bottleneck hierarchy: AI quality > equipment > level > stats. Revenue ~100K habs/day."},
+    {"id": "#123", "tag": "#0100", "subject": "Add fight data dataclasses (ActionCode, FightContext, ChipIdLayer)", "learning": "Enums + docstring classes prevent recurring list-vs-dict confusion. Context type on Fight model was str, should be int."},
+    {"id": "#114", "tag": "#0408", "subject": "Buy b_laser weapon (77,490 Habs)", "learning": "b_laser: 50±10 dmg + 50±10 heal, range 2-8, 5 TP, 3/fight. Strictly dominates Laser. API: buy_item(60)."},
+    {"id": "#117", "tag": "#0210", "subject": "AI update: b_laser integration + anti-oscillation", "learning": "Dynamic approach target (weapon max range), weapon-first at distance 8, stalemate trigger 5→3 turns. 62% WR vs old v14 in 200-fight sim."},
+    {"id": "#124", "tag": "#0300", "subject": "Build ranking tracker tool (SQLite)", "learning": "API: /ranking/get-active/leek/talent/{page}/null (50/page). /ranking/get-leek-rank-active/{id}/talent for our rank. Rank #9325 at T333 L117."}
+  ],
+  "state_at_end": {
+    "level": 117,
+    "talent": 333,
+    "rank": 9325,
+    "capital": 35,
+    "habs": 34500,
+    "weapons": ["b_laser(60)", "Laser(42)", "Magnum(45)"],
+    "chips": ["Flame(5)", "Tranquilizer(94)", "Motivation(15)", "Helmet(21)", "Shield(20)", "Armor(22)"]
+  }
+}
