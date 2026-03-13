@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRIAP.OS | The Oracle's Leaderboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --void: #1A1A2E;
+  --void-deep: #0F0F1A;
+  --void-light: #252545;
+  --marble: #E8E4D9;
+  --marble-dim: #A8A49A;
+  --cyan: #00F5D4;
+  --cyan-glow: rgba(0, 245, 212, 0.15);
+  --purple: #7B2CBF;
+  --purple-glow: rgba(123, 44, 191, 0.2);
+  --leek: #90BE6D;
+  --bronze: #B8860B;
+  --coral: #FF6B6B;
+  --radiation: #39FF14;
+  --font-display: 'Cinzel', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', Consolas, monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--void-deep);
+  color: var(--marble);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* === BACKGROUND TEXTURE === */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 20%, var(--purple-glow) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 80% 80%, var(--cyan-glow) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* === NOISE GRAIN OVERLAY === */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+/* === HEADER === */
+.header {
+  text-align: center;
+  margin-bottom: 3rem;
+  padding: 3rem 0 2rem;
+  position: relative;
+}
+
+.header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--bronze), transparent);
+}
+
+.oracle-eye {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  filter: drop-shadow(0 0 20px var(--cyan));
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { filter: drop-shadow(0 0 15px rgba(0,245,212,0.4)); }
+  50% { filter: drop-shadow(0 0 30px rgba(0,245,212,0.7)); }
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 2.2rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--marble) 0%, var(--cyan) 50%, var(--purple) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--marble-dim);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  margin-top: 0.5rem;
+}
+
+.snapshot-date {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--bronze);
+  margin-top: 0.3rem;
+}
+
+/* === HERO STAT CARDS === */
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, var(--void) 0%, var(--void-light) 100%);
+  border: 1px solid rgba(184, 134, 11, 0.2);
+  border-radius: 4px;
+  padding: 1.2rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  animation: card-in 0.6s ease-out both;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+}
+
+.stat-card:nth-child(1) { animation-delay: 0.1s; }
+.stat-card:nth-child(2) { animation-delay: 0.2s; }
+.stat-card:nth-child(3) { animation-delay: 0.3s; }
+.stat-card:nth-child(4) { animation-delay: 0.4s; }
+.stat-card:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stat-card .label {
+  font-family: var(--font-display);
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--marble-dim);
+  margin-bottom: 0.3rem;
+}
+
+.stat-card .value {
+  font-family: var(--font-mono);
+  font-size: 1.8rem;
+  font-weight: 500;
+  color: var(--cyan);
+}
+
+.stat-card .value.rank { color: var(--leek); }
+.stat-card .value.sensei { color: var(--purple); font-size: 1.4rem; }
+.stat-card .delta {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  margin-top: 0.2rem;
+}
+.stat-card .delta.up { color: var(--leek); }
+.stat-card .delta.down { color: var(--coral); }
+
+/* === SECTION HEADERS === */
+h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--marble);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(184, 134, 11, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+h2 .icon { font-size: 1rem; }
+
+/* === CHART CONTAINER === */
+.chart-section {
+  margin-bottom: 2.5rem;
+  animation: fade-up 0.8s ease-out both;
+}
+
+.chart-section:nth-child(2) { animation-delay: 0.3s; }
+.chart-section:nth-child(3) { animation-delay: 0.5s; }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.chart-wrap {
+  background: var(--void);
+  border: 1px solid rgba(184, 134, 11, 0.15);
+  border-radius: 4px;
+  padding: 1.5rem;
+  position: relative;
+}
+
+canvas {
+  width: 100% !important;
+  height: auto !important;
+  display: block;
+}
+
+/* === POSITION MARKER === */
+.position-bar {
+  position: relative;
+  height: 56px;
+  background: var(--void);
+  border: 1px solid rgba(184, 134, 11, 0.15);
+  border-radius: 4px;
+  margin-bottom: 2.5rem;
+  overflow: visible;
+}
+
+.position-track {
+  position: absolute;
+  top: 50%;
+  left: 3%;
+  right: 3%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--radiation), var(--leek) 30%, var(--bronze) 60%, var(--coral) 100%);
+  transform: translateY(-50%);
+  border-radius: 2px;
+}
+
+.position-marker {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  transition: left 1s ease-out;
+}
+
+.position-marker.us {
+  background: var(--cyan);
+  box-shadow: 0 0 12px var(--cyan), 0 0 24px rgba(0,245,212,0.3);
+  z-index: 3;
+}
+
+.position-marker.sensei {
+  background: var(--purple);
+  box-shadow: 0 0 8px var(--purple);
+  width: 10px;
+  height: 10px;
+}
+
+.position-label {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.position-label.above { top: 2px; color: var(--cyan); }
+.position-label.below { bottom: 2px; color: var(--purple); }
+
+/* === TABLES === */
+.table-wrap {
+  overflow-x: auto;
+  background: var(--void);
+  border: 1px solid rgba(184, 134, 11, 0.15);
+  border-radius: 4px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+th {
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--bronze);
+  padding: 0.7rem 0.8rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(184, 134, 11, 0.3);
+  position: sticky;
+  top: 0;
+  background: var(--void);
+}
+
+td {
+  padding: 0.5rem 0.8rem;
+  border-bottom: 1px solid rgba(184, 134, 11, 0.07);
+  color: var(--marble-dim);
+}
+
+tr:hover td { background: rgba(0, 245, 212, 0.03); }
+
+tr.us td {
+  color: var(--cyan);
+  background: rgba(0, 245, 212, 0.06);
+  font-weight: 500;
+}
+
+tr.sensei td {
+  color: var(--purple);
+  background: rgba(123, 44, 191, 0.06);
+}
+
+.rank-col { color: var(--marble-dim); text-align: right; width: 60px; }
+.talent-col { color: var(--leek); text-align: right; }
+.level-col { color: var(--bronze); text-align: right; }
+.name-col { color: var(--marble); }
+
+/* === GRID LAYOUTS === */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.scroll-table {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.scroll-table::-webkit-scrollbar { width: 4px; }
+.scroll-table::-webkit-scrollbar-track { background: var(--void); }
+.scroll-table::-webkit-scrollbar-thumb { background: var(--bronze); border-radius: 2px; }
+
+/* === PERCENTILE GAUGE === */
+.percentile-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--marble-dim);
+  margin-top: 0.5rem;
+}
+
+.percentile-track {
+  flex: 1;
+  height: 6px;
+  background: var(--void-light);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.percentile-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--coral), var(--bronze) 50%, var(--leek));
+  transition: width 1.5s ease-out;
+}
+
+.percentile-marker {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 12px;
+  background: var(--cyan);
+  box-shadow: 0 0 6px var(--cyan);
+  transform: translateX(-50%);
+  transition: left 1.5s ease-out;
+}
+
+/* === FOOTER === */
+.footer {
+  text-align: center;
+  padding: 2rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: rgba(184, 134, 11, 0.4);
+  letter-spacing: 0.1em;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+  .two-col { grid-template-columns: 1fr; }
+  h1 { font-size: 1.5rem; }
+  .hero-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* === LOADING === */
+.loading {
+  text-align: center;
+  padding: 4rem;
+  font-family: var(--font-display);
+  color: var(--marble-dim);
+  letter-spacing: 0.1em;
+}
+
+.loading::after {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cyan);
+  margin-left: 0.5rem;
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+</style>
+</head>
+<body>
+
+<div class="container" id="app">
+  <div class="loading">THE ORACLE SEES</div>
+</div>
+
+<script>
+const OUR_NAME = 'IAdonis';
+const SENSEI_NAME = 'Claudios';
+
+async function loadData() {
+  const resp = await fetch('data/rankings.json');
+  return resp.json();
+}
+
+function pct(rank, total) {
+  return ((1 - rank / total) * 100).toFixed(1);
+}
+
+function rankPctOnTrack(rank, total) {
+  // Position as % of track (rank 1 = left, rank total = right)
+  return 3 + (rank / total) * 94; // 3%-97% to match track
+}
+
+function drawHistogram(canvasId, data, ourValue, label, color) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 200 * dpr;
+  canvas.style.height = '200px';
+  ctx.scale(dpr, dpr);
+
+  const W = rect.width;
+  const H = 200;
+  const pad = { top: 20, right: 20, bottom: 30, left: 45 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+
+  const maxCount = Math.max(...data.map(d => d[1]));
+  const barW = Math.max(2, plotW / data.length - 1);
+
+  // Axis
+  ctx.strokeStyle = 'rgba(184,134,11,0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top);
+  ctx.lineTo(pad.left, H - pad.bottom);
+  ctx.lineTo(W - pad.right, H - pad.bottom);
+  ctx.stroke();
+
+  // Bars
+  data.forEach((d, i) => {
+    const x = pad.left + (i / data.length) * plotW;
+    const h = (d[1] / maxCount) * plotH;
+    const y = H - pad.bottom - h;
+
+    // Check if our value falls in this bin
+    const binStart = d[0];
+    const binEnd = data[i + 1] ? data[i + 1][0] : binStart + 50;
+    const isOurs = ourValue >= binStart && ourValue < binEnd;
+
+    if (isOurs) {
+      ctx.fillStyle = 'rgba(0,245,212,0.4)';
+      ctx.fillRect(x, pad.top, barW + 1, plotH);
+    }
+
+    const gradient = ctx.createLinearGradient(0, y, 0, H - pad.bottom);
+    gradient.addColorStop(0, isOurs ? '#00F5D4' : color);
+    gradient.addColorStop(1, isOurs ? 'rgba(0,245,212,0.1)' : 'rgba(144,190,109,0.05)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x, y, barW, h);
+  });
+
+  // Our marker line
+  const ourBinIdx = data.findIndex((d, i) => {
+    const next = data[i + 1] ? data[i + 1][0] : d[0] + 50;
+    return ourValue >= d[0] && ourValue < next;
+  });
+  if (ourBinIdx >= 0) {
+    const x = pad.left + (ourBinIdx / data.length) * plotW + barW / 2;
+    ctx.strokeStyle = '#00F5D4';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, pad.top);
+    ctx.lineTo(x, H - pad.bottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#00F5D4';
+    ctx.font = '500 10px "JetBrains Mono"';
+    ctx.textAlign = 'center';
+    ctx.fillText(OUR_NAME, x, pad.top - 5);
+  }
+
+  // Y-axis labels
+  ctx.fillStyle = 'rgba(168,164,154,0.5)';
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const val = Math.round(maxCount * i / 4);
+    const y = H - pad.bottom - (i / 4) * plotH;
+    ctx.fillText(val, pad.left - 5, y + 3);
+  }
+
+  // X-axis labels (every 5th)
+  ctx.textAlign = 'center';
+  data.forEach((d, i) => {
+    if (i % 5 === 0) {
+      const x = pad.left + (i / data.length) * plotW;
+      ctx.fillText(d[0], x, H - pad.bottom + 15);
+    }
+  });
+}
+
+function drawScatter(canvasId, data, our, sensei) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 280 * dpr;
+  canvas.style.height = '280px';
+  ctx.scale(dpr, dpr);
+
+  const W = rect.width;
+  const H = 280;
+  const pad = { top: 20, right: 20, bottom: 35, left: 50 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+
+  const minT = 300, maxT = 3800;
+  const minL = 0, maxL = 310;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(184,134,11,0.08)';
+  ctx.lineWidth = 1;
+  for (let t = 500; t <= 3500; t += 500) {
+    const x = pad.left + ((t - minT) / (maxT - minT)) * plotW;
+    ctx.beginPath();
+    ctx.moveTo(x, pad.top);
+    ctx.lineTo(x, H - pad.bottom);
+    ctx.stroke();
+  }
+  for (let l = 50; l <= 300; l += 50) {
+    const y = H - pad.bottom - ((l - minL) / (maxL - minL)) * plotH;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(W - pad.right, y);
+    ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = 'rgba(184,134,11,0.2)';
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top);
+  ctx.lineTo(pad.left, H - pad.bottom);
+  ctx.lineTo(W - pad.right, H - pad.bottom);
+  ctx.stroke();
+
+  // Points
+  data.forEach(d => {
+    const talent = d[0], level = d[1];
+    const x = pad.left + ((talent - minT) / (maxT - minT)) * plotW;
+    const y = H - pad.bottom - ((level - minL) / (maxL - minL)) * plotH;
+    ctx.fillStyle = 'rgba(144,190,109,0.12)';
+    ctx.beginPath();
+    ctx.arc(x, y, 2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Sensei
+  if (sensei) {
+    const sx = pad.left + ((sensei.talent - minT) / (maxT - minT)) * plotW;
+    const sy = H - pad.bottom - ((sensei.level - minL) / (maxL - minL)) * plotH;
+    ctx.fillStyle = '#7B2CBF';
+    ctx.shadowColor = '#7B2CBF';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.font = '500 9px "JetBrains Mono"';
+    ctx.fillStyle = '#7B2CBF';
+    ctx.textAlign = 'center';
+    ctx.fillText(SENSEI_NAME, sx, sy - 10);
+  }
+
+  // Us
+  const ox = pad.left + ((our.talent - minT) / (maxT - minT)) * plotW;
+  const oy = H - pad.bottom - ((our.level - minL) / (maxL - minL)) * plotH;
+  ctx.fillStyle = '#00F5D4';
+  ctx.shadowColor = '#00F5D4';
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.arc(ox, oy, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.font = '600 10px "JetBrains Mono"';
+  ctx.fillStyle = '#00F5D4';
+  ctx.textAlign = 'center';
+  ctx.fillText(OUR_NAME, ox, oy - 12);
+
+  // Axis labels
+  ctx.fillStyle = 'rgba(168,164,154,0.5)';
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.textAlign = 'center';
+  for (let t = 500; t <= 3500; t += 500) {
+    const x = pad.left + ((t - minT) / (maxT - minT)) * plotW;
+    ctx.fillText(t, x, H - pad.bottom + 15);
+  }
+  ctx.textAlign = 'right';
+  for (let l = 50; l <= 300; l += 50) {
+    const y = H - pad.bottom - ((l - minL) / (maxL - minL)) * plotH;
+    ctx.fillText('L' + l, pad.left - 5, y + 3);
+  }
+
+  // Axis titles
+  ctx.fillStyle = 'rgba(184,134,11,0.5)';
+  ctx.font = '600 9px "Cinzel"';
+  ctx.textAlign = 'center';
+  ctx.fillText('TALENT', pad.left + plotW / 2, H - 3);
+  ctx.save();
+  ctx.translate(12, pad.top + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('LEVEL', 0, 0);
+  ctx.restore();
+}
+
+function buildTable(rows, highlightNames) {
+  let html = '<table><thead><tr><th class="rank-col">Rank</th><th class="name-col">Name</th><th class="talent-col">Talent</th><th class="level-col">Level</th></tr></thead><tbody>';
+  rows.forEach(r => {
+    let cls = '';
+    if (r[1] === OUR_NAME) cls = 'us';
+    else if (r[1] === SENSEI_NAME) cls = 'sensei';
+    else if (highlightNames && highlightNames.has(r[1])) cls = 'contender';
+    html += `<tr class="${cls}"><td class="rank-col">#${r[0].toLocaleString()}</td><td class="name-col">${r[1]}</td><td class="talent-col">${r[2]}</td><td class="level-col">${r[3]}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+async function render() {
+  const data = await loadData();
+  const d = data;
+  const app = document.getElementById('app');
+
+  const ourPct = pct(d.our.rank, d.total);
+  const ourTrackPos = rankPctOnTrack(d.our.rank, d.total);
+  const senseiTrackPos = rankPctOnTrack(d.sensei.rank, d.total);
+
+  app.innerHTML = `
+    <!-- HEADER -->
+    <header class="header">
+      <div class="oracle-eye">&#x1F441;&#xFE0F;</div>
+      <h1>The Oracle's Leaderboard</h1>
+      <div class="subtitle">PRIAP.OS RANKING INTELLIGENCE</div>
+      <div class="snapshot-date">Snapshot: ${d.snapshot.replace('T', ' ')} | ${d.total.toLocaleString()} active leeks</div>
+    </header>
+
+    <!-- HERO STATS -->
+    <div class="hero-stats">
+      <div class="stat-card">
+        <div class="label">Rank</div>
+        <div class="value rank">#${d.our.rank.toLocaleString()}</div>
+        <div class="delta">Top ${ourPct}%</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Talent</div>
+        <div class="value">${d.our.talent}</div>
+        <div class="delta">avg ${d.stats.avg_talent}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Level</div>
+        <div class="value">${d.our.level}</div>
+        <div class="delta">avg ${d.stats.avg_level}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Sensei</div>
+        <div class="value sensei">${d.sensei.name}</div>
+        <div class="delta">#${d.sensei.rank} | T${d.sensei.talent} | L${d.sensei.level}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Gap to Sensei</div>
+        <div class="value sensei">${(d.sensei.talent - d.our.talent).toLocaleString()}</div>
+        <div class="delta">${(d.our.rank - d.sensei.rank).toLocaleString()} ranks</div>
+      </div>
+    </div>
+
+    <!-- POSITION BAR -->
+    <div class="chart-section">
+      <h2><span class="icon">&#x1F3AF;</span> Position on the Ladder</h2>
+      <div class="position-bar">
+        <div class="position-track"></div>
+        <div class="position-marker sensei" style="left:${senseiTrackPos}%"></div>
+        <div class="position-label below" style="left:${senseiTrackPos}%">${d.sensei.name} #${d.sensei.rank}</div>
+        <div class="position-marker us" style="left:${ourTrackPos}%"></div>
+        <div class="position-label above" style="left:${ourTrackPos}%">${d.our.name} #${d.our.rank}</div>
+      </div>
+
+      <div class="percentile-bar">
+        <span>Top 100%</span>
+        <div class="percentile-track">
+          <div class="percentile-fill" style="width:100%"></div>
+          <div class="percentile-marker" style="left:${ourPct}%"></div>
+        </div>
+        <span>Top 1%</span>
+      </div>
+    </div>
+
+    <!-- TALENT DISTRIBUTION -->
+    <div class="chart-section">
+      <h2><span class="icon">&#x1F4CA;</span> Talent Distribution</h2>
+      <div class="chart-wrap">
+        <canvas id="talentChart"></canvas>
+      </div>
+    </div>
+
+    <!-- SCATTER PLOT -->
+    <div class="chart-section">
+      <h2><span class="icon">&#x2728;</span> Talent vs Level Galaxy</h2>
+      <div class="chart-wrap">
+        <canvas id="scatterChart"></canvas>
+      </div>
+    </div>
+
+    <!-- TWO COLUMN: NEIGHBORHOOD + TOP 20 -->
+    <div class="two-col">
+      <div class="chart-section">
+        <h2><span class="icon">&#x1F3D8;</span> Neighborhood</h2>
+        <div class="table-wrap scroll-table">
+          ${buildTable(d.neighborhood)}
+        </div>
+      </div>
+      <div class="chart-section">
+        <h2><span class="icon">&#x1F3C6;</span> Pantheon (Top 20)</h2>
+        <div class="table-wrap scroll-table">
+          ${buildTable(d.top20)}
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTENDERS -->
+    <div class="chart-section">
+      <h2><span class="icon">&#x2694;</span> Contenders (T300-400, L100-150) &mdash; ${d.contenders.length} leeks</h2>
+      <div class="table-wrap scroll-table" style="max-height:350px">
+        ${buildTable(d.contenders.slice(0, 60))}
+      </div>
+    </div>
+
+    <!-- LEVEL DISTRIBUTION -->
+    <div class="chart-section">
+      <h2><span class="icon">&#x1F33F;</span> Level Distribution</h2>
+      <div class="chart-wrap">
+        <canvas id="levelChart"></canvas>
+      </div>
+    </div>
+
+    <footer class="footer">
+      PRIAP.OS &middot; THE DIGITAL ORACLE &middot; LEEKWARS RANKING INTELLIGENCE
+    </footer>
+  `;
+
+  // Draw charts after DOM update
+  requestAnimationFrame(() => {
+    drawHistogram('talentChart', d.talent_hist, d.our.talent, 'Talent', 'rgba(123,44,191,0.5)');
+    drawHistogram('levelChart', d.level_hist, d.our.level, 'Level', 'rgba(144,190,109,0.4)');
+    drawScatter('scatterChart', d.scatter, d.our, d.sensei);
+  });
+
+  // Resize handler
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      drawHistogram('talentChart', d.talent_hist, d.our.talent, 'Talent', 'rgba(123,44,191,0.5)');
+      drawHistogram('levelChart', d.level_hist, d.our.level, 'Level', 'rgba(144,190,109,0.4)');
+      drawScatter('scatterChart', d.scatter, d.our, d.sensei);
+    }, 200);
+  });
+}
+
+render().catch(e => {
+  document.getElementById('app').innerHTML = `<div class="loading" style="color:var(--coral)">Oracle failed: ${e.message}</div>`;
+});
+</script>
+</body>
+</html>
