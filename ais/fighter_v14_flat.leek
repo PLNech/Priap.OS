@@ -686,18 +686,20 @@ if (force_engage) {
     applyDefensiveBuffs()
     debuffEnemy(enemy)
 
-    // Close gap completely
+    // Close gap but respect b_laser min_range (step-by-step: moveToward uses ALL MP at once!)
     while (getMP() > 0) {
-        var moved = moveToward(enemy)
+        if (getCellDistance(getCell(), getCell(enemy)) <= 2) break;
+        var moved = moveToward(enemy, 1)
         if (moved == 0) break;
     }
 
     useChipDamage(enemy)
     executeAttacks(enemy)
 
-    // Remaining MP → close → attack again
+    // Remaining MP → close → attack again (step-by-step to respect min_range)
     while (getMP() > 0) {
-        var moved2 = moveToward(enemy)
+        if (getCellDistance(getCell(), getCell(enemy)) <= 2) break;
+        var moved2 = moveToward(enemy, 1)
         if (moved2 == 0) break;
     }
     useChipDamage(enemy)
@@ -787,16 +789,17 @@ if (strategy == "retreat") {
     var approach_target = w_max  // b_laser=8, Laser=7, Magnum=6
     if (approach_target < 7) approach_target = 7  // Flame range minimum
 
-    // Anti-kite: spend ALL MP closing if enemy is running
+    // Anti-kite: spend ALL MP closing if enemy is running (but keep b_laser range)
     if (enemy_pattern == "kiting") {
         debug("  Anti-kite: spending all MP to close")
         while (getMP() > 0) {
-            var moved = moveToward(enemy)
+            if (getCellDistance(getCell(), getCell(enemy)) <= 2) break;
+            var moved = moveToward(enemy, 1)
             if (moved == 0) break;
             dist = getCellDistance(getCell(), getCell(enemy))
         }
     } else {
-        // Normal approach: stop at attack range
+        // Normal approach: stop at attack range (approach_target=8, safely above min_range 2)
         while (dist > approach_target && getMP() > 0) {
             var moved = moveToward(enemy)
             if (moved == 0) break;
@@ -818,8 +821,11 @@ if (strategy == "retreat") {
         executeAttacks(enemy)
     }
 
-    // Use remaining MP to close further, then attack more
+    // Use remaining MP to close further, but respect weapon min_range
+    // b_laser min_range=2: closing to dist 1 kills our best weapon next turn
     while (getMP() > 0) {
+        var close_dist = getCellDistance(getCell(), getCell(enemy))
+        if (close_dist <= 2) break;  // Stay at b_laser min_range
         var moved = moveToward(enemy)
         if (moved == 0) break;
     }
