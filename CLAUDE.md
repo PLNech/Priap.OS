@@ -115,6 +115,7 @@ Document source location in api.py docstrings.
 - **Three-tier validation**: Local sim (fast) → Server test (unlimited, real) → Garden fights (precious)
 
 ### Git Discipline
+- **Default branch is `main`** — all work happens on `main`. GH Actions daemon checks out `main`.
 - Commit after each success (atomic, descriptive)
 - Feature branches for new features
 - Never push main without explicit request

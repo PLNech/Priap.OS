@@ -2,6 +2,11 @@
 // Based on v13 Aegis + S28/S29/S30 analysis (50+ online fights)
 // =============================================================================
 // Design: Defensive-first attrition + TP denial + life-steal weapon.
+// S31 changes:
+//   - FIX: Weapon scoring uses getWeaponEffects() for real damage+heal value
+//     Old: cost*8 favored Laser (48) over b_laser (40). b_laser used in 1/10 fights!
+//     New: b_laser scores 20/TP (100 total value) vs Laser 7.2/TP (43 dmg only)
+//   - FIX: Initial equip prefers value/TP not max range (was picking Laser range 9)
 // S30 changes:
 //   - ADDED b_laser (50±10 dmg + 50±10 heal, 5 TP, range 2-8, 3/fight)
 //   - Dynamic approach target: weapon max range (8) not hardcoded Flame range (7)
@@ -355,15 +360,20 @@ function getBestWeapon(enemy, remaining_tp) {
         if (dist < min_range || dist > max_range) continue;
         if (!lineOfSight(getCell(), getCell(enemy))) continue;
 
-        // Score: prefer higher damage per TP
-        var damage_estimate = cost * 8
+        // Score: actual effect value per TP (damage + heal)
+        var total_value = 0
+        var effects = getWeaponEffects(w)
+        for (var e in effects) {
+            total_value = total_value + e[1]  // value1 (base damage or heal)
+        }
+        var score_per_tp = total_value / cost
         var switch_penalty = 0
         if (current_weapon != w && current_weapon != null) {
             switch_penalty = 1
             if (switch_penalty >= remaining_tp - cost) switch_penalty = 999
         }
 
-        var score = damage_estimate - switch_penalty
+        var score = score_per_tp * 100 - switch_penalty
         if (score > best_score) { best_score = score; best_weapon = w }
     }
     return best_weapon
@@ -651,12 +661,15 @@ if (force_engage) debug("  FORCE ENGAGE MODE")
 if (getWeapon() == null) {
     var weapons = getWeapons()
     if (count(weapons) > 0) {
-        // Prefer highest-range weapon for opening approach
+        // Prefer highest total effect value per TP (damage + heal)
         var best_w = weapons[0]
-        var best_range = 0
+        var best_vpt = 0
         for (var w in weapons) {
-            var r = getWeaponMaxRange(w)
-            if (r > best_range) { best_range = r; best_w = w }
+            var val = 0
+            var effs = getWeaponEffects(w)
+            for (var e in effs) { val = val + e[1] }
+            var vpt = val / getWeaponCost(w)
+            if (vpt > best_vpt) { best_vpt = vpt; best_w = w }
         }
         setWeapon(best_w)
         current_weapon = best_w
