@@ -21,6 +21,30 @@
 //   - TP 14 budget: Motivation gives 16 TP turns → full rotation
 // =============================================================================
 
+// === TARGETING MODULE ===
+// Anti-bulb: always target the main leek, not disposable summons.
+// Data (S33): 100% of losses were vs bulb summoners. getNearestEnemy() targets
+// bulbs → wasted TP on 150 HP decoys while the real threat heals unmolested.
+
+function getPrimaryTarget() {
+    var enemies = getEnemies()
+    var best = null
+    var best_dist = 999
+
+    // Priority 1: nearest non-summon (the "brain")
+    for (var e in enemies) {
+        if (isSummon(e)) continue;
+        var d = getCellDistance(getCell(), getCell(e))
+        if (d < best_dist) { best_dist = d; best = e }
+    }
+
+    // Priority 2: if all real leeks dead, mop up summons
+    if (best == null) best = getNearestEnemy()
+
+    return best
+}
+
+
 // === STATE MODULE ===
 // Cross-turn persistence and fight phase detection
 
@@ -628,7 +652,7 @@ function debuffEnemy(enemy) {
 // MAIN ENTRY POINT — Fighter v14 "Phalanx"
 // =============================================================================
 
-var enemy = getNearestEnemy()
+var enemy = getPrimaryTarget()
 if (enemy == null) return;
 
 // =============================================================================
