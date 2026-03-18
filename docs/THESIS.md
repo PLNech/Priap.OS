@@ -3,7 +3,7 @@
 > A living strategy document. Updated as data proves or disproves hypotheses.
 > Every claim links to evidence. Every change records what we learned.
 
-**Last updated**: Session 35 (2026-03-18)
+**Last updated**: Session 36 (2026-03-18)
 **Current Talent**: 369 | **Rank**: #8461 | **Level**: 125
 **Target**: T500 (short-term), Top 1000 (medium-term), Top 10 (north star)
 
@@ -143,18 +143,19 @@ b_laser is the clear primary. Laser/Magnum are fallbacks when out of b_laser use
 
 ## AI Behavior Strategy
 
-### v14 "Phalanx" — Defensive Attrition + TP Denial + Lifesteal
+### v14 "Phalanx" — Move→Attack→Defend Attrition + TP Denial + Lifesteal
 
 ```
-Turn priority:
+Turn priority (S36 rework — Move→Attack→Defend):
 1. EQUIP weapon (once — b_laser preferred by value/TP)
 2. BUFF Motivation if turn 1 and distance > 10
-3. SHIELD: Helmet → Shield → Armor (every turn when off CD)
-4. DEBUFF: Tranquilizer on enemy (TP denial)
+3. SPATIAL + STRATEGY (compute distance, select strategy — NO TP spent)
+4. MOVE toward enemy (MP only — free, no TP cost)
 5. ATTACK:
    - Distance > 7: weapon-first (b_laser reaches where Flame can't)
-   - Distance ≤ 7: Flame → weapon
-6. MOVE toward enemy (approach target = weapon max range, typically 8)
+   - Distance ≤ 7: Flame → weapon → debuff
+6. DEFEND: shields with leftover TP (only if dist ≤ 10)
+7. CLEANUP: remaining debuff + attack passes
 
 Special modes:
 - STALEMATE (3+ turns no damage): force aggro, no retreat
@@ -162,9 +163,15 @@ Special modes:
 - ENDGAME (enemy < 30% HP): all-in attack
 ```
 
+**S36 rework rationale** ([movement_analysis_s36.md](research/movement_analysis_s36.md)):
+- Old Defend→Move→Attack: 67% shield waste, weapon fires 3.5% of turns, only 5.1/14 TP used
+- New Move→Attack→Defend: **63.8% WR** vs old over 500 sim fights (strongest delta ever)
+- Key insight: movement costs 0 TP (MP only). Moving FIRST gets into range without spending TP. Attack gets full budget. Shields get whatever's left.
+
 ### Anti-Patterns (proven failures)
 | Pattern | WR | Evidence |
 |---------|-----|---------|
+| **Defend→Move→Attack turn order** | **36.2%** | **S36, 500 sim fights. Shields eat TP, weapon never fires** |
 | Flash as sole damage source | 16% | 159 fights, S25 |
 | Never healing (pre-Cure era) | ~48% | 800+ fights |
 | Always buff turn 1 (no distance check) | 18% | S24, pre-shouldBuff fix |
@@ -245,6 +252,7 @@ Special modes:
 | S34 | Study top climbers for insights | Ad-hoc scraping wastes API calls. Reusable tools > one-off scripts | Built `leek scout` CLI, scouted 10 opponents |
 | S34 | Pure STR is king | STR 452 = highest in bracket, but 5/7 losses had RES 50-200 | **RES 0 is the outlier.** Fumetsu model = balanced |
 | S35 | More STR always helps | Diminishing at 2:1 cap/pt. RES at 2 pts/cap = 4x more efficient | **Pivot: all capital → RES.** 20 cap → 40 RES |
+| S36 | Shields-first is defensive | 67% shields wasted at dist>10, weapon fires 3.5% of turns | **Move→Attack→Defend: 63.8% WR vs old (500 fights)** |
 
 ---
 
@@ -271,4 +279,6 @@ Special modes:
 | S34 | Build `leek scout` CLI | Reusable opponent intelligence > ad-hoc scraping | scout_leek() + scout_batch() + CLI |
 | S34 | Scout 10 loss/win opponents | Need data to inform stat allocation | Analysis: RES 0 = glass cannon, Fumetsu = model |
 | S35 | Spend 20 capital on RES (0→40) | Scouting proved RES 0 = biggest weakness. 2:1 ratio = best value | First defense investment. Shield stack now -100 |
+| S36 | Rework turn order: Move→Attack→Defend | Movement analysis: 67% shield waste, 3.5% weapon fire rate | **63.8% sim WR over 500 fights** — strongest delta ever |
+| S36 | Distance gate + dynamic TP reservation | Shields at dist>10 = wasted. b_laser needs 5 TP reserved | Shields skip when far, weapon always gets TP budget |
 | S35 | Create AnansAI (2nd leek, 10K habs) | 2x online learning rate + cross-level data + theory isolation | farmer_enabled unlocked, L1 T100 50cap |
