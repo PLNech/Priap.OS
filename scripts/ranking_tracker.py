@@ -32,8 +32,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from leekwars_agent.auth import login_api
+from leekwars_agent.cli.constants import LEEKS, LEEK_ID
 
-OUR_LEEK_ID = 131321
+OUR_LEEK_IDS = list(LEEKS.values())  # Track all registered leeks
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "rankings.db"
 ENTRIES_PER_PAGE = 50
 
@@ -69,10 +70,10 @@ def init_db(conn: sqlite3.Connection):
     conn.commit()
 
 
-def quick_rank(api) -> dict:
-    """Get our leek's current rank (single API call)."""
+def quick_rank(api, leek_id: int = LEEK_ID) -> dict:
+    """Get a leek's current rank (single API call)."""
     data = api._request(
-        "get", f"/ranking/get-leek-rank-active/{OUR_LEEK_ID}/talent",
+        "get", f"/ranking/get-leek-rank-active/{leek_id}/talent",
         headers=api._headers()
     ).json()
     return data
@@ -133,12 +134,12 @@ def show_history():
     init_db(conn)
 
     rows = conn.execute("""
-        SELECT s.timestamp, r.rank, r.talent, r.level
+        SELECT s.timestamp, r.rank, r.talent, r.level, r.name
         FROM rankings r
         JOIN snapshots s ON r.snapshot_id = s.id
-        WHERE r.leek_id = ?
-        ORDER BY s.timestamp
-    """, (OUR_LEEK_ID,)).fetchall()
+        WHERE r.leek_id IN ({})
+        ORDER BY s.timestamp, r.leek_id
+    """.format(",".join("?" * len(OUR_LEEK_IDS))), OUR_LEEK_IDS).fetchall()
 
     if not rows:
         print("No ranking history yet. Run a snapshot first.")
@@ -233,7 +234,7 @@ def show_neighborhood(snap_id: int = None):
 
     our = conn.execute(
         "SELECT rank FROM rankings WHERE snapshot_id = ? AND leek_id = ?",
-        (snap_id, OUR_LEEK_ID)
+        (snap_id, LEEK_ID)
     ).fetchone()
 
     if not our:
@@ -278,10 +279,13 @@ def main():
 
     api = login_api()
     try:
-        # Always show our current rank
-        rank_data = quick_rank(api)
-        rank = rank_data.get("rank", "?")
-        print(f"IAdonis rank: #{rank} (active: {rank_data.get('active', '?')})")
+        # Show current rank for all leeks
+        leek_names = {v: k for k, v in LEEKS.items()}
+        for lid in OUR_LEEK_IDS:
+            rank_data = quick_rank(api, lid)
+            rank = rank_data.get("rank", "?")
+            name = leek_names.get(lid, str(lid))
+            print(f"{name} rank: #{rank} (active: {rank_data.get('active', '?')})")
 
         if args.quick:
             return

@@ -18,9 +18,9 @@ if [ -f "$PROJECT_DIR/.env" ]; then
     export $(grep -v '^#' "$PROJECT_DIR/.env" | xargs)
 fi
 
-# Run the auto-fight script
+# Run the auto-fight script for ALL leeks (splits fights evenly)
 cd "$PROJECT_DIR"
-$POETRY run python scripts/auto_daily_fights.py >> "$LOG_FILE" 2>&1
+$POETRY run python scripts/auto_daily_fights.py --all "$@" >> "$LOG_FILE" 2>&1
 
 # ============================================================================
 # CRONTAB ENTRY (add this to your crontab with: crontab -e)

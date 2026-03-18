@@ -48,11 +48,14 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction --no-root
 
-      - name: Ensure tournament registration
+      - name: Ensure tournament registration (all leeks)
         env:
           LEEKWARS_USER: ${{ secrets.LEEKWARS_USER }}
           LEEKWARS_PASS: ${{ secrets.LEEKWARS_PASS }}
-        run: poetry run leek tournament register leek || true
+        run: |
+          poetry run leek tournament register leek || true
+          poetry run leek --leek anansai tournament register leek || true
+          poetry run leek tournament register farmer || true
 
       - name: Run daily fights
         env:
@@ -73,9 +76,9 @@ jobs:
           fi
 
           if [ "$DRY_RUN" = "true" ]; then
-            poetry run python scripts/auto_daily_fights.py --percent $PERCENT --no-buy --dry-run
+            poetry run python scripts/auto_daily_fights.py --all --percent $PERCENT --no-buy --dry-run
           else
-            poetry run python scripts/auto_daily_fights.py --percent $PERCENT --no-buy
+            poetry run python scripts/auto_daily_fights.py --all --percent $PERCENT --no-buy
           fi
 
       - name: Upload logs
