@@ -5,7 +5,7 @@ import time
 import click
 from pathlib import Path
 from ..output import output_json, success, error, console
-from ..constants import LEEK_ID
+from ..constants import LEEK_ID  # unused but kept for backward compat
 from leekwars_agent.auth import login_api
 
 # Rate limit: wait between API calls to avoid 429
@@ -204,9 +204,10 @@ def _update_sota_symlink(file_path: Path) -> None:
 @click.pass_context
 def status(ctx: click.Context) -> None:
     """Show deployed AI status: server state + local SOTA pointer."""
+    leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
-        data = api.get_leek(LEEK_ID)
+        data = api.get_leek(leek_id)
         leek = data.get("leek", data)
         ai_info = leek.get("ai", {})
 
@@ -248,9 +249,10 @@ def status(ctx: click.Context) -> None:
 @click.pass_context
 def current_ai(ctx: click.Context) -> None:
     """Show which AI is currently deployed to your leek."""
+    leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
-        data = api.get_leek(LEEK_ID)
+        data = api.get_leek(leek_id)
         leek = data.get("leek", data)
         ai_info = leek.get("ai", {})
 
@@ -364,7 +366,8 @@ def deploy(ctx: click.Context, file_path: str, name: str | None, dry_run: bool, 
             return
 
         # Set as leek's AI
-        api.set_leek_ai(LEEK_ID, ai_id)
+        leek_id = ctx.obj["leek_id"]
+        api.set_leek_ai(leek_id, ai_id)
 
         # Update local SOTA symlink
         _update_sota_symlink(path)

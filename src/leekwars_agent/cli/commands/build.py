@@ -2,7 +2,7 @@
 
 import click
 from ..output import output_json, success, error, console
-from ..constants import LEEK_ID
+from ..constants import LEEK_ID  # unused but kept for backward compat
 from leekwars_agent.auth import login_api
 from leekwars_agent.api import LeekWarsError
 
@@ -17,9 +17,10 @@ def build():
 @click.pass_context
 def show_build(ctx: click.Context) -> None:
     """Show current leek build (stats allocation)."""
+    leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
-        data = api.get_leek(LEEK_ID)
+        data = api.get_leek(leek_id)
         leek = data.get("leek", data)
 
         stats = {
@@ -115,10 +116,11 @@ def spend_capital(ctx: click.Context, stat: str, points: int, dry_run: bool) -> 
     }
     stat_name = stat_map[stat]
 
+    leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
         # Check available capital
-        data = api.get_leek(LEEK_ID)
+        data = api.get_leek(leek_id)
         leek = data.get("leek", data)
         available = leek.get("capital", 0)
         current = leek.get(stat_name, 0)
@@ -139,13 +141,13 @@ def spend_capital(ctx: click.Context, stat: str, points: int, dry_run: bool) -> 
 
         # Spend via API
         try:
-            api.spend_capital(LEEK_ID, {stat_name: points})
+            api.spend_capital(leek_id, {stat_name: points})
         except LeekWarsError as e:
             error(f"Spend failed: {e.error}")
             raise SystemExit(1)
 
         # Re-fetch actual values to confirm
-        after = api.get_leek(LEEK_ID)
+        after = api.get_leek(leek_id)
         after_leek = after.get("leek", after)
         new_value = after_leek.get(stat_name, current + points)
         new_capital = after_leek.get("capital", available - points)
@@ -174,9 +176,10 @@ def recommend_build(ctx: click.Context) -> None:
 
     Based on current build archetype (STR-focused, balanced, etc).
     """
+    leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
-        data = api.get_leek(LEEK_ID)
+        data = api.get_leek(leek_id)
         leek = data.get("leek", data)
 
         capital = leek.get("capital", 0)

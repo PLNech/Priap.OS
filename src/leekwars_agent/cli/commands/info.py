@@ -16,13 +16,15 @@ def info():
 
 
 @info.command("leek")
-@click.argument("leek_id", type=int, default=LEEK_ID)
+@click.argument("leek_id", type=int, required=False, default=None)
 @click.pass_context
-def leek_info(ctx: click.Context, leek_id: int) -> None:
+def leek_info(ctx: click.Context, leek_id: int | None) -> None:
     """Show leek information.
 
-    LEEK_ID defaults to your leek (IAdonis).
+    LEEK_ID defaults to the active leek (set with --leek).
     """
+    if leek_id is None:
+        leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
         data = api.get_leek(leek_id)

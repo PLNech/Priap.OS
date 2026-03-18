@@ -2,7 +2,7 @@
 
 import click
 from ..output import output_json, success, error, console
-from ..constants import LEEK_ID
+from ..constants import LEEK_ID  # unused but kept for backward compat
 from leekwars_agent.auth import login_api
 
 
@@ -64,7 +64,7 @@ def tournament_register(ctx: click.Context, entity_type: str, entity_id: int | N
     api = login_api()
 
     if entity_type == "leek" and not entity_id:
-        entity_id = LEEK_ID
+        entity_id = ctx.obj["leek_id"]
 
     try:
         result = api.register_tournament(entity_type, entity_id or 0)
@@ -102,7 +102,7 @@ def tournament_unregister(ctx: click.Context, entity_type: str, entity_id: int |
     api = login_api()
 
     if entity_type == "leek" and not entity_id:
-        entity_id = LEEK_ID
+        entity_id = ctx.obj["leek_id"]
 
     try:
         result = api.unregister_tournament(entity_type, entity_id or 0)
@@ -128,7 +128,7 @@ def tournament_status(ctx: click.Context) -> None:
     api = login_api()
 
     try:
-        leek_data = api.get_leek(LEEK_ID)
+        leek_data = api.get_leek(ctx.obj["leek_id"])
         leek = leek_data.get("leek", leek_data)
         leek_tournament = leek.get("tournament", {})
 

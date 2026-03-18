@@ -5,7 +5,7 @@ import click
 import time
 from pathlib import Path
 from ..output import output_json, output_kv, success, error, console
-from ..constants import LEEK_ID
+from ..constants import LEEK_ID  # unused but kept for backward compat
 from leekwars_agent.auth import login_api
 from leekwars_agent.fight_parser import parse_fight
 
@@ -20,11 +20,12 @@ def fight():
 @click.pass_context
 def status(ctx: click.Context) -> None:
     """Show current fight status (fights remaining, talent, etc)."""
+    leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
         garden_data = api.get_garden()
         garden = garden_data.get("garden", garden_data)
-        leek_data = api.get_leek(LEEK_ID)
+        leek_data = api.get_leek(leek_id)
         leek = leek_data.get("leek", leek_data)
 
         global_budget = garden.get("fights", 0)
@@ -57,6 +58,7 @@ def run(ctx: click.Context, count: int, dry_run: bool) -> None:
 
     Finds opponents and fights them. Results are printed as W/L/D.
     """
+    leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
         garden_data = api.get_garden()
@@ -81,13 +83,13 @@ def run(ctx: click.Context, count: int, dry_run: bool) -> None:
         for i in range(count):
             console.print(f"  [{i+1}/{count}] Finding opponent...", end=" ")
 
-            opponents = api.get_leek_opponents(LEEK_ID).get("opponents", [])
+            opponents = api.get_leek_opponents(leek_id).get("opponents", [])
             if not opponents:
                 console.print("[yellow]No opponents[/yellow]")
                 break
 
             target = opponents[0]
-            result = api.start_solo_fight(LEEK_ID, target["id"])
+            result = api.start_solo_fight(leek_id, target["id"])
 
             if "fight" not in result:
                 console.print(f"[red]Failed: {result}[/red]")
@@ -104,7 +106,7 @@ def run(ctx: click.Context, count: int, dry_run: bool) -> None:
             # Determine which team we're on (don't assume team 1!)
             my_team = 1
             for leek in fight_data.get("leeks2", []):
-                if leek.get("id") == LEEK_ID:
+                if leek.get("id") == leek_id:
                     my_team = 2
                     break
 
@@ -156,9 +158,10 @@ def run(ctx: click.Context, count: int, dry_run: bool) -> None:
 @click.pass_context
 def history(ctx: click.Context, limit: int) -> None:
     """Show recent fight history."""
+    leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
-        data = api.get_leek_history(LEEK_ID)
+        data = api.get_leek_history(leek_id)
         fights = data.get("fights", [])[:limit]
 
         if ctx.obj.get("json"):
@@ -173,7 +176,7 @@ def history(ctx: click.Context, limit: int) -> None:
             # Determine which team we're on
             my_team = 1
             for leek in f.get("leeks2", []):
-                if leek.get("id") == LEEK_ID:
+                if leek.get("id") == leek_id:
                     my_team = 2
                     break
 
@@ -216,6 +219,7 @@ def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool, clas
     """
     from leekwars_agent.fight_analyzer import classify_ai_behavior
 
+    leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
         fight_data = api.get_fight(fight_id)
@@ -244,7 +248,7 @@ def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool, clas
         leeks2 = fight.get("leeks2", [])
         my_team = 1
         for leek in leeks2:
-            if leek.get("id") == LEEK_ID:
+            if leek.get("id") == leek_id:
                 my_team = 2
                 break
 
@@ -263,7 +267,7 @@ def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool, clas
             stren = leek.get("strength", 0)
             wis = leek.get("wisdom", 0)
             team = leek.get("team", 0)
-            is_us = (name == "IAdonis")
+            is_us = (leek.get("team") == my_team)
             marker = " [cyan](us)[/cyan]" if is_us else ""
             console.print(f"  {'→' if is_us else ' '} {name}{marker}: L{level} HP={hp} STR={stren} WIS={wis}")
 
@@ -384,7 +388,7 @@ def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool, clas
             # Determine which team we're on
             my_team = 1
             for leek in leeks2:
-                if leek.get("id") == LEEK_ID:
+                if leek.get("id") == leek_id:
                     my_team = 2
                     break
 
@@ -438,12 +442,13 @@ def analyze_fights(ctx: click.Context, limit: int) -> None:
 
     Shows overall stats, win rate by level difference, and fight duration patterns.
     """
+    leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
         console.print(f"[bold]Analyzing last {limit} fights...[/bold]\n")
 
         # Get fight IDs from history
-        data = api.get_leek_history(LEEK_ID)
+        data = api.get_leek_history(leek_id)
         fight_ids = [f["id"] for f in data.get("fights", [])[:limit]]
 
         results = {"W": 0, "L": 0, "D": 0}
@@ -462,7 +467,7 @@ def analyze_fights(ctx: click.Context, limit: int) -> None:
             l2 = f.get("leeks2", [{}])[0] if f.get("leeks2") else {}
 
             # Determine which team we're on
-            my_team = 1 if l1.get("id") == LEEK_ID else 2
+            my_team = 1 if l1.get("id") == leek_id else 2
             my_leek = l1 if my_team == 1 else l2
             opp = l2 if my_team == 1 else l1
 

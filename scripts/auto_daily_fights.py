@@ -48,9 +48,9 @@ from leekwars_agent.db import store_fight, init_db
 from leekwars_agent.fight_parser import parse_fight
 from leekwars_agent.fight_analyzer import classify_ai_behavior
 from leekwars_agent.models.fight import ActionCode
+from leekwars_agent.cli.constants import LEEKS, LEEK_ID, resolve_leek
 
 # Config
-LEEK_ID = 131321
 LOG_FILE = Path(__file__).parent.parent / "logs" / "auto_fights.log"
 STATE_FILE = Path(__file__).parent.parent / "data" / "daily_state.json"
 
@@ -152,11 +152,11 @@ def buy_fight_pack(api: LeekWarsAPI, state: dict) -> bool:
         return False
 
 
-def get_status(api: LeekWarsAPI) -> dict:
-    """Get current fight status."""
+def get_status(api: LeekWarsAPI, leek_id: int = LEEK_ID) -> dict:
+    """Get current fight status for a specific leek."""
     garden = api.get_garden()["garden"]
-    farmer = api.farmer
-    leek = list(farmer["leeks"].values())[0]
+    leek_data = api.get_leek(leek_id)
+    leek = leek_data.get("leek", leek_data)
 
     return {
         "fights_available": garden.get("fights", 0),
@@ -167,11 +167,10 @@ def get_status(api: LeekWarsAPI) -> dict:
     }
 
 
-def run_fights(api: LeekWarsAPI, count: int) -> dict:
-    """Run N fights and return results."""
+def run_fights(api: LeekWarsAPI, count: int, leek_id: int = LEEK_ID) -> dict:
+    """Run N fights for a specific leek and return results."""
     from collections import defaultdict
 
-    leek_id = LEEK_ID
     wins, losses, draws, crashes = 0, 0, 0, 0
     archetype_stats = defaultdict(lambda: {"W": 0, "L": 0, "D": 0})
 
@@ -338,10 +337,23 @@ def main():
                         help="Skip buying fight packs (just use available)")
     parser.add_argument("--buy-only", action="store_true",
                         help="Attempt to buy fights then exit (debugging)")
+    parser.add_argument("--leek", type=str, default=None,
+                        help="Leek name or ID (default: IAdonis)")
+    parser.add_argument("--all", action="store_true", dest="all_leeks",
+                        help="Run fights for ALL registered leeks sequentially")
     args = parser.parse_args()
 
+    # Resolve leek target(s)
+    if args.all_leeks:
+        leek_ids = list(LEEKS.values())
+    elif args.leek:
+        leek_ids = [resolve_leek(args.leek)]
+    else:
+        leek_ids = [LEEK_ID]
+
     log("=" * 50)
-    log("AUTO DAILY FIGHTS - Starting")
+    leek_names = [name for name, lid in LEEKS.items() if lid in leek_ids]
+    log(f"AUTO DAILY FIGHTS - Starting ({', '.join(leek_names)})")
 
     # Initialize fight database
     init_db()
@@ -349,16 +361,12 @@ def main():
     # Login via centralized auth (reads LEEKWARS_USER/LEEKWARS_PASS env vars)
     try:
         api = login_api()
-        leek_data = api.get_leek(LEEK_ID)
-        leek_info = leek_data.get("leek", leek_data)
-        ai = leek_info.get("ai", {})
-        ai_name = ai.get("name", "unknown") if isinstance(ai, dict) else f"ai_{ai}"
-        log(f"Logged in as {api.farmer['name']} | AI: {ai_name}")
+        log(f"Logged in as {api.farmer['name']}")
     except Exception as e:
         log(f"LOGIN FAILED: {e}")
         sys.exit(1)
 
-    # Buy fight pack if needed (ensures 150/day capacity)
+    # Buy fight pack if needed (ensures 150/day capacity) — account-wide, once
     if not args.no_buy and not args.dry_run:
         state = load_state()
         buy_fight_pack(api, state)
@@ -368,75 +376,79 @@ def main():
         api.close()
         return
 
-    # Get status
-    status = get_status(api)
-    log(f"Status: {status['fights_available']}/{status['fights_max']} fights | "
-        f"L{status['leek_level']} {status['leek_name']} | Talent: {status['talent']}")
+    # Run fights for each leek
+    for leek_id in leek_ids:
+        leek_data = api.get_leek(leek_id)
+        li = leek_data.get("leek", leek_data)
+        ai = li.get("ai", {})
+        ai_name = ai.get("name", "unknown") if isinstance(ai, dict) else f"ai_{ai}"
+        log(f"\n--- {li.get('name', '?')} (#{leek_id}) | AI: {ai_name} ---")
 
-    available = status["fights_available"]
+        # Get status
+        status = get_status(api, leek_id)
+        log(f"Status: {status['fights_available']}/{status['fights_max']} fights | "
+            f"L{status['leek_level']} {status['leek_name']} | Talent: {status['talent']}")
 
-    # Check minimum threshold
-    if available < args.min_remaining:
-        log(f"Only {available} fights remaining (min: {args.min_remaining}), skipping")
-        api.close()
-        return
+        available = status["fights_available"]
 
-    # Calculate fights to run
-    to_run = int(available * args.percent / 100)
-    if args.max_fights > 0:
-        to_run = min(to_run, args.max_fights)
-    to_run = max(1, to_run) if available > 0 else 0
+        # Check minimum threshold
+        if available < args.min_remaining:
+            log(f"Only {available} fights remaining (min: {args.min_remaining}), skipping")
+            continue
 
-    if to_run == 0:
-        log("No fights to run")
-        api.close()
-        return
+        # Calculate fights to run — split evenly across leeks
+        per_leek_available = available // len(leek_ids)
+        to_run = int(per_leek_available * args.percent / 100)
+        if args.max_fights > 0:
+            to_run = min(to_run, args.max_fights)
+        to_run = max(1, to_run) if per_leek_available > 0 else 0
 
-    log(f"Plan: Run {to_run} fights ({args.percent}% of {available})")
+        if to_run == 0:
+            log("No fights to run for this leek")
+            continue
 
-    if args.dry_run:
-        log("DRY RUN - Would run but not executing")
-        api.close()
-        return
+        log(f"Plan: Run {to_run} fights ({args.percent}% of {per_leek_available})")
 
-    # Run fights
-    results = run_fights(api, to_run)
-    log(f"Results: {results['wins']}W-{results['losses']}L-{results['draws']}D "
-        f"({results['win_rate']:.1f}% WR) | {results['crashes']} crashes")
+        if args.dry_run:
+            log("DRY RUN - Would run but not executing")
+            continue
 
-    # Scrape recent fights to meta DB for analytics
-    try:
-        from leekwars_agent.scraper.scraper import FightScraper
-        from leekwars_agent.scraper.db import FightDB
-        import sqlite3
+        # Run fights
+        results = run_fights(api, to_run, leek_id)
+        log(f"Results: {results['wins']}W-{results['losses']}L-{results['draws']}D "
+            f"({results['win_rate']:.1f}% WR) | {results['crashes']} crashes")
 
-        log("Scraping recent fights to meta DB...")
+        # Scrape recent fights to meta DB for analytics
+        try:
+            from leekwars_agent.scraper.scraper import FightScraper
+            import sqlite3
 
-        # Get recent fight IDs from leek history
-        history = api.get_leek_history(LEEK_ID)
-        recent_fights = [f['id'] for f in history.get('fights', [])[:to_run + 10]]
+            log("Scraping recent fights to meta DB...")
 
-        # Check which are missing from meta DB
-        meta_db = sqlite3.connect('data/fights_meta.db')
-        existing = set(r[0] for r in meta_db.execute('SELECT fight_id FROM fights').fetchall())
-        missing = [fid for fid in recent_fights if fid not in existing]
+            # Get recent fight IDs from leek history
+            history = api.get_leek_history(leek_id)
+            recent_fights = [f['id'] for f in history.get('fights', [])[:to_run + 10]]
 
-        if missing:
-            scraper = FightScraper(api)
-            scraped = 0
-            for fid in missing[:50]:  # Limit to avoid rate limits
-                if scraper.process_fight(fid):
-                    scraped += 1
-            log(f"  Scraped {scraped}/{len(missing)} fights to meta DB")
-        else:
-            log("  All recent fights already in meta DB")
-    except Exception as e:
-        log(f"  Scraping failed (non-fatal): {e}")
+            # Check which are missing from meta DB
+            meta_db = sqlite3.connect('data/fights_meta.db')
+            existing = set(r[0] for r in meta_db.execute('SELECT fight_id FROM fights').fetchall())
+            missing = [fid for fid in recent_fights if fid not in existing]
 
-    # Final status
-    final_status = get_status(api)
-    log(f"Final: {final_status['fights_available']} fights remaining | "
-        f"L{final_status['leek_level']} | Talent: {final_status['talent']}")
+            if missing:
+                scraper = FightScraper(api)
+                scraped = 0
+                for fid in missing[:50]:  # Limit to avoid rate limits
+                    if scraper.process_fight(fid):
+                        scraped += 1
+                log(f"  Scraped {scraped}/{len(missing)} fights to meta DB")
+            else:
+                log("  All recent fights already in meta DB")
+        except Exception as e:
+            log(f"  Scraping failed (non-fatal): {e}")
+
+    # Final status (account-wide)
+    final_status = get_status(api, leek_ids[0])
+    log(f"\nFinal: {final_status['fights_available']} fights remaining")
 
     api.close()
     log("AUTO DAILY FIGHTS - Complete")

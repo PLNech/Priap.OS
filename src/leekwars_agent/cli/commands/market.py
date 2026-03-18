@@ -2,7 +2,7 @@
 
 import click
 from ..output import output_json, success, error, console
-from ..constants import LEEK_ID
+from ..constants import LEEK_ID  # unused but kept for backward compat
 from ..items_loader import get_market_items, get_item, ITEM_TYPE_CHIP, ITEM_TYPE_WEAPON
 from leekwars_agent.auth import login_api
 from leekwars_agent.api import LeekWarsError
@@ -23,11 +23,12 @@ def list_items(ctx: click.Context, item_type: str, max_level: int | None) -> Non
 
     Shows chips and weapons you can buy with habs.
     """
+    leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
         inv = api.get_inventory()
         habs = inv.get("habs", 0)
-        leek = api.get_leek(LEEK_ID)
+        leek = api.get_leek(leek_id)
         level = leek.get("level", 1)
 
         if max_level is None:
@@ -208,11 +209,12 @@ def equip(ctx: click.Context, item_id: int) -> None:
             error(f"Item #{item_id} not found in inventory")
             raise SystemExit(1)
 
+        leek_id = ctx.obj["leek_id"]
         try:
             if item_type == "chip":
-                result = api.add_chip(LEEK_ID, item_id)
+                result = api.add_chip(leek_id, item_id)
             else:
-                result = api.add_weapon(LEEK_ID, item_id)
+                result = api.add_weapon(leek_id, item_id)
         except LeekWarsError as e:
             error(f"Equip failed: {e.error}")
             raise SystemExit(1)
@@ -238,9 +240,10 @@ def unequip(ctx: click.Context, item_id: int) -> None:
     ITEM_ID is the inventory item ID (not template ID).
     Use 'leek info leek --json' to see equipped items with their IDs.
     """
+    leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
-        leek = api.get_leek(LEEK_ID)
+        leek = api.get_leek(leek_id)
         found = None
         item_type = None
         for chip in leek.get("chips", []):
@@ -260,7 +263,7 @@ def unequip(ctx: click.Context, item_id: int) -> None:
 
         try:
             if item_type == "chip":
-                result = api.remove_chip(LEEK_ID, item_id)
+                result = api.remove_chip(leek_id, item_id)
             else:
                 result = api.remove_weapon(item_id)
         except LeekWarsError as e:

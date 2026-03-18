@@ -6,7 +6,7 @@ import sys
 import click
 from pathlib import Path
 from ..output import output_json, success, error, console
-from ..constants import LEEK_ID
+from ..constants import LEEK_ID  # unused but kept for backward compat
 from leekwars_agent.auth import login_api
 
 # Default chips (from GROUND_TRUTH.md)
@@ -27,9 +27,10 @@ def show_specs(ctx: click.Context) -> None:
 
     Outputs the exact command to test AIs with your real stats.
     """
+    leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
-        data = api.get_leek(LEEK_ID)
+        data = api.get_leek(leek_id)
         leek = data.get("leek", data)
 
         specs = {
@@ -114,9 +115,10 @@ def compare(ctx: click.Context, ai1: str, ai2: str, num_fights: int, real_specs:
     ]
 
     if real_specs:
+        leek_id = ctx.obj["leek_id"]
         api = login_api()
         try:
-            data = api.get_leek(LEEK_ID)
+            data = api.get_leek(leek_id)
             leek = data.get("leek", data)
 
             level = leek.get("level", 1)
@@ -181,9 +183,10 @@ def debug_fight(ctx: click.Context, ai1: str, ai2: str, real_specs: bool) -> Non
     cmd = [sys.executable, "scripts/debug_fight.py", ai1, ai2]
 
     if real_specs:
+        leek_id = ctx.obj["leek_id"]
         api = login_api()
         try:
-            data = api.get_leek(LEEK_ID)
+            data = api.get_leek(leek_id)
             leek = data.get("leek", data)
 
             level = leek.get("level", 1)

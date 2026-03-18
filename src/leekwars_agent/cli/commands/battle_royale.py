@@ -119,8 +119,7 @@ def br_join(ctx: click.Context, leek_id: int | None, timeout: float, get_result:
 
     # Use default leek if not specified
     if leek_id is None:
-        from leekwars_agent.cli.constants import LEEK_ID
-        leek_id = LEEK_ID
+        leek_id = ctx.obj["leek_id"]
 
     def progress(msg: str):
         console.print(f"  [dim]{msg}[/dim]")
@@ -181,8 +180,7 @@ def br_run(ctx: click.Context, leek_id: int | None, count: int, delay: float, ti
     api = login_api()
 
     if leek_id is None:
-        from leekwars_agent.cli.constants import LEEK_ID
-        leek_id = LEEK_ID
+        leek_id = ctx.obj["leek_id"]
 
     try:
         console.print(f"[bold]Battle Royale Batch[/bold] - {count} fights, Leek {leek_id}\n")

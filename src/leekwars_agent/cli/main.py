@@ -3,22 +3,25 @@
 import click
 from .commands import info, craft, fight, market, ai, build, sim, trophy, test, scrape, analyze, opponent, battle_royale, tournament, scout
 from .output import console
-from .constants import LEEK_ID
+from .constants import LEEK_ID, resolve_leek
 from leekwars_agent.auth import login_api
 
 
 @click.group()
 @click.option("--json", "json_output", is_flag=True, help="Output as JSON (for automation)")
+@click.option("--leek", "-l", "leek_name", default=None, help="Leek name or ID (default: IAdonis)")
 @click.version_option(version="0.2.0", prog_name="leek")
 @click.pass_context
-def cli(ctx: click.Context, json_output: bool) -> None:
+def cli(ctx: click.Context, json_output: bool, leek_name: str | None) -> None:
     """LeekWars CLI - fight, craft, and manage your leek.
 
     Use --json flag with any command for machine-readable output.
+    Use --leek/-l to target a specific leek (e.g. --leek anansai).
 
     Examples:
 
         leek status                       # Quick overview of everything
+        leek --leek anansai build show    # AnansAI's build
 
         leek info leek                    # Show your leek's stats
 
@@ -34,6 +37,13 @@ def cli(ctx: click.Context, json_output: bool) -> None:
     """
     ctx.ensure_object(dict)
     ctx.obj["json"] = json_output
+    if leek_name:
+        try:
+            ctx.obj["leek_id"] = resolve_leek(leek_name)
+        except ValueError as e:
+            raise click.BadParameter(str(e))
+    else:
+        ctx.obj["leek_id"] = LEEK_ID
 
 
 @cli.command()
@@ -43,7 +53,7 @@ def status(ctx: click.Context) -> None:
     api = login_api()
     try:
         # Get all data in parallel (well, sequentially but fast)
-        leek_data = api.get_leek(LEEK_ID)
+        leek_data = api.get_leek(ctx.obj["leek_id"])
         garden_data = api.get_garden()
         inv = api.get_inventory()
 
