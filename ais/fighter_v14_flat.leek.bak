@@ -1,13 +1,7 @@
 // Fighter v14 "Phalanx" - FLATTENED for online deployment
 // Based on v13 Aegis + S28/S29/S30 analysis (50+ online fights)
 // =============================================================================
-// Design: Move→Attack→Defend attrition + TP denial + life-steal weapon.
-// S36 changes (#0209 Movement Rework):
-//   - REWORK: Turn order Defend→Move→Attack → Move→Attack→Defend
-//     S36 data: 67% shield waste (cast at dist>10), weapon fires 3.5% of turns!
-//     Movement is FREE (MP), attack gets full TP budget, shields get leftover.
-//   - ADDED: Distance gate on shields (skip when enemy dist > 10)
-//   - ADDED: Dynamic TP reservation (max(weapon_cost, 4) not hardcoded 4)
+// Design: Defensive-first attrition + TP denial + life-steal weapon.
 // S31 changes:
 //   - FIX: Weapon scoring uses getWeaponEffects() for real damage+heal value
 //     Old: cost*8 favored Laser (48) over b_laser (40). b_laser used in 1/10 fights!
@@ -540,17 +534,9 @@ function markChipUsed(chip) {
 // when we could afford the big one.
 // Reserve TP for at least one Flame (4 TP) after defense.
 
-function applyDefensiveBuffs(enemy_dist) {
+function applyDefensiveBuffs() {
     var applied = 0
-    // Distance gate: shields at distance > 10 expire before combat (67% waste rate — S36 data)
-    if (enemy_dist > 10) {
-        debug("  Shields SKIPPED: enemy too far (" + enemy_dist + ")")
-        return 0
-    }
-    // Dynamic TP reserve: weapon cost or minimum 4 (Flame)
-    var weapon = getWeapon()
-    var weapon_cost = weapon ? getWeaponCost(weapon) : 0
-    var tp_reserve = max(weapon_cost, 4)  // b_laser=5, minimum=4 (1× Flame)
+    var tp_reserve = 4  // Reserve for at least 1 Flame
 
     // ARMOR first: 6 TP for -25 abs, 4 turns. Best TP-to-mitigation ratio over duration.
     if (canUseChip(chip_armor) && getTP() >= 6 + tp_reserve) {
@@ -720,9 +706,8 @@ if (getWeapon() == null) {
 if (force_engage) {
     debug("  ALL-IN: No retreat, pure aggro")
 
-    // Even in all-in, apply defenses (force_engage = close range, shields useful)
-    var fe_dist = getCellDistance(getCell(), getCell(enemy))
-    applyDefensiveBuffs(fe_dist)
+    // Even in all-in, apply any available defenses (free survivability)
+    applyDefensiveBuffs()
     debuffEnemy(enemy)
 
     // Close gap but respect b_laser min_range (step-by-step: moveToward uses ALL MP at once!)
@@ -749,16 +734,24 @@ if (force_engage) {
 }
 
 // =============================================================================
-// PHASE 1: MOTIVATION (opening only, far from enemy — unchanged)
+// PHASE 1: MOTIVATION (opening only, far from enemy)
 // =============================================================================
 applyMotivation()
 
 // =============================================================================
-// PHASE 2: SPATIAL + STRATEGY (compute only — NO TP spent)
+// PHASE 2: DEFENSIVE ROTATION (every turn, before offense)
 // =============================================================================
-// S36 data: old Defend→Move→Attack wasted 67% shields, weapon fired 3.5% of turns.
-// New order: Move→Attack→Defend. Movement is FREE (MP only). Attack gets full TP budget.
-// Shields get whatever TP is left, only when close enough to matter.
+// The Phalanx doctrine: shields up FIRST, then fight.
+// Data: longer fights = we win (73% WR at 12+ turns).
+// Triple-layer defense extends fights by reducing incoming damage.
+var defenses = applyDefensiveBuffs()
+if (defenses > 0) {
+    debug("  Shields: " + defenses + " applied")
+}
+
+// =============================================================================
+// PHASE 3: SPATIAL AWARENESS
+// =============================================================================
 var my_mp = getMP()
 var enemy_mp = getMP(enemy)
 
@@ -769,6 +762,9 @@ if (fight_phase != "opening" && getOperations() < 600000) {
     cached_danger_map = computeQuickDanger(cached_my_accessible, enemy)
 }
 
+// =============================================================================
+// PHASE 4: STRATEGY SELECTION
+// =============================================================================
 var dist = getCellDistance(getCell(), getCell(enemy))
 var weapon = getWeapon()
 var w_min = weapon ? getWeaponMinRange(weapon) : 1
@@ -795,20 +791,29 @@ else if (!winning_race && fight_phase == "midgame" && cached_danger_map != null)
 debug("  Strategy: " + strategy + " | Dist: " + dist + " | Range: " + w_min + "-" + w_max)
 
 // =============================================================================
-// PHASE 3: MOVE (MP only — free, no TP cost)
+// PHASE 5: EXECUTE STRATEGY
 // =============================================================================
-// Movement first: get into range before spending any TP.
-// This is the key insight: MP is free, TP is precious.
 if (strategy == "retreat") {
+    // Move to safety first
     var safe_cell = getSafestCell(cached_danger_map)
     if (safe_cell != null) {
         moveTowardCell(safe_cell)
     }
+    // Tranquilizer has range 8 — works even while retreating
+    debuffEnemy(enemy)
+    // Still try to attack if in range
+    useChipDamage(enemy)
+    executeAttacks(enemy)
+
 } else {
-    // AGGRO: Close to attack range
-    var approach_target = w_max  // b_laser=8, Laser=9, Magnum=8
+    // AGGRO: Close and attack
+
+    // Dynamic approach target — b_laser range 8 > Flame range 7
+    // Use our longest weapon range as the approach threshold
+    var approach_target = w_max  // b_laser=8, Laser=7, Magnum=6
     if (approach_target < 7) approach_target = 7  // Flame range minimum
 
+    // Anti-kite: spend ALL MP closing if enemy is running (but keep b_laser range)
     if (enemy_pattern == "kiting") {
         debug("  Anti-kite: spending all MP to close")
         while (getMP() > 0) {
@@ -818,69 +823,47 @@ if (strategy == "retreat") {
             dist = getCellDistance(getCell(), getCell(enemy))
         }
     } else {
+        // Normal approach: stop at attack range (approach_target=8, safely above min_range 2)
         while (dist > approach_target && getMP() > 0) {
             var moved = moveToward(enemy)
             if (moved == 0) break;
             dist = getCellDistance(getCell(), getCell(enemy))
         }
     }
-}
 
-// =============================================================================
-// PHASE 4: ATTACK (weapon + Flame — TP reserved for THIS)
-// =============================================================================
-// Full TP budget goes to damage first. b_laser gets priority.
-dist = getCellDistance(getCell(), getCell(enemy))
-
-if (strategy == "retreat") {
-    // Even retreating, attack if in range
-    useChipDamage(enemy)
-    executeAttacks(enemy)
-    debuffEnemy(enemy)
-} else {
-    // At distance > 7: weapon-first (b_laser reaches where Flame can't)
-    // At distance ≤ 7: Flame-first (chip damage before weapon)
+    // At distance 8: weapon-first (b_laser reaches, Flame doesn't)
+    // At distance <=7: Flame-first (chip damage before weapon)
+    dist = getCellDistance(getCell(), getCell(enemy))
     if (dist > 7) {
         debug("  Long range (" + dist + "): weapon-first (b_laser reach)")
         executeAttacks(enemy)
+        debuffEnemy(enemy)
         useChipDamage(enemy)
     } else {
+        // Chip damage FIRST — every Flame matters more than a debuff
         useChipDamage(enemy)
         executeAttacks(enemy)
     }
 
-    // Debuff after damage — TP denial for their next turn
-    debuffEnemy(enemy)
-
-    // Remaining MP: close further for next turn, but respect weapon min_range
+    // Use remaining MP to close further, but respect weapon min_range
+    // b_laser min_range=2: closing to dist 1 kills our best weapon next turn
     while (getMP() > 0) {
         var close_dist = getCellDistance(getCell(), getCell(enemy))
         if (close_dist <= 2) break;  // Stay at b_laser min_range
-        var moved2 = moveToward(enemy)
-        if (moved2 == 0) break;
+        var moved = moveToward(enemy)
+        if (moved == 0) break;
     }
-
-    // Second attack pass after closing
     useChipDamage(enemy)
     executeAttacks(enemy)
+
+    // Tranquilizer LAST — spend leftover TP crippling their next turn
+    debuffEnemy(enemy)
 }
 
 // =============================================================================
-// PHASE 5: DEFEND (leftover TP → shields, only if dist ≤ 10)
-// =============================================================================
-// Shields LAST, with whatever TP remains. Distance gate prevents waste.
-dist = getCellDistance(getCell(), getCell(enemy))
-var defenses = applyDefensiveBuffs(dist)
-if (defenses > 0) {
-    debug("  Shields: " + defenses + " applied (leftover TP)")
-}
-
-// =============================================================================
-// PHASE 6: CLEANUP (any remaining TP → debuff + attack)
+// PHASE 6: POST-COMBAT DEBUFF (leftover TP → cripple enemy's next turn)
 // =============================================================================
 debuffEnemy(enemy)
-useChipDamage(enemy)
-executeAttacks(enemy)
 
 // =============================================================================
 // END OF TURN
