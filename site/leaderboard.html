@@ -403,6 +403,136 @@ tr.sensei td {
   transition: left 1.5s ease-out;
 }
 
+/* === DYNASTY CARDS === */
+.dynasty-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.dynasty-card {
+  background: linear-gradient(135deg, var(--void) 0%, var(--void-light) 100%);
+  border: 1px solid rgba(184, 134, 11, 0.2);
+  border-radius: 4px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.dynasty-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--purple), transparent);
+}
+
+.dynasty-card .dynasty-name {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: var(--purple);
+  margin-bottom: 0.5rem;
+}
+
+.dynasty-card .dynasty-avg {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--marble-dim);
+  margin-bottom: 0.6rem;
+}
+
+.dynasty-member {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 0.15rem 0;
+  color: var(--marble-dim);
+}
+
+.dynasty-member .member-rank { color: var(--bronze); }
+.dynasty-member .member-talent { color: var(--leek); }
+
+/* === TIER PYRAMID === */
+.tier-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+}
+
+.tier-label {
+  width: 110px;
+  text-align: right;
+  color: var(--marble-dim);
+  flex-shrink: 0;
+}
+
+.tier-fill {
+  height: 16px;
+  border-radius: 2px;
+  position: relative;
+  min-width: 2px;
+  transition: width 1s ease-out;
+}
+
+.tier-count {
+  color: var(--marble-dim);
+  font-size: 0.6rem;
+  margin-left: 0.3rem;
+  flex-shrink: 0;
+}
+
+/* === MOVEMENT CHART === */
+.movement-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  border-bottom: 1px solid rgba(184, 134, 11, 0.05);
+}
+
+.movement-rank { width: 35px; color: var(--bronze); text-align: right; }
+.movement-name { width: 180px; color: var(--marble); overflow: hidden; text-overflow: ellipsis; }
+.movement-bar-wrap { flex: 1; height: 12px; position: relative; }
+.movement-bar {
+  position: absolute; top: 0; height: 100%; border-radius: 2px;
+  transition: width 0.8s ease-out;
+}
+.movement-bar.gain { background: var(--leek); left: 50%; }
+.movement-bar.loss { background: var(--coral); right: 50%; }
+.movement-delta { width: 55px; text-align: right; font-size: 0.65rem; }
+.movement-delta.up { color: var(--leek); }
+.movement-delta.down { color: var(--coral); }
+
+/* === COUNTRY FLAGS === */
+.country-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.6rem;
+}
+
+.country-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  background: var(--void);
+  border: 1px solid rgba(184, 134, 11, 0.1);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.country-flag { font-size: 1.1rem; }
+.country-count { color: var(--cyan); font-weight: 500; }
+.country-detail { color: var(--marble-dim); font-size: 0.6rem; }
+
 /* === FOOTER === */
 .footer {
   text-align: center;
@@ -808,6 +938,9 @@ async function render() {
       </div>
     </div>
 
+    <!-- ELITE ANALYSIS (loaded from elite.json) -->
+    <div id="elite-section"></div>
+
     <footer class="footer">
       PRIAP.OS &middot; THE DIGITAL ORACLE &middot; LEEKWARS RANKING INTELLIGENCE
     </footer>
@@ -832,7 +965,138 @@ async function render() {
   });
 }
 
-render().catch(e => {
+// Country code → flag emoji
+function flag(cc) {
+  if (!cc || cc === '??' || cc.length !== 2) return '🏴';
+  return String.fromCodePoint(...[...cc.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+}
+
+async function renderElite() {
+  try {
+    const resp = await fetch('data/elite.json');
+    const e = await resp.json();
+    const el = document.getElementById('elite-section');
+    if (!el) return;
+
+    // Max talent delta for movement bars
+    const maxDelta = Math.max(...e.movements.map(m => Math.abs(m[4] - m[3])), 1);
+
+    el.innerHTML = `
+      <!-- DYNASTIES -->
+      <div class="chart-section">
+        <h2><span class="icon">&#x1F3DB;</span> Dynasties of the Pantheon</h2>
+        <div class="dynasty-grid">
+          ${e.dynasties.map(dy => `
+            <div class="dynasty-card">
+              <div class="dynasty-name">${dy.name}</div>
+              <div class="dynasty-avg">${dy.members.length} leeks &middot; avg T${Math.round(dy.avg_talent)}</div>
+              ${dy.members.map(m => `
+                <div class="dynasty-member">
+                  <span class="member-rank">#${m[1]}</span>
+                  <span>${m[0]}</span>
+                  <span class="member-talent">T${m[2]}</span>
+                </div>
+              `).join('')}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- TALENT TIERS PYRAMID -->
+      <div class="chart-section">
+        <h2><span class="icon">&#x1F3D4;</span> The Mountain — Talent Tiers</h2>
+        <div class="chart-wrap">
+          ${e.talent_tiers.map((t, i) => {
+            const maxCount = Math.max(...e.talent_tiers.map(x => x[1]));
+            const pct = (t[1] / maxCount * 100).toFixed(0);
+            const hue = 280 - (i / e.talent_tiers.length) * 200;
+            return `
+              <div class="tier-bar">
+                <span class="tier-label">T${t[0]}-${t[0]+249}</span>
+                <div class="tier-fill" style="width:${pct}%;background:hsl(${hue},60%,50%)"></div>
+                <span class="tier-count">${t[1]} (ranks #${t[2]}-#${t[3]})</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- TOP 20 DAILY MOVEMENT -->
+      <div class="chart-section">
+        <h2><span class="icon">&#x26A1;</span> Daily Talent Movement — Top 20</h2>
+        <div class="chart-wrap">
+          ${e.movements.map(m => {
+            const delta = m[4] - m[3];
+            const absDelta = Math.abs(delta);
+            const pctBar = (absDelta / maxDelta * 48).toFixed(1);
+            const isGain = delta >= 0;
+            return `
+              <div class="movement-row">
+                <span class="movement-rank">#${m[2]}</span>
+                <span class="movement-name">${m[1]}</span>
+                <div class="movement-bar-wrap">
+                  <div class="movement-bar ${isGain ? 'gain' : 'loss'}"
+                       style="width:${pctBar}%"></div>
+                </div>
+                <span class="movement-delta ${isGain ? 'up' : 'down'}">
+                  ${isGain ? '+' : ''}${delta}
+                </span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- COUNTRY BREAKDOWN -->
+      <div class="chart-section">
+        <h2><span class="icon">&#x1F30D;</span> Nations of the Top 200</h2>
+        <div class="country-grid">
+          ${e.countries.map(c => `
+            <div class="country-card">
+              <span class="country-flag">${flag(c[0])}</span>
+              <div>
+                <div class="country-count">${c[1]} leeks</div>
+                <div class="country-detail">best #${c[2]} &middot; avg T${c[3]}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- TOP 30 TABLE WITH COUNTRY -->
+      <div class="chart-section">
+        <h2><span class="icon">&#x1F451;</span> The Pantheon — Top 30</h2>
+        <div class="table-wrap scroll-table">
+          <table>
+            <thead><tr>
+              <th class="rank-col">Rank</th>
+              <th></th>
+              <th class="name-col">Name</th>
+              <th class="talent-col">Talent</th>
+              <th class="level-col">Level</th>
+            </tr></thead>
+            <tbody>
+              ${e.top30.map(r => {
+                let cls = r[1] === SENSEI_NAME ? 'sensei' : '';
+                return `<tr class="${cls}">
+                  <td class="rank-col">#${r[0]}</td>
+                  <td>${flag(r[4])}</td>
+                  <td class="name-col">${r[1]}</td>
+                  <td class="talent-col">${r[2]}</td>
+                  <td class="level-col">${r[3]}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  } catch(e) {
+    console.log('Elite data not available:', e.message);
+  }
+}
+
+render().then(() => renderElite()).catch(e => {
   document.getElementById('app').innerHTML = `<div class="loading" style="color:var(--coral)">Oracle failed: ${e.message}</div>`;
 });
 </script>

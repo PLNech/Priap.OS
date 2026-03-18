@@ -1,7 +1,7 @@
 """LeekWars CLI - main entry point."""
 
 import click
-from .commands import info, craft, fight, market, ai, build, sim, trophy, test, scrape, analyze, opponent, battle_royale, tournament
+from .commands import info, craft, fight, market, ai, build, sim, trophy, test, scrape, analyze, opponent, battle_royale, tournament, scout
 from .output import console
 from .constants import LEEK_ID
 from leekwars_agent.auth import login_api
@@ -141,6 +141,7 @@ cli.add_command(analyze.analyze)
 cli.add_command(opponent.opponent)
 cli.add_command(battle_royale.br)
 cli.add_command(tournament.tournament)
+cli.add_command(scout.scout)
 
 
 def main() -> None:
