@@ -90,8 +90,9 @@ def status(ctx: click.Context) -> None:
         # Pretty output
         console.print("[bold cyan]═══ PriapOS Status ═══[/bold cyan]\n")
 
-        # Fights
-        remaining = max_solo - total_solo
+        # Fights — min of global budget and solo quota
+        global_budget = garden.get("fights", 0)
+        remaining = min(global_budget, max_solo - total_solo)
         fight_color = "green" if remaining > 0 else "red"
         console.print(f"[bold]Fights:[/bold] [{fight_color}]{remaining}[/{fight_color}]/{max_solo} remaining")
 

@@ -144,7 +144,8 @@ Pydantic-first (`src/leekwars_agent/models/`). Start minimal, grow incrementally
 
 - Login: `leek@nech.pl`
 - Account: PriapOS (Farmer ID: 124831)
-- Leek: IAdonis (ID: 131321)
+- Leek 1: IAdonis (ID: 131321) — competitive climber
+- Leek 2: AnansAI (ID: 132531) — theory test bed (created S35)
 
 ## Project Structure
 

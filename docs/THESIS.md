@@ -3,8 +3,8 @@
 > A living strategy document. Updated as data proves or disproves hypotheses.
 > Every claim links to evidence. Every change records what we learned.
 
-**Last updated**: Session 31 (2026-03-13)
-**Current Talent**: 333 | **Rank**: #9317 | **Level**: 117
+**Last updated**: Session 35 (2026-03-18)
+**Current Talent**: 369 | **Rank**: #8461 | **Level**: 125
 **Target**: T500 (short-term), Top 1000 (medium-term), Top 10 (north star)
 
 ---
@@ -26,32 +26,58 @@ The build has evolved: **glass cannon → defensive attrition → lifesteal attr
 
 ## Build Philosophy
 
-### Current Build (S31)
+### Current Build (S35)
 | Stat | Value | S25 Value | Assessment |
 |------|-------|-----------|------------|
-| STR | 452 | 452 | Still high — effective vs 0 RES, wasted vs 150+ RES |
-| HP | 692 (792 w/Apple) | 319 | +373 HP. Apple component = free 100 HP |
-| RES | 0 | 0 | Unchanged — every opponent invests in it, we don't |
-| TP | 14 | 10 | +4 TP. Full rotation now fits in one turn |
+| STR | 452 | 452 | Highest in bracket. Diminishing returns vs RES opponents |
+| HP | 930 (1030 w/Apple) | 319 | +611 HP. Apple component = free 100 HP |
+| RES | **40** | 0 | **S35: First defense investment.** 20 cap → 40 RES (2:1 at tier 0) |
+| TP | 14 | 10 | +4 TP. Full rotation fits in one turn |
 | MP | 4 | 3 | +1 MP. Minimum kiting capability |
-| Capital | 35 (saving) | 0 | Unspent — waiting for strategic moment |
+| Capital | 0 | 0 | All spent. Next capital → more RES (still cheap at tier 0) |
 
 ### What Changed Since S25
 - **TP 10→14**: Most impactful stat investment. Unlocks full defense+offense+utility rotation. Motivation gives 16 TP turns.
 - **HP 319→692**: Base HP grew with levels. Apple component adds 100.
 - **Components (4/8)**: Apple (+100HP), Core (+4 cores), Fan (+40 freq), CD (+40 wis)
 
-### Capital Strategy (35 unspent)
-Saving. No immediate spend — diminishing returns on all current options at our level.
+### Capital Strategy (0 unspent — all invested)
 
-| Option | Cost | Gain | Assessment |
-|--------|------|------|------------|
-| TP 15 | 75 cap | +1 TP | Expensive. Need 40 more capital |
-| MP 5 | 80 cap | +1 MP | Expensive. Need 45 more capital |
-| HP | 1 cap = 4 HP | Incremental | Best ratio, but 35 cap = 140 HP — marginal |
-| STR | 2 cap = 1 STR | Diminishing | Already overkill. Don't. |
+**S35 decision**: All 20 capital → RES. Backed by S34 scouting: we were the ONLY leek with RES 0 in our bracket.
 
-**Respec still unknown** — if available, moving STR 452→300 into HP/TP would likely transform WR.
+**Spending curves (verified S35)**:
+| Stat | Tier 0-199 | Tier 200-399 | Tier 400-599 | Tier 600+ |
+|------|-----------|-------------|-------------|----------|
+| STR/WIS/AGI/RES | 1 cap = 2 pts | 1 cap = 1 pt | 2 cap = 1 pt | 3 cap = 1 pt |
+| HP | 1 cap = 4 HP (0-999 invested) | 1 cap = 3 HP (1000-1999) | 1 cap = 2 HP (2000+) | — |
+| TP | 30/35/40/45/50/.../100 cap per point (progressive, expensive) |
+| MP | 20/40/60/80/100/120/140/160/180 cap per point (very expensive) |
+
+**Next capital priority**: Continue RES until ~100-150 (still cheap at tier 0). STR is frozen — already highest in bracket, diminishing returns at tier 400+. HP is secondary — good ratio but less impactful than RES when every opponent runs physical damage.
+
+**Capital is atomic** — fractional costs round up. E.g., 5 RES at 0.5 cap/pt = 2.5 → 3 cap → 6 RES.
+
+**Respec still unknown** — if available, moving STR 452→300 into RES/HP would likely transform WR.
+
+### Multi-Leek Strategy (S35)
+
+**AnansAI** (ID: 132531) — L1, T100, 50 capital. Purpose: **cattle-over-pets theory testing.**
+
+| Role | IAdonis | AnansAI |
+|------|---------|---------|
+| **Mission** | Competitive climber | Build theory lab rat |
+| **Build** | Proven attrition (STR 452, RES 40) | Experimental — test hypotheses |
+| **Risk** | Conservative — protect talent | Disposable — WR doesn't matter |
+| **Data** | High-talent bracket insights | Cross-level insights (L1→converge) |
+
+**Why this matters**:
+- **2x online data** — both leeks fight daily, doubling our learning rate
+- **Cross-level learning** — AnansAI climbs from L1, generating data across ALL talent brackets. Patterns that hold at T100 AND T369 are universal truths; patterns that diverge reveal bracket-specific meta shifts.
+- **Hypothesis isolation** — test RES-heavy, WIS-heavy, or pure-HP builds on AnansAI without risking IAdonis's talent. When a theory proves out, migrate the insight to the main.
+- **Farmer fights unlocked** — 2 leeks enables 4v4 farmer fights (separate talent + opponents)
+- **Convergence horizon** — as AnansAI levels up, the cross-level data window closes. Maximize diverse experiments early.
+
+**AI deployment**: Same v14 Phalanx initially. Diverge when testing AI variants.
 
 ---
 
@@ -153,28 +179,32 @@ Special modes:
 
 ## Competitive Landscape
 
-### Current Position (S31)
-- **Rank #9317** in active leaderboard (~10K active players)
-- **T333 band**: Opponents range L50-L257. Level is tiebreaker within talent.
-- Climbed from ~T89 (S25) to T333 (S31) — **+244 talent in 6 sessions**
+### Current Position (S35)
+- **Rank #8461** in active leaderboard (~10K active players)
+- **T369 band**: Climbing steadily. Recent WWWDW streak.
+- Climbed from ~T89 (S25) to T369 (S35) — **+280 talent in 10 sessions**
+- S34 scouting: bracket meta is RES 50-200, WIS 100-245. We're catching up on RES.
 
 ### What We Beat
-- **Zero-RES opponents**: Our STR 452 destroys unshielded targets
-- **Bulb summoners**: 64% WR (14 fights) — they waste TP on summoning
-- **Low-HP opponents**: b_laser lifesteal means we out-sustain
+- **Glass cannons (STR 400+)**: 64% WR (25 fights, S35) — mirror matchups favor our AI/equipment
+- **Zero-RES opponents**: 60% WR (15 fights) — STR 452 punches through
+- **Magic users**: 75% WR (4 fights) — small sample but physical build counters MAG
+- **WIS 0 opponents**: 69% WR (13 fights) — no heals/debuff resist = easy target
 
 ### What Beats Us
-- **RES 150+ opponents**: Our damage drops to ~150-285 total over 8+ turns. Kryptonite.
-- **HP tanks (1000+)**: Simply outlast us (Pasdbol 1191 HP, LLpeterpan 1028)
-- **WIS 200+**: Their heals/buffs are 2-3x stronger than ours (WIS 40)
+- **RES 150+ opponents**: 35% WR (20 fights!) — **40% of our matchups**. Kryptonite confirmed.
+- **Summon users**: **31% WR** (16 fights, S35) — collapsed from 64% in S30. Needs investigation.
+- **WIS 200+**: 40% WR (15 fights) — heal amplification + debuff resistance
+- **Balanced builds (STR 200-300 + RES 150+ + WIS 100+)**: The real meta. We can't break them.
 
-### Online Fight Data (S30, 50 fights over 3 days)
-- **Overall WR**: 52% (26W-24L)
-- **vs RES 100+**: ~35% WR (most losses)
-- **vs bulb users**: 64% WR
-- **vs zero RES**: ~70% WR
+### Online Fight Data (S35, 50 fights, pre-RES baseline)
+- **Overall WR**: 50% (25W-24L-1D) — equilibrium for T369
+- **vs RES 150+**: 35% WR — **biggest matchup problem (20/50 fights)**
+- **vs Summons**: 31% WR — **collapsed from 64% in S30, investigate**
+- **vs Glass cannons**: 64% WR — our best matchup
+- **Fight duration**: Wins avg 8.2t, Losses avg 10.0t
 
-**Evidence**: [v14_3day_overnight_s30.md](research/v14_3day_overnight_s30.md)
+**Evidence**: [s35_50fight_pre_res_analysis.md](research/s35_50fight_pre_res_analysis.md), [v14_3day_overnight_s30.md](research/v14_3day_overnight_s30.md)
 
 ---
 
@@ -212,6 +242,9 @@ Special modes:
 | S30 | b_laser adds sustain | 62% sim WR vs old v14 (strongest delta ever) | Lifesteal weapon = sustain without chip slots |
 | S30 | 52% online WR is our ceiling | RES opponents are kryptonite, AI bugs reduce WR | Need Ferocity + AI fixes for next jump |
 | S31 | b_laser should dominate | Used in only 1/10 fights — scoring bug! | Fixed: getWeaponEffects() for real value/TP |
+| S34 | Study top climbers for insights | Ad-hoc scraping wastes API calls. Reusable tools > one-off scripts | Built `leek scout` CLI, scouted 10 opponents |
+| S34 | Pure STR is king | STR 452 = highest in bracket, but 5/7 losses had RES 50-200 | **RES 0 is the outlier.** Fumetsu model = balanced |
+| S35 | More STR always helps | Diminishing at 2:1 cap/pt. RES at 2 pts/cap = 4x more efficient | **Pivot: all capital → RES.** 20 cap → 40 RES |
 
 ---
 
@@ -235,3 +268,7 @@ Special modes:
 | S30 | Build ranking tracker (SQLite) | Can't improve what you can't measure | Baseline: rank #9325 |
 | S31 | Fix weapon scoring with getWeaponEffects() | b_laser used 1/10 fights due to cost*8 bug | b_laser now scores 20/TP vs Laser 7.2/TP |
 | S31 | Merge master→main + sync branches | GH Actions daemon checked out main (18 commits behind!) | All tooling now deployed to daemon |
+| S34 | Build `leek scout` CLI | Reusable opponent intelligence > ad-hoc scraping | scout_leek() + scout_batch() + CLI |
+| S34 | Scout 10 loss/win opponents | Need data to inform stat allocation | Analysis: RES 0 = glass cannon, Fumetsu = model |
+| S35 | Spend 20 capital on RES (0→40) | Scouting proved RES 0 = biggest weakness. 2:1 ratio = best value | First defense investment. Shield stack now -100 |
+| S35 | Create AnansAI (2nd leek, 10K habs) | 2x online learning rate + cross-level data + theory isolation | farmer_enabled unlocked, L1 T100 50cap |

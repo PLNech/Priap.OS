@@ -27,9 +27,11 @@ def status(ctx: click.Context) -> None:
         leek_data = api.get_leek(LEEK_ID)
         leek = leek_data.get("leek", leek_data)
 
+        global_budget = garden.get("fights", 0)
+        solo_quota = garden.get("max_solo_fights", 10) - garden.get("total_solo_fights", 0)
         data = {
-            "fights_available": garden.get("fights", 0),
-            "fights_max": garden.get("max_fights", 100),
+            "fights_available": min(global_budget, solo_quota),
+            "fights_max": garden.get("max_solo_fights", 10),
             "leek_name": leek.get("name"),
             "leek_level": leek.get("level"),
             "talent": leek.get("talent"),
@@ -57,8 +59,11 @@ def run(ctx: click.Context, count: int, dry_run: bool) -> None:
     """
     api = login_api()
     try:
-        garden = api.get_garden().get("garden", {})
-        available = garden.get("fights", 0)
+        garden_data = api.get_garden()
+        garden = garden_data.get("garden", garden_data)
+        global_budget = garden.get("fights", 0)
+        solo_quota = garden.get("max_solo_fights", 10) - garden.get("total_solo_fights", 0)
+        available = min(global_budget, solo_quota)
 
         if available < count:
             error(f"Only {available} fights available, requested {count}")

@@ -7,8 +7,8 @@ All simulation scripts (compare_ais, debug_fight, etc.) import from here.
 
 # === Our Leek: IAdonis (ID: 131321) ===
 
-LEEK_LEVEL = 121
-LEEK_LIFE = 1024  # 924 base (S33: +80 HP from 20 capital) + 100 (Apple component)
+LEEK_LEVEL = 125
+LEEK_LIFE = 1030  # 930 base (level 125) + 100 (Apple component)
 LEEK_TP = 14      # S28: +4 TP from capital spend
 LEEK_MP = 4       # S28: +1 MP from capital spend
 
@@ -17,7 +17,7 @@ LEEK_STR = 452
 LEEK_AGI = 10     # 10 base
 LEEK_FREQ = 140   # 100 base + 40 (Fan component)
 LEEK_WIS = 40     # 0 base + 40 (CD component)
-LEEK_RES = 0
+LEEK_RES = 40     # S35: 20 capital → 40 RES (2:1 ratio at tier 0-199)
 LEEK_SCI = 0
 LEEK_MAG = 0
 
