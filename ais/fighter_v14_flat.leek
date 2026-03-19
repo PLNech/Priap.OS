@@ -3,7 +3,9 @@
 // =============================================================================
 // Design: Move→Attack→Defend attrition + TP denial + life-steal weapon.
 // S36 changes (#0209 Movement Rework):
-//   - REWORK: Turn order Defend→Move→Attack → Move→Attack→Defend
+//   - REWORK: Turn order Defend→Move→Attack → Move→Attack→Defend (MAIN PATH only)
+//     force_engage keeps Defend→Move→Attack: shields active when enemy retaliates same turn.
+//     sim: attack-first force_engage = 36% WR mirror (Defend-first = 64%). Intentional asymmetry.
 //     S36 data: 67% shield waste (cast at dist>10), weapon fires 3.5% of turns!
 //     Movement is FREE (MP), attack gets full TP budget, shields get leftover.
 //   - ADDED: Distance gate on shields (skip when enemy dist > 10)
@@ -191,6 +193,8 @@ function detectStalemate() {
     }
 
     if (turns_no_damage >= 3) {
+        // Threshold 3 (restored): early force_engage closes to dist≤2 (aggressive melee range).
+        // Threshold 5 tested: main-path dist≤8 approach was less aggressive, net -5.5% in sim.
         force_engage = true
         debug("  STALEMATE: " + turns_no_damage + " consecutive turns with no damage — forcing aggro")
         return;
@@ -720,7 +724,11 @@ if (getWeapon() == null) {
 if (force_engage) {
     debug("  ALL-IN: No retreat, pure aggro")
 
-    // Even in all-in, apply defenses (force_engage = close range, shields useful)
+    // force_engage keeps Defend→Move→Attack order (intentional — different from main path!)
+    // In force_engage, we close to dist≤2 and the enemy attacks back same turn.
+    // Shields apply BEFORE the exchange — they absorb the enemy's retaliation this turn.
+    // Main path (Move→Attack→Defend) is correct because enemy acts on THEIR turn, not ours.
+    // sim data: Attack-first force_engage loses 64% mirror match vs Defend-first.
     var fe_dist = getCellDistance(getCell(), getCell(enemy))
     applyDefensiveBuffs(fe_dist)
     debuffEnemy(enemy)
