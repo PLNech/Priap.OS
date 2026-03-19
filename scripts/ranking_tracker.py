@@ -62,10 +62,26 @@ def init_db(conn: sqlite3.Connection):
         )
     """)
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS leek_ranks (
+            snapshot_id INTEGER NOT NULL,
+            leek_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            rank INTEGER NOT NULL,
+            talent INTEGER NOT NULL,
+            level INTEGER,
+            active INTEGER,
+            FOREIGN KEY (snapshot_id) REFERENCES snapshots(id),
+            UNIQUE(snapshot_id, leek_id)
+        )
+    """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_rankings_leek ON rankings(leek_id)
     """)
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_rankings_snapshot ON rankings(snapshot_id)
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_leek_ranks_leek ON leek_ranks(leek_id)
     """)
     conn.commit()
 
@@ -281,10 +297,12 @@ def main():
     try:
         # Show current rank for all leeks
         leek_names = {v: k for k, v in LEEKS.items()}
+        leek_ranks_live = {}
         for lid in OUR_LEEK_IDS:
             rank_data = quick_rank(api, lid)
             rank = rank_data.get("rank", "?")
             name = leek_names.get(lid, str(lid))
+            leek_ranks_live[lid] = rank_data
             print(f"{name} rank: #{rank} (active: {rank_data.get('active', '?')})")
 
         if args.quick:
@@ -298,6 +316,21 @@ def main():
         print(f"\nSnapshotting top {args.pages * ENTRIES_PER_PAGE} leeks...")
         snap_id = snapshot(api, max_pages=args.pages)
         print(f"Snapshot #{snap_id} complete.")
+
+        # Persist our leek ranks (works even when outside top N)
+        conn = sqlite3.connect(DB_PATH)
+        init_db(conn)
+        for lid, rd in leek_ranks_live.items():
+            name = leek_names.get(lid, str(lid))
+            conn.execute("""
+                INSERT OR REPLACE INTO leek_ranks
+                  (snapshot_id, leek_id, name, rank, talent, level, active)
+                  VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (snap_id, lid, name,
+                  rd.get("rank", 0), rd.get("talent", 0),
+                  rd.get("level", 0), int(rd.get("active", False))))
+        conn.commit()
+        conn.close()
 
         # Show neighborhood
         show_neighborhood(snap_id)

@@ -92,7 +92,18 @@ def farmer_info(ctx: click.Context, farmer_id: int) -> None:
         data = api.get_farmer(farmer_id)
         farmer = data.get("farmer", data)
 
+        # Public /farmer/get/{id} omits wallet data (habs/crystals).
+        # When viewing our own farmer, fetch from token endpoint instead.
+        habs = farmer.get("habs")
+        crystals = farmer.get("crystals")
+        if habs is None and farmer_id == FARMER_ID:
+            inv = api.get_inventory()
+            habs = inv.get("habs")
+            crystals = inv.get("crystals")
+
         if ctx.obj.get("json"):
+            farmer["habs"] = habs
+            farmer["crystals"] = crystals
             output_json(farmer)
         else:
             leeks = farmer.get("leeks", {})
@@ -102,8 +113,8 @@ def farmer_info(ctx: click.Context, farmer_id: int) -> None:
                 "Name": farmer.get("name"),
                 "Level": farmer.get("total_level"),
                 "Talent": farmer.get("talent"),
-                "Habs": farmer.get("habs"),
-                "Crystals": farmer.get("crystals"),
+                "Habs": habs,
+                "Crystals": crystals,
                 "Leeks": ", ".join(leek_names) if leek_names else "None",
             }, title=f"Farmer #{farmer_id}")
     finally:
