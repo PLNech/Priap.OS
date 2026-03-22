@@ -3,8 +3,8 @@
 > A living strategy document. Updated as data proves or disproves hypotheses.
 > Every claim links to evidence. Every change records what we learned.
 
-**Last updated**: Session 36 (2026-03-18)
-**Current Talent**: 369 | **Rank**: #8461 | **Level**: 125
+**Last updated**: Session 37 (2026-03-22)
+**Current Talent**: 377 | **Rank**: ~#8200 | **Level**: 130
 **Target**: T500 (short-term), Top 1000 (medium-term), Top 10 (north star)
 
 ---
@@ -26,15 +26,15 @@ The build has evolved: **glass cannon → defensive attrition → lifesteal attr
 
 ## Build Philosophy
 
-### Current Build (S35)
+### Current Build (S37)
 | Stat | Value | S25 Value | Assessment |
 |------|-------|-----------|------------|
 | STR | 452 | 452 | Highest in bracket. Diminishing returns vs RES opponents |
-| HP | 930 (1030 w/Apple) | 319 | +611 HP. Apple component = free 100 HP |
+| HP | 951 (1051 w/Apple) | 319 | +632 HP. Apple component = free 100 HP |
 | RES | **40** | 0 | **S35: First defense investment.** 20 cap → 40 RES (2:1 at tier 0) |
 | TP | 14 | 10 | +4 TP. Full rotation fits in one turn |
 | MP | 4 | 3 | +1 MP. Minimum kiting capability |
-| Capital | 0 | 0 | All spent. Next capital → more RES (still cheap at tier 0) |
+| Capital | **25** | 0 | **25 unspent → RES (still cheap at 2:1 ratio)** |
 
 ### What Changed Since S25
 - **TP 10→14**: Most impactful stat investment. Unlocks full defense+offense+utility rotation. Motivation gives 16 TP turns.
@@ -43,7 +43,7 @@ The build has evolved: **glass cannon → defensive attrition → lifesteal attr
 
 ### Capital Strategy (0 unspent — all invested)
 
-**S35 decision**: All 20 capital → RES. Backed by S34 scouting: we were the ONLY leek with RES 0 in our bracket.
+**S35 decision**: 20 capital → RES. S37: 25 more capital available → RES (50 more pts at 2:1 = RES 90 total).
 
 **Spending curves (verified S35)**:
 | Stat | Tier 0-199 | Tier 200-399 | Tier 400-599 | Tier 600+ |
@@ -53,7 +53,7 @@ The build has evolved: **glass cannon → defensive attrition → lifesteal attr
 | TP | 30/35/40/45/50/.../100 cap per point (progressive, expensive) |
 | MP | 20/40/60/80/100/120/140/160/180 cap per point (very expensive) |
 
-**Next capital priority**: Continue RES until ~100-150 (still cheap at tier 0). STR is frozen — already highest in bracket, diminishing returns at tier 400+. HP is secondary — good ratio but less impactful than RES when every opponent runs physical damage.
+**Next capital priority**: Spend 25 cap → +50 RES (40→90). Still tier 0 (2:1 ratio). Then continue to 100-150. STR frozen — diminishing at 2:1 cap/pt. HP secondary.
 
 **Capital is atomic** — fractional costs round up. E.g., 5 RES at 0.5 cap/pt = 2.5 → 3 cap → 6 RES.
 
@@ -125,12 +125,12 @@ b_laser is the clear primary. Laser/Magnum are fallbacks when out of b_laser use
 | Cure | Removed S29 — 0 heals in 12+ fights |
 
 ### Chips To Buy (Priority Order)
-| Chip | TP | Level | Cost | Why |
-|------|-----|-------|------|-----|
-| **Ferocity** | 5 | 107 | 147,340 | +50% STR (2t). Anti-RES answer. At STR 452 → 678 effective |
-| **Drip** | 2 | 56 | 28,080 | 32 heal, CD 1, 2 uses. Replaces Bandage |
-| **Carapace** | 4 | 141 | ~150K? | 55 abs shield, **1 CD** = permanent armor. Replaces Helmet+Shield, frees 2 slots |
-| **Regeneration** | 0 | 122 | ~100K? | 500 HP flat heal, once/fight. Panic button |
+| Chip | TP | Level | Cost | Why | Status |
+|------|-----|-------|------|-----|--------|
+| **Ferocity** | 5 | 107 | 147,340 | +50% STR (2t). Anti-RES answer. STR 452 → 678 effective | **CAN BUY NOW (151K habs)** |
+| **Regeneration** | 0 | 122 | ~100K? | 500 HP flat heal, once/fight. Panic button | **Already L130 (eligible)** |
+| **Drip** | 2 | 56 | 28,080 | 32 heal, CD 1, 2 uses. Replaces Bandage | After Ferocity |
+| **Carapace** | 4 | 141 | ~150K? | 55 abs shield, **1 CD** = permanent armor. Replaces Helmet+Shield, frees 2 slots | L141 (11 levels away) |
 
 ### Chip Usage Rules (AI logic)
 1. **Defense first**: Helmet → Shield → Armor every turn when off cooldown
@@ -186,10 +186,11 @@ Special modes:
 
 ## Competitive Landscape
 
-### Current Position (S35)
-- **Rank #8461** in active leaderboard (~10K active players)
-- **T369 band**: Climbing steadily. Recent WWWDW streak.
-- Climbed from ~T89 (S25) to T369 (S35) — **+280 talent in 10 sessions**
+### Current Position (S37)
+- **Rank ~#8200** in active leaderboard (~10K active players)
+- **T377 band**: Climbing steadily. +15 talent since S36 rework deploy.
+- Climbed from ~T89 (S25) to T377 (S37) — **+288 talent in 12 sessions**
+- S37 validation: 200 online fights at 48% WR = equilibrium at new bracket (higher opponents).
 - S34 scouting: bracket meta is RES 50-200, WIS 100-245. We're catching up on RES.
 
 ### What We Beat
@@ -226,9 +227,9 @@ Special modes:
 ### Open
 - [ ] **Can we respec stats?** Moving STR 452→300 into HP/TP would transform matchups
 - [ ] **What controls max_chips?** 6 slots, peers have 9-12. Server-side formula unknown
-- [ ] **Ferocity timing**: When to buy (147K habs, ~4 days saving). Is it the RES counter we need?
+- [ ] **Ferocity timing**: **CAN BUY NOW (151K habs > 147K needed).** Replaces which chip slot? (6/6 full)
 - [ ] **Is MP 5 worth 80 capital?** More MP = better kiting/positioning, fewer 0-damage stalemates
-- [ ] **What's our WR ceiling at T333?** AI-limited, equipment-limited, or stat-limited?
+- [ ] **What's our WR ceiling at T377?** AI-limited (getCooldown/getEffects), equipment-limited (Ferocity), or stat-limited (RES 40)?
 - [ ] **Carapace (L141) as endgame pivot?** 1 CD = permanent 55 abs shield. Frees 2 chip slots
 
 ---
@@ -253,6 +254,8 @@ Special modes:
 | S34 | Pure STR is king | STR 452 = highest in bracket, but 5/7 losses had RES 50-200 | **RES 0 is the outlier.** Fumetsu model = balanced |
 | S35 | More STR always helps | Diminishing at 2:1 cap/pt. RES at 2 pts/cap = 4x more efficient | **Pivot: all capital → RES.** 20 cap → 40 RES |
 | S36 | Shields-first is defensive | 67% shields wasted at dist>10, weapon fires 3.5% of turns | **Move→Attack→Defend: 63.8% WR vs old (500 fights)** |
+| S37 | S36 rework works online? | 200 fights: 48% WR at T377 (was T362 pre-rework) | **Confirmed: +15 talent = fighting in harder bracket at equilibrium** |
+| S37 | Manual cooldown tracking is fine | `getCooldown(chip)` API exists, 30 ops. Manual tracking can desync | **Replace with API calls — eliminates a whole class of bugs** |
 
 ---
 
@@ -281,4 +284,6 @@ Special modes:
 | S35 | Spend 20 capital on RES (0→40) | Scouting proved RES 0 = biggest weakness. 2:1 ratio = best value | First defense investment. Shield stack now -100 |
 | S36 | Rework turn order: Move→Attack→Defend | Movement analysis: 67% shield waste, 3.5% weapon fire rate | **63.8% sim WR over 500 fights** — strongest delta ever |
 | S36 | Distance gate + dynamic TP reservation | Shields at dist>10 = wasted. b_laser needs 5 TP reserved | Shields skip when far, weapon always gets TP budget |
+| S37 | Validate S36 rework online | 200 fights: 48% WR, T362→T377 (+15 talent) | Rework confirmed: same WR but harder bracket = real improvement |
+| S37 | AI audit: manual CD tracking = desync risk | `getCooldown(chip)` exists (30 ops). Manual tracking can diverge | Next: replace manual tracking with API calls |
 | S35 | Create AnansAI (2nd leek, 10K habs) | 2x online learning rate + cross-level data + theory isolation | farmer_enabled unlocked, L1 T100 50cap |
