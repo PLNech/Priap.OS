@@ -154,48 +154,118 @@ def run(ctx: click.Context, count: int, dry_run: bool) -> None:
 
 
 @fight.command("history")
-@click.option("--limit", "-n", type=int, default=10, help="Number of fights to show")
+@click.option("--limit", "-n", type=int, default=50, help="Number of fights to show")
+@click.option("--since", "-s", type=str, default=None, help="Show fights since date (YYYY-MM-DD)")
+@click.option("--context", "-c", type=click.Choice(["all", "match", "garden", "tourney"]), default="all")
+@click.option("--stats-only", is_flag=True, help="Show only aggregate stats, no fight list")
 @click.pass_context
-def history(ctx: click.Context, limit: int) -> None:
-    """Show recent fight history."""
+def history(ctx: click.Context, limit: int, since: str, context: str, stats_only: bool) -> None:
+    """Show recent fight history with stats.
+
+    Examples:
+        leek fight history                    # Last 50 fights with WR
+        leek fight history -n 100             # Last 100 fights
+        leek fight history --since 2026-03-18 # Fights since date
+        leek fight history --stats-only       # Just the numbers
+        leek fight history -c match           # Matchmaking only
+    """
+    from datetime import datetime
+    from collections import defaultdict
+    from leekwars_agent.models.fight import parse_fight_history, FightContext
+
     leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
         data = api.get_leek_history(leek_id)
-        fights = data.get("fights", [])[:limit]
+        entries = parse_fight_history(data.get("fights", []))
 
+        # Filter by date
+        if since:
+            try:
+                since_ts = int(datetime.strptime(since, "%Y-%m-%d").timestamp())
+                entries = [e for e in entries if e.date >= since_ts]
+            except ValueError:
+                error(f"Invalid date format: {since} (use YYYY-MM-DD)")
+                return
+
+        # Filter by context
+        ctx_filter = {"match": 2, "garden": 1, "tourney": 3}.get(context)
+        if ctx_filter:
+            entries = [e for e in entries if e.context == ctx_filter]
+
+        entries = entries[:limit]
+
+        # JSON output
         if ctx.obj.get("json"):
-            output_json(fights)
+            output_json([{
+                "id": e.id,
+                "result": e.result,
+                "opponent": e.opponent_name(leek_id),
+                "context": e.context_label,
+                "date": e.fight_date.isoformat(),
+            } for e in entries])
             return
 
-        console.print(f"[bold]Recent Fights[/bold] (last {len(fights)})\n")
+        # Compute stats
+        wins = sum(1 for e in entries if e.is_win)
+        losses = sum(1 for e in entries if e.is_loss)
+        draws = sum(1 for e in entries if e.is_draw)
+        total = len(entries)
+        wr = wins * 100 // total if total else 0
 
-        for f in fights:
-            winner = f.get("winner", 0)
+        # WR by context
+        by_ctx = defaultdict(lambda: [0, 0, 0])
+        for e in entries:
+            if e.is_win: by_ctx[e.context_label][0] += 1
+            elif e.is_loss: by_ctx[e.context_label][1] += 1
+            else: by_ctx[e.context_label][2] += 1
 
-            # Determine which team we're on
-            my_team = 1
-            for leek in f.get("leeks2", []):
-                if leek.get("id") == leek_id:
-                    my_team = 2
-                    break
+        # Daily breakdown
+        by_day = defaultdict(lambda: [0, 0, 0])
+        for e in entries:
+            day = e.fight_date.strftime("%m-%d")
+            if e.is_win: by_day[day][0] += 1
+            elif e.is_loss: by_day[day][1] += 1
+            else: by_day[day][2] += 1
 
-            # Get opponent name
-            if my_team == 1:
-                opp = f.get("leeks2", [{}])[0] if f.get("leeks2") else {}
+        # Print header
+        wr_color = "green" if wr > 55 else "red" if wr < 45 else "yellow"
+        console.print(f"[bold]Fight History[/bold] ({total} fights)\n")
+        console.print(f"  Overall: [bold]{wins}W-{losses}L-{draws}D[/bold] | WR: [{wr_color}]{wr}%[/{wr_color}]")
+
+        # By context
+        if len(by_ctx) > 1:
+            for ctx_name, (w, l, d) in sorted(by_ctx.items()):
+                t = w + l + d
+                cwr = w * 100 // t if t else 0
+                console.print(f"    {ctx_name:8s}: {w}W-{l}L-{d}D = {cwr}% (n={t})")
+
+        # Daily
+        if len(by_day) > 1:
+            console.print("\n  [dim]Daily:[/dim]")
+            for day in sorted(by_day.keys()):
+                w, l, d = by_day[day]
+                t = w + l + d
+                dwr = w * 100 // t if t else 0
+                bar = "[green]W[/green]" * w + "[red]L[/red]" * l + "[yellow]D[/yellow]" * d
+                console.print(f"    {day}: {bar} ({dwr}% n={t})")
+
+        if stats_only:
+            return
+
+        # Fight list
+        console.print(f"\n  [dim]{'':3s} {'Result':6s} {'Opponent':22s} {'Context':8s} {'Date':12s} {'ID':>10s}[/dim]")
+        for e in entries:
+            opp = e.opponent_name(leek_id)
+            dt = e.fight_date.strftime("%m-%d %H:%M")
+            sym = e.result_symbol
+            if sym == "W":
+                colored = f"[green]{sym}[/green]"
+            elif sym == "L":
+                colored = f"[red]{sym}[/red]"
             else:
-                opp = f.get("leeks1", [{}])[0] if f.get("leeks1") else {}
-            opp_name = opp.get("name", "?")
-
-            if winner == 0:
-                status = "[yellow]D[/yellow]"
-            elif winner == my_team:
-                status = "[green]W[/green]"
-            else:
-                status = "[red]L[/red]"
-
-            fight_id = f.get("id", "?")
-            console.print(f"  {status} vs {opp_name:20} #{fight_id}")
+                colored = f"[yellow]{sym}[/yellow]"
+            console.print(f"  {colored}  {opp:22s} {e.context_label:8s} {dt:12s} #{e.id}")
 
     finally:
         api.close()

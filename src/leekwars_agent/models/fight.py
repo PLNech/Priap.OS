@@ -270,3 +270,73 @@ class LeekObservation(BaseModel):
         if self.damage_dealt <= 0:
             return float('inf')
         return self.ops_used / self.damage_dealt
+
+
+# =============================================================================
+# Fight History Entry (lightweight, from /history/get-leek-history)
+# =============================================================================
+
+class FightResult(str):
+    """Fight result as returned by history API: 'win', 'defeat', 'draw'."""
+    WIN = "win"
+    DEFEAT = "defeat"
+    DRAW = "draw"
+
+
+class FightHistoryEntry(BaseModel):
+    """Lightweight fight record from history API.
+
+    Source: GET /history/get-leek-history/{leek_id}
+    Lighter than Fight — no replay data, no stats. Used for WR analysis.
+    """
+    id: int
+    date: int = Field(description="Unix timestamp")
+    winner: int = Field(description="Winning team (1 or 2), 0 for draw")
+    result: str = Field(description="'win', 'defeat', or 'draw' from our perspective")
+    context: int = Field(default=2, description="FightContext: 1=garden, 2=match, 3=tourney")
+    status: int = Field(default=2, description="Fight status (2=complete)")
+
+    # Teams (lightweight — just id+name)
+    leeks1: list[dict] = Field(default_factory=list)
+    leeks2: list[dict] = Field(default_factory=list)
+
+    # Metadata
+    farmer1: int | None = None
+    farmer2: int | None = None
+    trophies: int = 0
+    levelups: int = 0
+
+    @property
+    def is_win(self) -> bool:
+        return self.result == "win"
+
+    @property
+    def is_loss(self) -> bool:
+        return self.result == "defeat"
+
+    @property
+    def is_draw(self) -> bool:
+        return self.result == "draw"
+
+    @property
+    def result_symbol(self) -> str:
+        return {"win": "W", "defeat": "L", "draw": "D"}.get(self.result, "?")
+
+    @property
+    def context_label(self) -> str:
+        return {1: "garden", 2: "match", 3: "tourney"}.get(self.context, f"ctx{self.context}")
+
+    @property
+    def fight_date(self) -> datetime:
+        return datetime.fromtimestamp(self.date)
+
+    def opponent_name(self, our_leek_id: int) -> str:
+        """Get opponent name given our leek ID."""
+        our_in_team1 = any(l.get("id") == our_leek_id for l in self.leeks1)
+        opp_list = self.leeks2 if our_in_team1 else self.leeks1
+        return opp_list[0].get("name", "?") if opp_list else "?"
+
+
+def parse_fight_history(fights: list[dict]) -> list[FightHistoryEntry]:
+    """Parse raw API fight history into typed entries."""
+    return [FightHistoryEntry.model_validate(f) for f in fights]
