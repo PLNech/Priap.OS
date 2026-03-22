@@ -1,7 +1,11 @@
 // Fighter v14 "Phalanx" - FLATTENED for online deployment
 // Based on v13 Aegis + S28/S29/S30 analysis (50+ online fights)
 // =============================================================================
-// Design: Move→Attack→Defend attrition + TP denial + life-steal weapon.
+// Design: Move→Ferocity→Attack→Defend attrition + TP denial + life-steal weapon.
+// S38 changes (#0215 Ferocity + getCooldown):
+//   - ADDED: Ferocity chip (+50% STR, 2t, CD 1) replaces Motivation
+//   - REWORK: Manual cd_* tracking → getCooldown() API (30 ops, always accurate)
+//   - Ferocity cast before attack phase when in range (amplifies all damage)
 // S36 changes (#0209 Movement Rework):
 //   - REWORK: Turn order Defend→Move→Attack → Move→Attack→Defend (MAIN PATH only)
 //     force_engage keeps Defend→Move→Attack: shields active when enemy retaliates same turn.
@@ -475,18 +479,12 @@ global chip_flame = null      // 4 TP, 29±2 dmg, range 2-7, CD 0, 3 uses/turn
 global chip_helmet = null     // 3 TP, -15 abs, 2t, CD 3
 global chip_shield = null     // 4 TP, -20 abs, 3t, CD 4
 global chip_armor = null      // 6 TP, -25 abs, 4t, CD 5
-global chip_motivation = null // 4 TP, +2 TP, 3t, CD 6
+global chip_ferocity = null   // 5 TP, +50% STR, 2t, CD 1, range 1-8
 global chips_loaded = false
 
-// Cooldown tracking
+// Per-turn usage tracking (only for chips with no cooldown / per-turn limits)
 global tranq_uses_this_turn = 0
 global TRANQ_MAX_PER_TURN = 1  // 1 use/turn = 3 TP. Damage > debuff (S29: near-miss losses)
-global cd_helmet = 0
-global cd_shield = 0
-global cd_armor = 0
-global cd_motivation = 0
-
-// Per-turn usage
 global flame_uses_this_turn = 0
 global FLAME_MAX_PER_TURN = 3
 
@@ -501,38 +499,31 @@ function loadChips() {
         else if (name == "helmet") chip_helmet = chip
         else if (name == "shield") chip_shield = chip
         else if (name == "armor") chip_armor = chip
-        else if (name == "motivation") chip_motivation = chip
+        else if (name == "ferocity") chip_ferocity = chip
     }
     chips_loaded = true
 }
 
-function updateChipCooldowns() {
+function resetPerTurnUsage() {
     tranq_uses_this_turn = 0
-    if (cd_helmet > 0) cd_helmet--
-    if (cd_shield > 0) cd_shield--
-    if (cd_armor > 0) cd_armor--
-    if (cd_motivation > 0) cd_motivation--
     flame_uses_this_turn = 0
+    // Cooldowns now use getCooldown() API — no manual tracking needed
 }
 
 function canUseChip(chip) {
     if (chip == null) return false
     if (getTP() < getChipCost(chip)) return false
+    // Per-turn limits (no cooldown chips)
     if (chip == chip_tranq && tranq_uses_this_turn >= TRANQ_MAX_PER_TURN) return false
-    if (chip == chip_helmet && cd_helmet > 0) return false
-    if (chip == chip_shield && cd_shield > 0) return false
-    if (chip == chip_armor && cd_armor > 0) return false
-    if (chip == chip_motivation && cd_motivation > 0) return false
     if (chip == chip_flame && flame_uses_this_turn >= FLAME_MAX_PER_TURN) return false
+    // All other chips: use getCooldown() API (30 ops, accurate)
+    if (getCooldown(chip) > 0) return false
     return true
 }
 
 function markChipUsed(chip) {
+    // Only track per-turn usage; cooldowns handled by getCooldown() API
     if (chip == chip_tranq) tranq_uses_this_turn++
-    else if (chip == chip_helmet) cd_helmet = 3
-    else if (chip == chip_shield) cd_shield = 4
-    else if (chip == chip_armor) cd_armor = 5
-    else if (chip == chip_motivation) cd_motivation = 6
     else if (chip == chip_flame) flame_uses_this_turn++
 }
 
@@ -590,29 +581,29 @@ function applyDefensiveBuffs(enemy_dist) {
 }
 
 // =============================================================================
-// MOTIVATION (TP buff) — only in opening when far
+// FEROCITY (+50% STR buff) — use before burst damage, CD 1
 // =============================================================================
+// 5 TP, +50% STR for 2 turns, range 1-8 (self-cast). CD 1 = every other turn.
+// At STR 452 → 678 effective STR for 2 turns. Massive damage amplifier.
+// Cast BEFORE attack phase to amplify weapon + Flame damage.
 
-function applyMotivation() {
-    // Turn 1-2: Buff only if out of range (online distance typically 18-34)
-    if (turn_count > 2) return 0
+function applyFerocity(enemy) {
+    if (!canUseChip(chip_ferocity)) return 0
 
-    var buff_enemy = getNearestEnemy()
-    if (buff_enemy == null) return 0
-
-    var buff_dist = getCellDistance(getCell(), getCell(buff_enemy))
-    if (buff_dist <= 10) {
-        debug("  Skip Motivation: enemy in range (dist=" + buff_dist + ")")
+    var dist = getCellDistance(getCell(), getCell(enemy))
+    // Only buff when we can actually deal damage this turn (in attack range)
+    // Range check: weapon range or Flame range (2-7)
+    var weapon = getWeapon()
+    var w_max = weapon ? getWeaponMaxRange(weapon) : 7
+    if (dist > max(w_max, 7)) {
+        debug("  Skip Ferocity: enemy too far (dist=" + dist + ")")
         return 0
     }
 
-    if (canUseChip(chip_motivation)) {
-        var result = useChip(chip_motivation, getEntity())
-        if (result == USE_SUCCESS) {
-            markChipUsed(chip_motivation)
-            debug("    MOTIVATION! +2 TP for 3t (dist=" + buff_dist + ")")
-            return 1
-        }
+    var result = useChip(chip_ferocity, getEntity())
+    if (result == USE_SUCCESS) {
+        debug("    FEROCITY! +50% STR for 2t (dist=" + dist + ")")
+        return 1
     }
     return 0
 }
@@ -686,7 +677,7 @@ if (turn_count == 0) {
 // TURN START
 // =============================================================================
 updateState(enemy)
-updateChipCooldowns()
+resetPerTurnUsage()
 detectPhase()
 detectStalemate()
 resetCombatState()
@@ -731,6 +722,7 @@ if (force_engage) {
     // sim data: Attack-first force_engage loses 64% mirror match vs Defend-first.
     var fe_dist = getCellDistance(getCell(), getCell(enemy))
     applyDefensiveBuffs(fe_dist)
+    applyFerocity(enemy)
     debuffEnemy(enemy)
 
     // Close gap but respect b_laser min_range (step-by-step: moveToward uses ALL MP at once!)
@@ -757,9 +749,8 @@ if (force_engage) {
 }
 
 // =============================================================================
-// PHASE 1: MOTIVATION (opening only, far from enemy — unchanged)
+// PHASE 1: (reserved — Motivation removed, Ferocity applied in Phase 4)
 // =============================================================================
-applyMotivation()
 
 // =============================================================================
 // PHASE 2: SPATIAL + STRATEGY (compute only — NO TP spent)
@@ -842,10 +833,13 @@ dist = getCellDistance(getCell(), getCell(enemy))
 
 if (strategy == "retreat") {
     // Even retreating, attack if in range
+    applyFerocity(enemy)
     useChipDamage(enemy)
     executeAttacks(enemy)
     debuffEnemy(enemy)
 } else {
+    // FEROCITY before damage — amplifies all attacks this turn (+50% STR)
+    applyFerocity(enemy)
     // At distance > 7: weapon-first (b_laser reaches where Flame can't)
     // At distance ≤ 7: Flame-first (chip damage before weapon)
     if (dist > 7) {
