@@ -53,7 +53,9 @@ The build has evolved: **glass cannon → defensive attrition → lifesteal attr
 | TP | 30/35/40/45/50/.../100 cap per point (progressive, expensive) |
 | MP | 20/40/60/80/100/120/140/160/180 cap per point (very expensive) |
 
-**Next capital priority**: Spend 25 cap → +50 RES (40→90). Still tier 0 (2:1 ratio). Then continue to 100-150. STR frozen — diminishing at 2:1 cap/pt. HP secondary.
+**Next capital priority**: Spend 25 cap → +25 RES (40→65). Verified via dry-run: 1 cap = 1 RES at current tier. Then continue to 100-150. STR frozen — diminishing at 2:1 cap/pt. HP secondary.
+
+**S37 Ferocity plan**: Buy Ferocity (147,340 habs, have 151K). Equip replacing Motivation (weakest: only fires turn 1-2 at dist >10). Ferocity (+50% STR for 2t, 1CD) = +226 effective STR during burst window. Hard counters RES-heavy opponents (our 35% WR matchup).
 
 **Capital is atomic** — fractional costs round up. E.g., 5 RES at 0.5 cap/pt = 2.5 → 3 cap → 6 RES.
 
