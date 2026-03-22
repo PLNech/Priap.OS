@@ -5,6 +5,7 @@ import click
 from pathlib import Path
 from ..output import output_json, output_kv, success, console
 from ..constants import LEEK_ID, FARMER_ID
+from ..items_loader import get_item
 from leekwars_agent.auth import login_api
 from leekwars_agent.alpha_strike import calculate_stat_cv, calculate_mobility_ratio
 
@@ -33,11 +34,21 @@ def leek_info(ctx: click.Context, leek_id: int | None) -> None:
         if ctx.obj.get("json"):
             output_json(leek)
         else:
-            # Format chips and weapons
+            # Format chips and weapons with names
             chips = leek.get("chips", [])
             weapons = leek.get("weapons", [])
-            chip_ids = [str(c.get("template", c.get("id", "?"))) for c in chips]
-            weapon_ids = [str(w.get("template", w.get("id", "?"))) for w in weapons]
+            chip_labels = []
+            for c in chips:
+                tmpl = c.get("template", c.get("id", 0))
+                item_data = get_item(tmpl)
+                name = item_data["name"].removeprefix("chip_") if item_data else f"#{tmpl}"
+                chip_labels.append(name)
+            weapon_labels = []
+            for w in weapons:
+                tmpl = w.get("template", w.get("id", 0))
+                item_data = get_item(tmpl)
+                name = item_data["name"].removeprefix("weapon_") if item_data else f"#{tmpl}"
+                weapon_labels.append(name)
 
             # Alpha Strike build diagnostics
             stats = {
@@ -69,8 +80,8 @@ def leek_info(ctx: click.Context, leek_id: int | None) -> None:
                 "Life": leek.get("life"),
                 "TP": leek.get("tp"),
                 "MP": leek.get("mp"),
-                "Chips": f"{len(chips)} ({', '.join(chip_ids)})" if chips else "0",
-                "Weapons": f"{len(weapons)} ({', '.join(weapon_ids)})" if weapons else "0",
+                "Chips": f"{len(chips)} ({', '.join(chip_labels)})" if chips else "0",
+                "Weapons": f"{len(weapons)} ({', '.join(weapon_labels)})" if weapons else "0",
                 "─────────": "",  # Separator
                 "stat_cv": f"{stat_cv:.2f} {cv_status}",
                 "mobility": f"{mobility:.1f}",

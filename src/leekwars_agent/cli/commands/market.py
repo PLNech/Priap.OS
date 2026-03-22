@@ -8,6 +8,125 @@ from leekwars_agent.auth import login_api
 from leekwars_agent.api import LeekWarsError
 
 
+def _resolve_equipped_item(leek_data: dict, identifier: str) -> tuple[dict, str] | None:
+    """Resolve a name, template ID, or instance ID to an equipped item.
+
+    Accepts: chip/weapon name (e.g. "motivation"), template ID (e.g. "15"),
+    or instance ID (e.g. "2435822").
+
+    Returns (item_dict, item_type) or None if not found.
+    """
+    chips = leek_data.get("chips", [])
+    weapons = leek_data.get("weapons", [])
+
+    # Try by name first (case-insensitive, matches with or without chip_/weapon_ prefix)
+    identifier_lower = identifier.lower().replace(" ", "_")
+    for chip in chips:
+        tmpl = chip.get("template", 0)
+        item_data = get_item(tmpl)
+        if item_data:
+            name = item_data["name"].lower().replace(" ", "_")
+            short = name.removeprefix("chip_").removeprefix("weapon_")
+            if identifier_lower in (name, short) or name.startswith(identifier_lower) or short.startswith(identifier_lower):
+                return chip, "chip"
+    for weapon in weapons:
+        tmpl = weapon.get("template", 0)
+        item_data = get_item(tmpl)
+        if item_data:
+            name = item_data["name"].lower().replace(" ", "_")
+            short = name.removeprefix("chip_").removeprefix("weapon_")
+            if identifier_lower in (name, short) or name.startswith(identifier_lower) or short.startswith(identifier_lower):
+                return weapon, "weapon"
+
+    # Try numeric: template ID first, then instance ID
+    try:
+        num_id = int(identifier)
+    except ValueError:
+        return None
+
+    # Template ID match
+    for chip in chips:
+        if chip.get("template") == num_id:
+            return chip, "chip"
+    for weapon in weapons:
+        if weapon.get("template") == num_id:
+            return weapon, "weapon"
+
+    # Instance ID match (fallback)
+    for chip in chips:
+        if chip.get("id") == num_id:
+            return chip, "chip"
+    for weapon in weapons:
+        if weapon.get("id") == num_id:
+            return weapon, "weapon"
+
+    return None
+
+
+def _resolve_inventory_item(inv_data: dict, identifier: str) -> tuple[dict, str] | None:
+    """Resolve a name, template ID, or instance ID to an inventory item.
+
+    Same resolution logic as _resolve_equipped_item but searches inventory.
+    """
+    chips = inv_data.get("chips", [])
+    weapons = inv_data.get("weapons", [])
+
+    identifier_lower = identifier.lower().replace(" ", "_")
+    for chip in chips:
+        tmpl = chip.get("template", 0)
+        item_data = get_item(tmpl)
+        if item_data:
+            name = item_data["name"].lower().replace(" ", "_")
+            short = name.removeprefix("chip_").removeprefix("weapon_")
+            if identifier_lower in (name, short) or name.startswith(identifier_lower) or short.startswith(identifier_lower):
+                return chip, "chip"
+    for weapon in weapons:
+        tmpl = weapon.get("template", 0)
+        item_data = get_item(tmpl)
+        if item_data:
+            name = item_data["name"].lower().replace(" ", "_")
+            short = name.removeprefix("chip_").removeprefix("weapon_")
+            if identifier_lower in (name, short) or name.startswith(identifier_lower) or short.startswith(identifier_lower):
+                return weapon, "weapon"
+
+    try:
+        num_id = int(identifier)
+    except ValueError:
+        return None
+
+    for chip in chips:
+        if chip.get("template") == num_id:
+            return chip, "chip"
+    for weapon in weapons:
+        if weapon.get("template") == num_id:
+            return weapon, "weapon"
+
+    for chip in chips:
+        if chip.get("id") == num_id:
+            return chip, "chip"
+    for weapon in weapons:
+        if weapon.get("id") == num_id:
+            return weapon, "weapon"
+
+    return None
+
+
+def _list_equipped(leek_data: dict) -> str:
+    """Format equipped items for error hints."""
+    items = []
+    for chip in leek_data.get("chips", []):
+        tmpl = chip.get("template", 0)
+        item_data = get_item(tmpl)
+        name = (item_data["name"].removeprefix("chip_") if item_data else f"#{tmpl}")
+        items.append(name)
+    for weapon in leek_data.get("weapons", []):
+        tmpl = weapon.get("template", 0)
+        item_data = get_item(tmpl)
+        name = (item_data["name"].removeprefix("weapon_") if item_data else f"#{tmpl}")
+        items.append(name)
+    return ", ".join(items)
+
+
 @click.group()
 def market():
     """Market operations - browse and buy items."""
@@ -178,43 +297,37 @@ def sell(ctx: click.Context, item_id: int, dry_run: bool) -> None:
 
 
 @market.command("equip")
-@click.argument("item_id", type=int)
+@click.argument("identifier")
 @click.pass_context
-def equip(ctx: click.Context, item_id: int) -> None:
+def equip(ctx: click.Context, identifier: str) -> None:
     """Equip an owned chip or weapon to your leek.
 
-    ITEM_ID is the inventory item ID (not template ID).
-    Use 'leek craft inventory' to see owned items with their IDs.
+    IDENTIFIER can be a name (e.g. "ferocity"), template ID, or instance ID.
+
+    Examples:
+        leek market equip ferocity    # By name
+        leek market equip 102         # By template ID
+        leek market equip 2476095     # By instance ID
     """
     api = login_api()
     try:
-        # Determine if chip or weapon based on template
         inv = api.get_inventory()
+        result_pair = _resolve_inventory_item(inv, identifier)
 
-        # Find item in inventory
-        found = None
-        item_type = None
-        for chip in inv.get("chips", []):
-            if chip.get("id") == item_id:
-                found = chip
-                item_type = "chip"
-                break
-        for weapon in inv.get("weapons", []):
-            if weapon.get("id") == item_id:
-                found = weapon
-                item_type = "weapon"
-                break
-
-        if not found:
-            error(f"Item #{item_id} not found in inventory")
+        if not result_pair:
+            error(f"'{identifier}' not found in inventory")
+            console.print("  [dim]Hint: use 'leek craft inventory' to see owned items[/dim]")
             raise SystemExit(1)
 
+        found, item_type = result_pair
+        instance_id = found["id"]
         leek_id = ctx.obj["leek_id"]
+
         try:
             if item_type == "chip":
-                result = api.add_chip(leek_id, item_id)
+                result = api.add_chip(leek_id, instance_id)
             else:
-                result = api.add_weapon(leek_id, item_id)
+                result = api.add_weapon(leek_id, instance_id)
         except LeekWarsError as e:
             error(f"Equip failed: {e.error}")
             raise SystemExit(1)
@@ -232,40 +345,38 @@ def equip(ctx: click.Context, item_id: int) -> None:
 
 
 @market.command("unequip")
-@click.argument("item_id", type=int)
+@click.argument("identifier")
 @click.pass_context
-def unequip(ctx: click.Context, item_id: int) -> None:
+def unequip(ctx: click.Context, identifier: str) -> None:
     """Unequip a chip or weapon from your leek.
 
-    ITEM_ID is the inventory item ID (not template ID).
-    Use 'leek info leek --json' to see equipped items with their IDs.
+    IDENTIFIER can be a name (e.g. "motivation"), template ID, or instance ID.
+
+    Examples:
+        leek market unequip motivation   # By name
+        leek market unequip 15           # By template ID
+        leek market unequip 2435822      # By instance ID
     """
     leek_id = ctx.obj["leek_id"]
     api = login_api()
     try:
         leek = api.get_leek(leek_id)
-        found = None
-        item_type = None
-        for chip in leek.get("chips", []):
-            if chip.get("id") == item_id:
-                found = chip
-                item_type = "chip"
-                break
-        for weapon in leek.get("weapons", []):
-            if weapon.get("id") == item_id:
-                found = weapon
-                item_type = "weapon"
-                break
+        result_pair = _resolve_equipped_item(leek, identifier)
 
-        if not found:
-            error(f"Item #{item_id} not equipped on leek")
+        if not result_pair:
+            equipped = _list_equipped(leek)
+            error(f"'{identifier}' not equipped on leek")
+            console.print(f"  [dim]Equipped: {equipped}[/dim]")
             raise SystemExit(1)
+
+        found, item_type = result_pair
+        instance_id = found["id"]
 
         try:
             if item_type == "chip":
-                result = api.remove_chip(leek_id, item_id)
+                result = api.remove_chip(leek_id, instance_id)
             else:
-                result = api.remove_weapon(item_id)
+                result = api.remove_weapon(instance_id)
         except LeekWarsError as e:
             error(f"Unequip failed: {e.error}")
             raise SystemExit(1)
