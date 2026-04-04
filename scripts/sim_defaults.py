@@ -7,8 +7,8 @@ All simulation scripts (compare_ais, debug_fight, etc.) import from here.
 
 # === Our Leek: IAdonis (ID: 131321) ===
 
-LEEK_LEVEL = 130
-LEEK_LIFE = 1051  # 951 base (level 130) + 100 (Apple component)
+LEEK_LEVEL = 145
+LEEK_LIFE = 1096  # 996 base (level 145) + 100 (Apple component)
 LEEK_TP = 14      # S28: +4 TP from capital spend
 LEEK_MP = 4       # S28: +1 MP from capital spend
 
@@ -17,7 +17,7 @@ LEEK_STR = 452
 LEEK_AGI = 10     # 10 base
 LEEK_FREQ = 140   # 100 base + 40 (Fan component)
 LEEK_WIS = 40     # 0 base + 40 (CD component)
-LEEK_RES = 66     # S38: 25 capital → RES 40→66
+LEEK_RES = 219    # S39: 86 capital → RES 66→219 (bracket meta: 50-200, now above avg)
 LEEK_SCI = 0
 LEEK_MAG = 0
 
@@ -26,6 +26,6 @@ LEEK_MAG = 0
 # S30: Added b_laser (50±10 dmg + 50±10 self-heal, 3 uses/fight)
 DEFAULT_WEAPONS = [45, 42, 60]
 
-# Chips: TRANQUILIZER(94), FLAME(5), ARMOR(22), FEROCITY(102), SHIELD(20), HELMET(21)
-# S38: Motivation(15) removed, Ferocity(102) added (+50% STR, 2t, CD 1)
-DEFAULT_CHIPS = [94, 5, 22, 102, 20, 21]
+# Chips: TRANQUILIZER(94), FLAME(5), ARMOR(22), WHIP(88), SHIELD(20), HELMET(21)
+# S39: Ferocity(102) removed (can't self-cast!), Whip(88) added (+60% TP, 2t, CD 1)
+DEFAULT_CHIPS = [94, 5, 22, 88, 20, 21]

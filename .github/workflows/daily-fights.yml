@@ -48,14 +48,16 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction --no-root
 
-      - name: Ensure tournament registration (all leeks)
-        env:
-          LEEKWARS_USER: ${{ secrets.LEEKWARS_USER }}
-          LEEKWARS_PASS: ${{ secrets.LEEKWARS_PASS }}
-        run: |
-          poetry run leek tournament register leek || true
-          poetry run leek --leek anansai tournament register leek || true
-          poetry run leek tournament register farmer || true
+      # Tournament registration DISABLED (S39 audit: 0W-14L = pure talent drain)
+      # Re-enable when we can compete at tournament bracket level
+      # - name: Ensure tournament registration (all leeks)
+      #   env:
+      #     LEEKWARS_USER: ${{ secrets.LEEKWARS_USER }}
+      #     LEEKWARS_PASS: ${{ secrets.LEEKWARS_PASS }}
+      #   run: |
+      #     poetry run leek tournament register leek || true
+      #     poetry run leek --leek anansai tournament register leek || true
+      #     poetry run leek tournament register farmer || true
 
       - name: Run daily fights
         env:

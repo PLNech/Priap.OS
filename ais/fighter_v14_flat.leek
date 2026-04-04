@@ -1,11 +1,13 @@
 // Fighter v14 "Phalanx" - FLATTENED for online deployment
 // Based on v13 Aegis + S28/S29/S30 analysis (50+ online fights)
 // =============================================================================
-// Design: Move→Ferocity→Attack→Defend attrition + TP denial + life-steal weapon.
-// S38 changes (#0215 Ferocity + getCooldown):
-//   - ADDED: Ferocity chip (+50% STR, 2t, CD 1) replaces Motivation
+// Design: Move→Whip→Attack→Defend attrition + TP denial + life-steal weapon.
+// S39 changes (#0219 Whip replaces dead Ferocity):
+//   - REPLACED: Ferocity (min_range=1, CANNOT self-cast in solo! 0 uses in 710 fights)
+//     with Whip (+60% TP, 2t, CD 1, range 0-6, self-castable). 14 TP → ~22 TP turns.
+//   - Whip cast early in turn for max TP utilization (more attacks/shields per turn)
+// S38 changes (#0215 getCooldown migration):
 //   - REWORK: Manual cd_* tracking → getCooldown() API (30 ops, always accurate)
-//   - Ferocity cast before attack phase when in range (amplifies all damage)
 // S36 changes (#0209 Movement Rework):
 //   - REWORK: Turn order Defend→Move→Attack → Move→Attack→Defend (MAIN PATH only)
 //     force_engage keeps Defend→Move→Attack: shields active when enemy retaliates same turn.
@@ -479,7 +481,7 @@ global chip_flame = null      // 4 TP, 29±2 dmg, range 2-7, CD 0, 3 uses/turn
 global chip_helmet = null     // 3 TP, -15 abs, 2t, CD 3
 global chip_shield = null     // 4 TP, -20 abs, 3t, CD 4
 global chip_armor = null      // 6 TP, -25 abs, 4t, CD 5
-global chip_ferocity = null   // 5 TP, +50% STR, 2t, CD 1, range 1-8
+global chip_whip = null       // 4 TP, +60% TP, 2t, CD 1, range 0-6 (self-castable!)
 global chips_loaded = false
 
 // Per-turn usage tracking (only for chips with no cooldown / per-turn limits)
@@ -499,7 +501,7 @@ function loadChips() {
         else if (name == "helmet") chip_helmet = chip
         else if (name == "shield") chip_shield = chip
         else if (name == "armor") chip_armor = chip
-        else if (name == "ferocity") chip_ferocity = chip
+        else if (name == "whip") chip_whip = chip
     }
     chips_loaded = true
 }
@@ -581,28 +583,18 @@ function applyDefensiveBuffs(enemy_dist) {
 }
 
 // =============================================================================
-// FEROCITY (+50% STR buff) — use before burst damage, CD 1
+// WHIP (+60% TP buff) — use early in turn for max TP utilization, CD 1
 // =============================================================================
-// 5 TP, +50% STR for 2 turns, range 1-8 (self-cast). CD 1 = every other turn.
-// At STR 452 → 678 effective STR for 2 turns. Massive damage amplifier.
-// Cast BEFORE attack phase to amplify weapon + Flame damage.
+// 4 TP, +60% TP for 2 turns, range 0-6 (SELF-CASTABLE). CD 1 = every other turn.
+// At TP 14 → ~22 TP for 2 turns. Extra 8 TP = 1-2 more attacks + full defense.
+// Cast EARLY in turn — the extra TP is available immediately for this turn.
 
-function applyFerocity(enemy) {
-    if (!canUseChip(chip_ferocity)) return 0
+function applyWhip() {
+    if (!canUseChip(chip_whip)) return 0
 
-    var dist = getCellDistance(getCell(), getCell(enemy))
-    // Only buff when we can actually deal damage this turn (in attack range)
-    // Range check: weapon range or Flame range (2-7)
-    var weapon = getWeapon()
-    var w_max = weapon ? getWeaponMaxRange(weapon) : 7
-    if (dist > max(w_max, 7)) {
-        debug("  Skip Ferocity: enemy too far (dist=" + dist + ")")
-        return 0
-    }
-
-    var result = useChip(chip_ferocity, getEntity())
+    var result = useChip(chip_whip, getEntity())
     if (result == USE_SUCCESS) {
-        debug("    FEROCITY! +50% STR for 2t (dist=" + dist + ")")
+        debug("    WHIP! +60% TP for 2t (TP now: " + getTP() + ")")
         return 1
     }
     return 0
@@ -722,7 +714,7 @@ if (force_engage) {
     // sim data: Attack-first force_engage loses 64% mirror match vs Defend-first.
     var fe_dist = getCellDistance(getCell(), getCell(enemy))
     applyDefensiveBuffs(fe_dist)
-    applyFerocity(enemy)
+    applyWhip()
     debuffEnemy(enemy)
 
     // Close gap but respect b_laser min_range (step-by-step: moveToward uses ALL MP at once!)
@@ -749,7 +741,7 @@ if (force_engage) {
 }
 
 // =============================================================================
-// PHASE 1: (reserved — Motivation removed, Ferocity applied in Phase 4)
+// PHASE 1: (reserved — Motivation removed, Whip applied in Phase 4)
 // =============================================================================
 
 // =============================================================================
@@ -833,13 +825,13 @@ dist = getCellDistance(getCell(), getCell(enemy))
 
 if (strategy == "retreat") {
     // Even retreating, attack if in range
-    applyFerocity(enemy)
+    applyWhip()
     useChipDamage(enemy)
     executeAttacks(enemy)
     debuffEnemy(enemy)
 } else {
-    // FEROCITY before damage — amplifies all attacks this turn (+50% STR)
-    applyFerocity(enemy)
+    // WHIP before damage — extra TP for more attacks this turn (+60% TP)
+    applyWhip()
     // At distance > 7: weapon-first (b_laser reaches where Flame can't)
     // At distance ≤ 7: Flame-first (chip damage before weapon)
     if (dist > 7) {
