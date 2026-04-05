@@ -108,9 +108,15 @@ def compare_ais(
         seed = i
         swap = (i % 2 == 1)  # Swap teams every other fight to eliminate map bias
 
-        # Generate realistic spawn positions per fight (online: distance 18-34, median 26)
-        map_rng = _random.Random(seed * 7919 + 42)  # Deterministic but decorrelated from fight seed
-        fight_map = MapConfig.symmetric_empty(rng=map_rng)
+        # Use real maps from library (167 maps with obstacles, realistic LOS)
+        # Falls back to symmetric empty if library unavailable
+        from leekwars_agent.simulator import get_map_library
+        map_lib = get_map_library()
+        if map_lib.count > 0:
+            fight_map = map_lib.get_map_by_index(seed)
+        else:
+            map_rng = _random.Random(seed * 7919 + 42)
+            fight_map = MapConfig.symmetric_empty(rng=map_rng)
 
         # Build entity configs (swap positions to eliminate map bias)
         configs = [
