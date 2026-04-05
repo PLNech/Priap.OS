@@ -26,20 +26,28 @@ from leekwars_agent.simulator import (
     Simulator, EntityConfig, ScenarioConfig,
     GENERATOR_PATH, copy_ai_to_generator,
 )
+from leekwars_agent.fight_parser import ActionType
+from leekwars_agent.models.equipment import CHIP_REGISTRY, WEAPON_REGISTRY
 from sim_defaults import *  # noqa: F403 F401
 
-# Action type constants (from Java generator)
-ACTION_TYPES = {
-    0: "START_FIGHT", 1: "USE_WEAPON", 2: "USE_CHIP", 3: "SET_WEAPON",
-    4: "MOVE", 5: "KILL", 6: "NEW_TURN", 7: "ENTITY_TURN", 8: "END_TURN",
-    9: "SUMMON", 10: "RESURRECTION", 11: "ADD_EFFECT", 12: "REMOVE_EFFECT",
-    13: "UPDATE_EFFECT", 14: "SAY", 15: "LAMA", 16: "SHOW_CELL",
-    17: "VITALITY", 18: "ENTITY_DIE", 100: "DAMAGE", 101: "HEAL",
-}
+# Build action name lookup from authoritative ActionType enum
+ACTION_TYPES = {code.value: code.name for code in ActionType}
+
+
+def _resolve_chip_name(template_id: int) -> str:
+    """Resolve chip template ID to human-readable name."""
+    chip = CHIP_REGISTRY.by_template(template_id)
+    return chip.name.upper() if chip else f"Chip#{template_id}"
+
+
+def _resolve_weapon_name(template_id: int) -> str:
+    """Resolve weapon template ID to human-readable name."""
+    weapon = WEAPON_REGISTRY.by_template(template_id)
+    return weapon.name.upper() if weapon else f"Weapon#{template_id}"
 
 
 def parse_actions(actions: list, leeks: dict) -> list[dict]:
-    """Parse raw action arrays into structured events."""
+    """Parse raw action arrays into structured events using correct ActionType codes."""
     parsed = []
     current_entity = None
 
@@ -50,32 +58,41 @@ def parse_actions(actions: list, leeks: dict) -> list[dict]:
         action_name = ACTION_TYPES.get(action_type, f"UNKNOWN_{action_type}")
         event = {"type": action_name, "raw": action}
 
-        if action_type == 6:  # NEW_TURN
+        if action_type == ActionType.NEW_TURN:  # 6
             event["turn"] = action[1] if len(action) > 1 else 0
-        elif action_type == 7:  # ENTITY_TURN
+        elif action_type == ActionType.LEEK_TURN:  # 7
             eid = action[1] if len(action) > 1 else None
             current_entity = eid
             event["entity_id"] = eid
             event["entity_name"] = leeks.get(str(eid), {}).get("name", f"E{eid}")
-        elif action_type == 4:  # MOVE
+        elif action_type == ActionType.MOVE_TO:  # 10
             eid = action[1] if len(action) > 1 else None
             path = action[2] if len(action) > 2 else []
             event["entity_name"] = leeks.get(str(eid), {}).get("name", f"E{eid}")
-            event["cells_moved"] = len(path) if path else 0
-        elif action_type == 1:  # USE_WEAPON
-            eid = action[1] if len(action) > 1 else None
-            event["entity_name"] = leeks.get(str(eid), {}).get("name", f"E{eid}")
+            event["cells_moved"] = len(path) if isinstance(path, list) else 0
+        elif action_type == ActionType.USE_WEAPON:  # 16
+            event["target_cell"] = action[1] if len(action) > 1 else None
+            event["success"] = action[2] if len(action) > 2 else None
+        elif action_type == ActionType.USE_CHIP:  # 12
+            template = action[1] if len(action) > 1 else None
+            event["chip_name"] = _resolve_chip_name(template) if template else "?"
             event["target_cell"] = action[2] if len(action) > 2 else None
-            event["weapon_id"] = action[3] if len(action) > 3 else None
-        elif action_type == 100:  # DAMAGE
+            event["success"] = action[3] if len(action) > 3 else None
+        elif action_type == ActionType.SET_WEAPON:  # 13
+            template = action[1] if len(action) > 1 else None
+            event["weapon_name"] = _resolve_weapon_name(template) if template else "?"
+        elif action_type == ActionType.LOST_LIFE:  # 101
             tid = action[1] if len(action) > 1 else None
             event["target_name"] = leeks.get(str(tid), {}).get("name", f"E{tid}")
             event["damage"] = action[2] if len(action) > 2 else 0
-        elif action_type == 3:  # SET_WEAPON
+        elif action_type == ActionType.HEAL:  # 103
+            tid = action[1] if len(action) > 1 else None
+            event["target_name"] = leeks.get(str(tid), {}).get("name", f"E{tid}")
+            event["amount"] = action[2] if len(action) > 2 else 0
+        elif action_type == ActionType.PLAYER_DEAD:  # 5
             eid = action[1] if len(action) > 1 else None
             event["entity_name"] = leeks.get(str(eid), {}).get("name", f"E{eid}")
-            event["weapon_id"] = action[2] if len(action) > 2 else None
-        elif action_type == 18:  # ENTITY_DIE
+        elif action_type == ActionType.KILL:  # 11
             eid = action[1] if len(action) > 1 else None
             kid = action[2] if len(action) > 2 else None
             event["entity_name"] = leeks.get(str(eid), {}).get("name", f"E{eid}")
@@ -86,66 +103,78 @@ def parse_actions(actions: list, leeks: dict) -> list[dict]:
 
 
 def format_action_log(parsed_actions: list) -> str:
-    """Format parsed actions as readable log."""
+    """Format parsed actions as readable log with chip/weapon names."""
     lines = []
+    current_entity = "?"
     for event in parsed_actions:
         t = event["type"]
         if t == "NEW_TURN":
             lines.append(f"\n{'='*50}\nTURN {event.get('turn', '?')}\n{'='*50}")
-        elif t == "ENTITY_TURN":
-            lines.append(f"\n--- {event.get('entity_name', '?')}'s turn ---")
-        elif t == "MOVE" and event.get("cells_moved", 0) > 0:
-            lines.append(f"  MOVE: {event['entity_name']} moves {event['cells_moved']} cells")
+        elif t == "LEEK_TURN":
+            current_entity = event.get("entity_name", "?")
+            lines.append(f"\n--- {current_entity}'s turn ---")
+        elif t == "MOVE_TO" and event.get("cells_moved", 0) > 0:
+            lines.append(f"  Move {event['cells_moved']} cells")
         elif t == "SET_WEAPON":
-            lines.append(f"  EQUIP: {event['entity_name']} equips weapon {event.get('weapon_id')}")
+            lines.append(f"  Equip {event.get('weapon_name', '?')}")
         elif t == "USE_WEAPON":
-            lines.append(f"  ATTACK: {event['entity_name']} fires at cell {event.get('target_cell')}")
-        elif t == "DAMAGE":
-            lines.append(f"    -> {event['target_name']} takes {event.get('damage')} damage")
-        elif t == "ENTITY_DIE":
-            lines.append(f"  DEATH: {event['entity_name']} killed by {event.get('killer_name')}")
+            lines.append(f"  Use WEAPON → cell {event.get('target_cell')}")
+        elif t == "USE_CHIP":
+            lines.append(f"  Use {event.get('chip_name', '?')}")
+        elif t == "LOST_LIFE":
+            lines.append(f"    → {event['target_name']} -{event.get('damage', 0)} HP")
+        elif t == "HEAL":
+            lines.append(f"    ♥ {event['target_name']} +{event.get('amount', 0)} HP")
+        elif t == "PLAYER_DEAD":
+            lines.append(f"  💀 {event.get('entity_name', '?')} DIED")
+        elif t == "KILL":
+            lines.append(f"  💀 {event['entity_name']} killed by {event.get('killer_name')}")
     return "\n".join(lines)
 
 
 def compute_stats(parsed_actions: list, leeks: dict) -> dict:
-    """Compute fight statistics from actions."""
+    """Compute fight statistics from actions using correct ActionType names."""
     stats = {}
     for lid, ldata in leeks.items():
         stats[lid] = {
             "name": ldata.get("name", f"E{lid}"), "team": ldata.get("team", 0),
-            "damage_dealt": 0, "damage_received": 0,
-            "shots_fired": 0, "cells_moved": 0, "turns_played": 0,
+            "damage_dealt": 0, "damage_received": 0, "healing_done": 0,
+            "weapon_uses": 0, "chip_uses": 0, "cells_moved": 0, "turns_played": 0,
         }
     current_entity = None
     for event in parsed_actions:
-        if event["type"] == "ENTITY_TURN":
+        if event["type"] == "LEEK_TURN":
             current_entity = str(event.get("entity_id"))
             if current_entity in stats:
                 stats[current_entity]["turns_played"] += 1
-        elif event["type"] == "MOVE":
-            eid = None
-            for v in event.get("raw", []):
-                if isinstance(v, int) and str(v) in stats:
-                    eid = str(v)
-                    break
+        elif event["type"] == "MOVE_TO":
+            raw = event.get("raw", [])
+            eid = str(raw[1]) if len(raw) > 1 else None
             if eid and eid in stats:
                 stats[eid]["cells_moved"] += event.get("cells_moved", 0)
         elif event["type"] == "USE_WEAPON":
             if current_entity and current_entity in stats:
-                stats[current_entity]["shots_fired"] += 1
-        elif event["type"] == "DAMAGE":
-            tid = str(event.get("raw", [None, None])[1])
+                stats[current_entity]["weapon_uses"] += 1
+        elif event["type"] == "USE_CHIP":
+            if current_entity and current_entity in stats:
+                stats[current_entity]["chip_uses"] += 1
+        elif event["type"] == "LOST_LIFE":
+            raw = event.get("raw", [])
+            tid = str(raw[1]) if len(raw) > 1 else None
             dmg = event.get("damage", 0)
-            if tid in stats:
+            if tid and tid in stats:
                 stats[tid]["damage_received"] += dmg
             if current_entity and current_entity in stats:
                 stats[current_entity]["damage_dealt"] += dmg
+        elif event["type"] == "HEAL":
+            if current_entity and current_entity in stats:
+                stats[current_entity]["healing_done"] += event.get("amount", 0)
     return stats
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Debug single fight with full action log (defaults to our L73 build)")
+        description="Debug single fight with full action log (defaults to our current build)")
     parser.add_argument("ai1", help="Path to first AI file")
     parser.add_argument("ai2", help="Path to second AI file")
     parser.add_argument("--level", type=int, default=LEEK_LEVEL)
@@ -235,8 +264,8 @@ def main():
     print("-" * 60)
     for lid, s in sorted(stats.items(), key=lambda x: x[1]["team"]):
         print(f"{s['name']} (Team {s['team']}):")
-        print(f"  Damage dealt: {s['damage_dealt']} | Received: {s['damage_received']}")
-        print(f"  Shots: {s['shots_fired']} | Moved: {s['cells_moved']} cells | Turns: {s['turns_played']}")
+        print(f"  Damage dealt: {s['damage_dealt']} | Received: {s['damage_received']} | Healed: {s['healing_done']}")
+        print(f"  Weapons: {s['weapon_uses']} | Chips: {s['chip_uses']} | Moved: {s['cells_moved']} cells | Turns: {s['turns_played']}")
         print()
 
     # Action log
