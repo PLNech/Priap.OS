@@ -1,0 +1,109 @@
+	include("/Toolbox/Constants")
+
+	class DEBUGS{
+		static boolean CONST_DEBUG_PAUSE = false
+		static boolean CONST_MARK_DANGERMAP = true
+		static boolean CONST_REACHABLE_CELLS = false
+		static boolean MARK_CELLS_TO_SHOOT_FROM = true
+		static boolean SAFE_PLACES = true
+		static boolean OPERATIONS = true
+		
+	}	
+
+
+	class Operations{
+		integer startCount = 0
+		string text = ""
+		boolean paused = false
+		
+		constructor (){
+			startCount = getOperations()
+		
+		}
+	
+		constructor (string debugText){
+			startCount = getOperations()
+			text = debugText
+		
+		}
+
+		constructor (string debugText,boolean pauseR ){
+			startCount = getOperations()
+			text = debugText
+			paused = pauseR
+		}
+
+
+		void debugOperations()
+		{
+			if (DEBUGS.OPERATIONS){
+				integer nbrOp = getOperations() - startCount
+				debugC(text + " - # Operations :" + nbrOp , COLORS.DEBUG)
+				debugC("Total # of operations : " + getOperations() +"/" +OPERATIONS_LIMIT + " ("+ getOperations()/OPERATIONS_LIMIT+"%)", COLORS.DEBUG)
+				if(paused)
+					pause()
+			}
+
+		}
+	
+	}
+
+	function debugPause()=>void{
+		if(DEBUGS.CONST_DEBUG_PAUSE )
+		 	pause()
+	}
+	
+	
+	
+
+/*
+	function debugOperations(text)
+	{
+		debugC(text + " - Nombre op�rations :" +  getOperations(), getColor(0,255,0))
+	}
+
+*/
+
+	function debug_BeginTurn(){
+		debugC("*********************************************", getColor(0,255,0))
+		debugC("********** Tour "+getTurn(), getColor(0,255,0))
+		debugC("********** " +  getName() + " (" + getEntity() +")", getColor(0,255,0))
+		debugC("*********************************************", getColor(0,255,0))
+	}
+
+
+	function debug_EndTurn(){
+		debugC("End Turn " + getTurn(), getColor(0,255,0))
+		debugC("------- " , getColor(0,255,0))
+		debugC("OPERATIONS : " + getOperations() +"/" +OPERATIONS_LIMIT + " ("+ getOperations()/OPERATIONS_LIMIT+"%)", getColor(0,255,0))
+		//debugOperations("fin de tour ")
+		debugPause()
+		
+	}
+
+	function debugSet(string text,  Set<any> s){
+		debug ("Debug set " + s )
+		for(integer c in s ){
+			debug(text + " " + c)
+		}
+		debug("fin debug set")
+	}
+
+	function debugMap(string text, Map m){
+		for (integer c in mapKeys(m))
+			debug(text + " " + c + " : " + mapGet(m, c))
+	}
+
+	
+ function debug_USES(){
+	debug("USE_FAILED" + USE_FAILED)
+	 debug("USE_SUCCESS," + USE_SUCCESS)
+	 debug("USE_CRITICAL" + USE_CRITICAL)
+	 debug("USE_INVALID_TARGET" + USE_INVALID_TARGET)
+	 debug("USE_NOT_ENOUGH_TP" + USE_NOT_ENOUGH_TP)
+	 debug("USE_INVALID_POSITION" + USE_INVALID_POSITION)
+
+	debug(USE_INVALID_TARGET)
+	}
+
+

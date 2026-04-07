@@ -1,0 +1,82 @@
+include("Item")
+include("/Toolbox/Computations")
+include("/Classes/Context/World")
+
+	class Weapon extends Item {
+
+		constructor(integer myId, Leek ow ) {
+			super(myId) // Appel du constructeur de Item
+			owner = ow
+			type = ITEM_TYPE.WEAPON
+			name = getWeaponName(myId)
+			range = [getWeaponMinRange(myId), getWeaponMaxRange(myId)]
+			cost = getWeaponCost(myId)
+			effects = new Effects(getWeaponEffects(this.id))
+			launch_type = getWeaponLaunchType(this.id)
+			needLos = weaponNeedLos(this.id)
+			meanDamage = this.getMeanDamage(owner)
+			meanHeal = this.getMeanHeal(owner)
+		}
+
+		real getTurnDamage(integer tp){
+			return meanDamage * (tp \ cost)
+		}
+
+
+		Set < integer > fromWhereToUse(Leek target, Set < integer > reachabelCells) {
+			Set cellsFromWhereToShoot = arrayToSet(getCellsToUseWeapon(this.id, target.id))
+			Set x = setIntersection(cellsFromWhereToShoot, reachabelCells)
+			return x
+		}
+
+		Set < integer > fromWhereToUseOnCell(integer targetCell, Set < integer > reachabelCells) {
+			Array cellsToUseWeapon = getCellsToUseWeaponOnCell(this.id, targetCell)
+			Set cellsFromWhereToShoot = arrayToSet(cellsToUseWeapon)
+			Set x = setIntersection(cellsFromWhereToShoot, reachabelCells)
+			return x
+		}
+
+		Set<integer> whereCanHeUse( Set < integer > reachabelCells){
+			Set<integer> shootableCells =<>
+			for(integer r in reachabelCells){
+				Coordinates c = new Coordinates(0,0)
+				Coordinates cellCoordinates = world.getCoordinatesFromCell(r)
+				for (integer x in [range[0]..range[1]])
+					for (integer y in [range[0]..range[1]]) {
+						// d'abord verifier si elle existe ensuite si il y a une los
+						if (isInsideWorld(cellCoordinates.x - x, cellCoordinates.y - y) )
+							if(lineOfSight(r, getCellFromXY(cellCoordinates.x - x, cellCoordinates.y - y)) || !needLos)
+								setPut(shootableCells, getCellFromXY(cellCoordinates.x - x, cellCoordinates.y - y) )
+						if (isInsideWorld(cellCoordinates.x - x, cellCoordinates.y + y))
+							if(lineOfSight(r,getCellFromXY(cellCoordinates.x - x, cellCoordinates.y + y)) || !needLos)
+								setPut(shootableCells, getCellFromXY(cellCoordinates.x - x, cellCoordinates.y + y))
+						if (isInsideWorld(cellCoordinates.x + x, cellCoordinates.y + y))
+							if(lineOfSight(r,getCellFromXY(cellCoordinates.x + x, cellCoordinates.y + y)) || !needLos)
+								setPut(shootableCells, getCellFromXY(cellCoordinates.x + x, cellCoordinates.y + y))
+						if (isInsideWorld(cellCoordinates.x + x, cellCoordinates.y - y))
+							if(lineOfSight(r,getCellFromXY(cellCoordinates.x + x, cellCoordinates.y - y)) || !needLos)
+								setPut(shootableCells, getCellFromXY(cellCoordinates.x + x, cellCoordinates.y - y))
+
+					}
+			}
+			shootableCells = setDifference(shootableCells, world.obstaclesSet)
+
+			return shootableCells
+
+		}
+		
+		Action getActionEquip(Leek leek){
+			return new Action("Equip weapon", function() {
+					leek.equipWeapon(this)
+				}, 
+				"Equip " + this.name)
+		}
+		
+		Action getActionUse(Leek leek,Leek target){
+			return new Action("shootOnTarget", function() {
+					leek.shootOnTarget(target)
+				}, 
+				"shoot on " + target.name + " with " + this.name)
+		}
+
+	}

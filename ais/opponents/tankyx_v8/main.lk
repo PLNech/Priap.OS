@@ -1,0 +1,211 @@
+
+global _init = false
+global fieldMap = null
+global arsenal = null
+global player = null
+global strategy = null
+
+global __avgDamageRate = 0
+global __lastEnemyHP = -1
+global __timePressure = false
+
+global _opsBudget = 14000000
+global _ops64 = 9000000
+global _ops71 = 10000000
+global _ops79 = 11000000
+global _ops82 = 11500000
+global _ops86 = 12000000
+global _ops89 = 12500000
+global _ops93 = 13000000
+global _ops96 = 13500000
+global _beamWidth = 20
+global _beamMaxDepth = 10
+global _mutationMaxSeeds = 6
+global _mutationMaxPerSeed = 80
+// Baseline values stashed at init() — used by per-turn dynamic scaling
+// in scenario_generator. The runtime values above are mutated each turn.
+global _beamMaxDepthBase = 10
+global _mutationMaxSeedsBase = 6
+global _mutationMaxPerSeedBase = 80
+global _beamWidthBase = 20
+
+include('game_entity.lk')
+include('field_map_tactical.lk')
+include('item.lk')
+include('item_roles.lk')
+include('game_context.lk')
+
+include('kill_planning.lk')
+include('cooldown_tracker.lk')
+include('enemy_predictor.lk')
+include('reachable_graph.lk')
+include('performance_infra.lk')
+include('cache_manager.lk')
+include('tactical_awareness.lk')
+include('weight_profiles.lk')
+include('enemy_intelligence.lk')
+include('strategic_depth.lk')
+include('boss_context.lk')
+
+include('strategy/action.lk')
+include('bulb_ai.lk')
+include('beam_search.lk')
+
+include('scenario_generator.lk')
+include('scenario_simulator.lk')
+include('scenario_scorer.lk')
+include('scenario_quick_scorer.lk')
+include('scenario_mutation.lk')
+
+include('strategy/base_strategy.lk')
+include('strategy/unified_strategy.lk')
+if (!_init) {
+    init()
+    _init = true
+}
+
+main()
+
+function init() {
+    initializeItemRoles()
+    player = Player(getCell())
+
+    _opsBudget = player._cores * 1000000
+    _ops64 = floor(_opsBudget * 0.64)
+    _ops71 = floor(_opsBudget * 0.71)
+    _ops79 = floor(_opsBudget * 0.79)
+    _ops82 = floor(_opsBudget * 0.82)
+    _ops86 = floor(_opsBudget * 0.86)
+    _ops89 = floor(_opsBudget * 0.89)
+    _ops93 = floor(_opsBudget * 0.93)
+    _ops96 = floor(_opsBudget * 0.96)
+
+    if (_opsBudget < 7000000) {
+        _beamWidth = 8
+        _beamMaxDepth = 5
+        _mutationMaxSeeds = 2
+        _mutationMaxPerSeed = 20
+    } else if (_opsBudget < 10000000) {
+        _beamWidth = 12
+        _beamMaxDepth = 7
+        _mutationMaxSeeds = 3
+        _mutationMaxPerSeed = 40
+    } else if (_opsBudget < 14000000) {
+        _beamWidth = 16
+        _beamMaxDepth = 8
+        _mutationMaxSeeds = 4
+        _mutationMaxPerSeed = 60
+    }
+
+    _beamWidthBase = _beamWidth
+    _beamMaxDepthBase = _beamMaxDepth
+    _mutationMaxSeedsBase = _mutationMaxSeeds
+    _mutationMaxPerSeedBase = _mutationMaxPerSeed
+
+    arsenal = new Arsenal();
+    fieldMap = new FieldMap();
+    initGameContext(player, arsenal, fieldMap)
+
+    if (detectBossFight()) {
+        initBossContext()
+    }
+
+    var buildType = detectBuildType(player)
+    __playerBuildType = buildType
+    var weights = getWeightsForBuild(buildType)
+    if (_isBossFight && _bossPhase == "PUZZLE") {
+        weights = BOSS_PUZZLE_WEIGHTS
+    }
+
+    strategy = new UnifiedStrategy(weights, player, null, arsenal, fieldMap)
+    strategy.resetTurnContext()
+    strategy.turnOneBuffs()
+}
+
+function resetTurnState() {
+    clearCaches()
+    clearPerformanceInfra()
+}
+
+function main() {
+    resetTurnState()
+
+    if (getTurn() == 1) {
+        initializeAdjacency()
+
+    }
+
+    player.updateEntity()
+    fieldMap.updateMapEntities()
+
+    profileAllEnemies(fieldMap)
+
+    observeEnemyBehavior(fieldMap)
+
+    if (_isBossFight) updateBossContext()
+
+    if (_isBossFight) bossDiag(getCell())
+
+    if (_isBossFight && _bossPhase == "PUZZLE") {
+        if (executePuzzleTurn()) return
+    }
+
+    var target = null
+    if (_isBossFight && _bossPhase == "PUZZLE") {
+        target = getBossPuzzleTarget(fieldMap)
+    } else if (_isBossFight && _bossPhase == "COMBAT") {
+        target = selectCombatTarget(fieldMap)
+    }
+    if (target == null) {
+        target = fieldMap.selectOptimalTarget(['prioritizeLowest': "hp", 'bonusForDebuffed': true])
+    }
+    if (target == null) target = fieldMap.getClosestEnemy()
+
+    updateGameContext(player, target, fieldMap)
+
+    if (target != null) {
+        var cooldownTracker = new CooldownTracker(target)
+        var enemies = getAliveEnemies()
+        for (var enemyId in enemies) {
+            cooldownTracker.updateCooldowns(enemyId)
+        }
+
+        var killPlanner = new KillPlanner(arsenal, player, target)
+        killPlanner.updateGlobalKillPlan()
+    }
+
+    buildReachableGraph(player._cellPos, player._currMp, player, target, arsenal)
+
+    initializeCaches(player, target, arsenal)
+
+    fieldMap.buildEnemyThreatMap()
+
+    if (target != null && getOperations() < _ops64) {
+        buildAdversarialThreatCache(player, fieldMap.getEnemySubMap(), arsenal)
+    }
+
+    var targetHitCell = null
+
+    if (target != null && strategy.shouldBuildDamageMap()) {
+        fieldMap.buildHitMap(target._cellPos)
+        targetHitCell = fieldMap.getBestWeaponOrChipCell();
+    }
+
+    if (getOperations() > _ops93) {
+        if (target != null) {
+            moveToward(target._id)
+            var bestWeapon = arsenal.getHighestDamageWeapon()
+            if (bestWeapon != null) {
+                setWeapon(bestWeapon)
+                useWeaponOnCell(target._cellPos)
+            }
+        }
+        return
+    }
+
+    if (_isBossFight) {
+        strategy._weights = (_bossPhase == "PUZZLE") ? BOSS_PUZZLE_WEIGHTS : BOSS_COMBAT_WEIGHTS
+    }
+
+    strategy.createAndExecuteScenario(target, targetHitCell)
+}

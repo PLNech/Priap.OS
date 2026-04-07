@@ -1,0 +1,10 @@
+include("/Classes/Context/DangerInfo")
+include("/Classes/Context/DangerMap")
+include("/Classes/Leek")
+include("/Classes/Context/World")
+include("/Toolbox/Constants")
+include("/Brain/PlanActScenario")
+//FCH
+
+global World world = new World()
+debug(world.cellsCoordinatesTable)

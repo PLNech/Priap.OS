@@ -1,0 +1,48 @@
+include ("./Effect")
+
+class Effects{
+	Effect? effect_damage = null
+	Effect? effect_heal= null 
+	Effect? effect_absolute_shield = null 
+	Effect? effect_relative_shield = null 
+	Effect? effect_debuff = null
+	Effect? effect_buff_strength = null
+	Effect? effect_buff_agility = null
+	Effect? effect_buff_mp = null
+	Effect? effect_buff_tp = null 
+
+	constructor(Array<Array<integer>> arr){
+		Array<Effect> arrEffects = []
+		for (Array<integer> i in arr )
+			push(arrEffects , new Effect(i) )
+			
+		for (Effect e in arrEffects ){
+			if(e.type == EFFECT_DAMAGE)
+			{
+				// machine gun tire une rafale de trois balles. un autre cas pour les shields à traiter plus tard
+				if(effect_damage != null)
+					effect_damage.repeat = effect_damage.repeat +1 
+				else 
+					effect_damage = e
+			}
+			else if (e.type == EFFECT_HEAL)
+				effect_heal = e 
+			else if (e.type == EFFECT_ABSOLUTE_SHIELD)
+				effect_absolute_shield = e 
+			else if (e.type == EFFECT_RELATIVE_SHIELD)
+				effect_relative_shield = e 
+			else if (e.type == EFFECT_DEBUFF)
+				effect_debuff = e 	
+			else if (e.type == EFFECT_BUFF_STRENGTH)
+				effect_buff_strength = e 
+			else if (e.type == EFFECT_BUFF_AGILITY)
+				effect_buff_agility = e 
+			else if (e.type == EFFECT_BUFF_MP)
+				effect_buff_mp = e 
+			else if (e.type == EFFECT_BUFF_TP)
+				effect_buff_tp = e 
+		}
+	}
+	
+
+}

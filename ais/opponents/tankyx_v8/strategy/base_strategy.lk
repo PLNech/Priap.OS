@@ -1,0 +1,2922 @@
+include('action.lk')
+include('../scenario_generator.lk')
+include('../scenario_simulator.lk')
+include('../scenario_scorer.lk')
+include('../scenario_quick_scorer.lk')
+
+class Strategy {
+    _actions = []
+    _playerTP = -1
+    _fieldMap = null
+    _originalTP = -1  
+    _originalMP = -1  
+
+    constructor() {
+        this._playerTP = getTP()
+    }
+
+    shouldBuildDamageMap() {
+        return true
+    }
+
+    inRangeAndLOS(fromCell, targetCell, minR, maxR) {
+        var dist = getCellDistance(fromCell, targetCell)
+        if (dist < minR || dist > maxR) return false
+        if (!lineOfSight(fromCell, targetCell)) return false
+        return true
+    }
+
+    isDiagonal(cell1, cell2) {
+        var x1 = getCellX(cell1)
+        var y1 = getCellY(cell1)
+        var x2 = getCellX(cell2)
+        var y2 = getCellY(cell2)
+
+        return abs(x2 - x1) == abs(y2 - y1)
+    }
+
+    checkAoESafety(chipId, targetCell) {
+        return this.checkAoESafetyFromCell(chipId, targetCell, player._cellPos)
+    }
+
+    checkAoESafetyFromCell(chipId, targetCell, fromCell) {
+        if (!mapContainsKey(arsenal.playerEquippedChips, chipId)) return ['safe': false, 'needsRepositioning': false]
+        var chip = arsenal.playerEquippedChips[chipId]
+
+        if (chip._aoeType == AREA_POINT) return ['safe': true, 'needsRepositioning': false]
+
+        if (fieldMap.wouldAoEHitCell(targetCell, chip._aoeType, fromCell, fromCell)) {
+            return ['safe': false, 'needsRepositioning': true]
+        }
+
+        return ['safe': true, 'needsRepositioning': false]
+    }
+
+    checkAoEWeaponSafety(weaponId, targetCell, fromCell) {
+        if (!mapContainsKey(arsenal.playerEquippedWeapons, weaponId)) return ['safe': false, 'needsRepositioning': false]
+        var weapon = arsenal.playerEquippedWeapons[weaponId]
+
+        if (weapon._aoeType == AREA_POINT) return ['safe': true, 'needsRepositioning': false]
+
+        if (fieldMap.wouldAoEHitCell(targetCell, weapon._aoeType, fromCell, fromCell)) {
+            return ['safe': false, 'needsRepositioning': true]
+        }
+
+        return ['safe': true, 'needsRepositioning': false]
+    }
+
+    findAoEWeaponSplashCell(weaponId, enemyCell, fromCell) {
+        if (!mapContainsKey(arsenal.playerEquippedWeapons, weaponId)) return null
+        var weapon = arsenal.playerEquippedWeapons[weaponId]
+
+        if (weapon._aoeType == AREA_POINT) return null
+
+        var bestCell = null
+        var bestDist = 999
+
+        var aoeRadius = 2
+        if (weapon._aoeType == AREA_CIRCLE_3) aoeRadius = 3
+
+        for (var dx = -aoeRadius; dx <= aoeRadius; dx++) {
+            for (var dy = -aoeRadius; dy <= aoeRadius; dy++) {
+                if (dx == 0 && dy == 0) continue
+
+                var candidateX = getCellX(enemyCell) + dx
+                var candidateY = getCellY(enemyCell) + dy
+                var candidateCell = getCellFromXY(candidateX, candidateY)
+
+                if (candidateCell == null || isObstacle(candidateCell)) continue
+
+                var dist = getCellDistance(fromCell, candidateCell)
+                if (dist == null || dist < weapon._minRange || dist > weapon._maxRange) continue
+                if (!lineOfSight(fromCell, candidateCell)) continue
+
+                var aoeCells = fieldMap.getAoEAffectedCells(candidateCell, weapon._aoeType, fromCell)
+                var hitsEnemy = false
+                for (var i = 0; i < count(aoeCells); i++) {
+                    if (aoeCells[i] == enemyCell) {
+                        hitsEnemy = true
+                        break
+                    }
+                }
+                if (!hitsEnemy) continue
+
+                var hitsPlayer = false
+                for (var j = 0; j < count(aoeCells); j++) {
+                    if (aoeCells[j] == fromCell) {
+                        hitsPlayer = true
+                        break
+                    }
+                }
+
+                if (!hitsPlayer && dist < bestDist) {
+                    bestDist = dist
+                    bestCell = candidateCell
+                }
+            }
+        }
+
+        if (bestCell != null) {
+            return ['cell': bestCell, 'safe': true]
+        }
+
+        return null
+    }
+
+    findAoESplashCell(chipId, enemyCell, fromCell) {
+        if (!mapContainsKey(arsenal.playerEquippedChips, chipId)) return null
+        var chip = arsenal.playerEquippedChips[chipId]
+
+        if (chip._aoeType == AREA_POINT) return null
+
+        var bestCell = null
+        var bestDist = 999
+
+        var aoeRadius = 2
+        if (chip._aoeType == AREA_CIRCLE_3) aoeRadius = 3
+
+        for (var dx = -aoeRadius; dx <= aoeRadius; dx++) {
+            for (var dy = -aoeRadius; dy <= aoeRadius; dy++) {
+                if (dx == 0 && dy == 0) continue
+
+                var candidateX = getCellX(enemyCell) + dx
+                var candidateY = getCellY(enemyCell) + dy
+                var candidateCell = getCellFromXY(candidateX, candidateY)
+
+                if (candidateCell == null || isObstacle(candidateCell)) continue
+
+                var dist = getCellDistance(fromCell, candidateCell)
+                if (dist == null || dist < chip._minRange || dist > chip._maxRange) continue
+                if (!lineOfSight(fromCell, candidateCell)) continue
+
+                var aoeCells = fieldMap.getAoEAffectedCells(candidateCell, chip._aoeType, fromCell)
+                var hitsEnemy = false
+                for (var i = 0; i < count(aoeCells); i++) {
+                    if (aoeCells[i] == enemyCell) {
+                        hitsEnemy = true
+                        break
+                    }
+                }
+                if (!hitsEnemy) continue
+
+                var hitsPlayer = false
+                for (var j = 0; j < count(aoeCells); j++) {
+                    if (aoeCells[j] == fromCell) {
+                        hitsPlayer = true
+                        break
+                    }
+                }
+
+                if (!hitsPlayer && dist < bestDist) {
+                    bestDist = dist
+                    bestCell = candidateCell
+                }
+            }
+        }
+
+        if (bestCell != null) {
+            return ['cell': bestCell, 'safe': true]
+        }
+
+        return null
+    }
+
+    findSafeCellForAoE(chipId, targetCell) {
+        if (!mapContainsKey(arsenal.playerEquippedChips, chipId)) return -1
+        var chip = arsenal.playerEquippedChips[chipId]
+
+        var playerPos = player._cellPos
+        var playerMP = player._currMp
+
+        var bestCell = -1
+        var bestDist = 99999
+
+        for (var cellId = 0; cellId < 613; cellId++) {
+            if (isObstacle(cellId)) continue
+
+            var pathLen = getCachedPathLength(playerPos, cellId)
+            if (pathLen == null || pathLen > playerMP) continue
+
+            if (!this.inRangeAndLOS(cellId, targetCell, chip._minRange, chip._maxRange)) continue
+
+            var aoeCellsFromHere = fieldMap.getAoEAffectedCells(targetCell, chip._aoeType, cellId)
+
+            var inAoE = false
+            for (var a = 0; a < count(aoeCellsFromHere); a++) {
+                if (aoeCellsFromHere[a] == cellId) {
+                    inAoE = true
+                    break
+                }
+            }
+            if (inAoE) continue
+
+            if (pathLen < bestDist) {
+                bestDist = pathLen
+                bestCell = cellId
+            }
+        }
+
+        return bestCell
+    }
+
+    validateActionRangeAndLOS(action, fromCell = -1) {
+        if (fromCell == -1) fromCell = player._cellPos
+        var toCell = action.targetCell
+
+        if ((action.type == Action.ACTION_BUFF || action.type == Action.ACTION_DEBUFF) &&
+            action.targetEntity != null && action.targetEntity._id == player._id) {
+            toCell = fromCell  
+        }
+
+        if (toCell == -1) return true  
+
+        var minRange = 0
+        var maxRange = 999
+
+        if (action.weaponId != -1) {
+            var weapon = arsenal.playerEquippedWeapons[action.weaponId]
+            if (weapon == null) return false
+            minRange = weapon._minRange
+            maxRange = weapon._maxRange
+        } else if (action.chip != -1) {
+            var chip = arsenal.playerEquippedChips[action.chip]
+            if (chip == null) return false
+            minRange = chip._minRange
+            maxRange = chip._maxRange
+        }
+
+        var isPushPullChip = (action.chip == CHIP_BOXING_GLOVE ||
+                              action.chip == CHIP_GRAPPLE)
+
+        if (isPushPullChip && action.targetEntity != null) {
+
+            var enemyPos = action.targetEntity._cellPos
+            var dist = getCellDistance(fromCell, enemyPos)
+            if (dist == null) return false
+            if (dist < minRange || dist > maxRange) {
+                return false
+            }
+            if (!isOnSameLine(fromCell, enemyPos)) {
+                return false
+            }
+            if (!lineOfSight(fromCell, enemyPos)) {
+                return false
+            }
+            return true
+        }
+
+        var dist = getCellDistance(fromCell, toCell)
+        if (dist == null) return false
+        if (dist < minRange || dist > maxRange) {
+            return false
+        }
+
+        if (isPushPullChip && !isOnSameLine(fromCell, toCell)) {
+            return false
+        }
+
+        if (!lineOfSight(fromCell, toCell)) {
+            return false
+        }
+
+        return true
+    }
+
+    hasResourcesFor(action) {
+        var tpCost = 0
+        var mpCost = 0
+
+        if (action.weaponId != -1) {
+            var weapon = arsenal.playerEquippedWeapons[action.weaponId]
+            if (weapon != null) tpCost += weapon._cost
+        }
+
+        if (action.chip != -1) {
+            tpCost += getChipCost(action.chip)
+        }
+
+        if (action.type == Action.MOVEMENT_OFFENSIVE ||
+            action.type == Action.MOVEMENT_HNS ||
+            action.type == Action.MOVEMENT_APPROACH) {
+            var pathLen = getCachedPathLength(player._cellPos, action.targetCell)
+            if (pathLen != null && pathLen > player._currMp) return false
+        }
+
+        return player._currTp >= tpCost
+    }
+
+    validateAttackGeometry(fromCell, targetCell, item) {
+        var dist = getCellDistance(fromCell, targetCell)
+        if (dist == null) return ['valid': false, 'distance': -1]
+
+        if (dist < item._minRange || dist > item._maxRange) {
+            return ['valid': false, 'distance': dist]
+        }
+
+        if (!lineOfSight(fromCell, targetCell)) {
+            return ['valid': false, 'distance': dist]
+        }
+
+        return ['valid': true, 'distance': dist]
+    }
+
+    isChipAvailable(chipId, requiredTP = -1) {
+        if (!mapContainsKey(arsenal.playerEquippedChips, chipId)) return false
+        if (getCooldown(chipId, player._id) > 0) return false
+        if (requiredTP > 0 && player._currTp < requiredTP) return false
+        return true
+    }
+
+    shouldUseLeatherBoots(targetCell, secondaryCell = -1) {
+        var hasMPBuff = player.hasEffect(EFFECT_BUFF_MP)
+        if (hasMPBuff) {
+            return false
+        }
+
+        var playerMP = player._currMp
+        var pathLen = getCachedPathLength(player._cellPos, targetCell)
+        if (pathLen == null) return false
+
+        if (secondaryCell == -1) {
+            if (pathLen > playerMP && pathLen <= playerMP + 2) {
+                return true
+            }
+        }
+
+        else {
+            var pathToSecondary = getCachedPathLength(targetCell, secondaryCell)
+            if (pathToSecondary == null) return false
+
+            var totalNeeded = pathLen + pathToSecondary
+            if (totalNeeded > playerMP && totalNeeded <= playerMP + 2) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    shouldApplyStatBuff(chipId, buffEffectId, minTP, minTurnsRemaining = 1) {
+        if (!this.isChipAvailable(chipId)) return false
+
+        var playerTP = player._currTp
+        if (playerTP < minTP) return false
+
+        if (player.hasEffect(buffEffectId)) {
+            var buffRemaining = player.getEffectRemaining(buffEffectId)
+            if (buffRemaining > minTurnsRemaining) {
+                return false  
+            }
+            return true  
+        }
+
+        return true  
+    }
+
+    calculateMinimumAttackTP() {
+        var playerPos = player._cellPos
+
+        var minWeaponTP = 999
+        if (mapContainsKey(fieldMap.damageMap, playerPos)) {
+            var cellObj = fieldMap.damageMap[playerPos]
+            if (cellObj._weaponsList != null && count(cellObj._weaponsList) > 0) {
+                var currentWeapon = getWeapon()  
+                for (var w in cellObj._weaponsList) {
+                    var swapCost = (currentWeapon != w._id) ? 1 : 0
+                    var totalCost = swapCost + w._cost
+                    if (totalCost < minWeaponTP) {
+                        minWeaponTP = totalCost
+                    }
+                }
+            }
+        }
+
+        if (minWeaponTP == 999) {
+
+            var cheapestCost = 999
+            for (var wid in mapKeys(arsenal.playerEquippedWeapons)) {
+                var wObj = arsenal.playerEquippedWeapons[wid]
+                if (wObj._cost < cheapestCost) cheapestCost = wObj._cost
+            }
+            minWeaponTP = 1 + cheapestCost  
+        }
+
+        return minWeaponTP
+    }
+
+    validateTPBudget(buffCost) {
+        var playerTP = player._currTp
+        var minAttackTP = this.calculateMinimumAttackTP()
+        var remainingTP = playerTP - buffCost
+
+        if (remainingTP >= minAttackTP) {
+            return true
+        }
+
+        return false
+    }
+
+    calculateOptimalKiteDistance(target) {
+        var enemyMaxRange = 0
+        var playerMaxRange = 0
+
+        var enemyWeapons = getWeapons(target._id)
+        if (enemyWeapons != null) {
+            for (var ew = 0; ew < count(enemyWeapons); ew++) {
+                var ewRange = getWeaponMaxRange(enemyWeapons[ew])
+                if (ewRange > enemyMaxRange) enemyMaxRange = ewRange
+            }
+        }
+
+        for (var pw in mapKeys(arsenal.playerEquippedWeapons)) {
+            var pwObj = arsenal.playerEquippedWeapons[pw]
+            if (pwObj._maxRange > playerMaxRange) playerMaxRange = pwObj._maxRange
+        }
+
+        var minKite = enemyMaxRange + 1  
+        var maxKite = playerMaxRange     
+        var optimalKite = minKite + 1    
+
+        return ['min': minKite, 'max': maxKite, 'optimal': optimalKite, 'enemyRange': enemyMaxRange, 'playerRange': playerMaxRange]
+    }
+
+    getStrategyName() {
+        return "BASE"
+    }
+
+    debugStrategy(message) {
+    }
+
+    selectBestTarget() {
+        var enemies = fieldMap.getEnemySubMap()
+        var best = null
+        var bestScore = -1
+
+        for (var e in enemies) {
+            if (isDead(e._id)) continue
+            var score = 0
+
+            if (this.getStrategyName() == "STR" || this.getStrategyName() == "AGI") {
+                score = 10000 - e._currHealth
+            }
+
+            else if (this.getStrategyName() == "MAGIC") {
+                if (!e.hasEffect(EFFECT_POISON)) {
+                    score += 5000
+                }
+                score += (10000 - e._currHealth)
+            }
+
+            else {
+                score = 10000 - e._currHealth
+            }
+
+            var dist = getCellDistance(player._cellPos, e._cellPos)
+            if (dist != null) {
+                score -= dist * 10
+            }
+
+            if (score > bestScore) {
+                bestScore = score
+                best = e
+            }
+        }
+
+        return best
+    }
+
+    selectBestHealingChip(hpPercent) {
+        var currentHP = getLife()
+        var maxHP = getTotalLife()
+        var missingHP = maxHP - currentHP
+        var currentTP = getTP()
+
+        if (mapContainsKey(arsenal.playerEquippedChips, CHIP_REGENERATION)) {
+            var regen = arsenal.playerEquippedChips[CHIP_REGENERATION]
+            if (getCooldown(CHIP_REGENERATION, getEntity()) == 0 && currentTP >= regen._cost) {
+                if (hpPercent < 25) {
+                    return ['chipId': CHIP_REGENERATION, 'name': "REGENERATION", 'priority': 1]
+                }
+            }
+        }
+
+        if (mapContainsKey(arsenal.playerEquippedChips, CHIP_SERUM)) {
+            if (getCooldown(CHIP_SERUM, getEntity()) == 0 && currentTP >= 8) {
+                if (hpPercent >= 25 && hpPercent < 50) {
+                    return ['chipId': CHIP_SERUM, 'name': "SERUM", 'priority': 2]
+                }
+            }
+        }
+
+        if (mapContainsKey(arsenal.playerEquippedChips, CHIP_REMISSION)) {
+            if (getCooldown(CHIP_REMISSION, getEntity()) == 0 && currentTP >= 5) {
+                if ((hpPercent >= 50 && hpPercent < 70) || missingHP < 150) {
+                    return ['chipId': CHIP_REMISSION, 'name': "REMISSION", 'priority': 3]
+                }
+            }
+        }
+
+        return null
+    }
+
+    findBestReachableDamageCell(maxMP) {
+        var playerPos = player._cellPos
+        var bestCell = null
+        var bestDamage = -1
+        var bestDist = 99999
+
+        for (var c in fieldMap.damageMap) {
+            var pathLen = getCachedPathLength(playerPos, c._id)
+            if (pathLen == null || pathLen > maxMP) continue  
+
+            if (c._totalDamage > bestDamage || (c._totalDamage == bestDamage && pathLen < bestDist)) {
+                bestDamage = c._totalDamage
+                bestCell = c
+                bestDist = pathLen
+            }
+        }
+
+        return bestCell
+    }
+
+    projectTotalDamageOutput(includeBuffs = false, fromCell = -1, availableTP = -1, targetEntity = null) {
+        if (fromCell == -1) fromCell = player._cellPos
+        if (availableTP == -1) availableTP = player._currTp
+
+        var totalDamage = 0
+        var playerTP = availableTP
+        var buffBonus = 0
+
+        if (includeBuffs) {
+            if (this.getStrategyName() == "STR") {
+
+                if (mapContainsKey(arsenal.playerEquippedChips, CHIP_STEROID) &&
+                    getCooldown(CHIP_STEROID, player._id) == 0 &&
+                    !player.hasEffect(EFFECT_BUFF_STRENGTH)) {
+                    buffBonus = 160
+                    playerTP -= 7
+                }
+            }
+            else if (this.getStrategyName() == "AGI") {
+
+                if (mapContainsKey(arsenal.playerEquippedChips, CHIP_WARM_UP) &&
+                    getCooldown(CHIP_WARM_UP, player._id) == 0 &&
+                    !player.hasEffect(EFFECT_BUFF_AGILITY)) {
+                    buffBonus = 180
+                    playerTP -= 7
+                }
+            }
+        }
+
+        if (mapContainsKey(fieldMap.damageMap, fromCell)) {
+            var cell = fieldMap.damageMap[fromCell]
+            for (var wIdx = 0; wIdx < count(cell._weaponsList); wIdx++) {
+                var w = cell._weaponsList[wIdx]
+                if (w == null) continue
+
+                if (targetEntity != null) {
+                    var dist = getCellDistance(fromCell, targetEntity._cellPos)
+                    if (dist == null || dist < w._minRange || dist > w._maxRange) continue
+                    if (!lineOfSight(fromCell, targetEntity._cellPos)) continue
+                }
+
+                var uses = min(w._maxUse, floor(playerTP / w._cost))
+                if (uses > 0) {
+                    var netDmg = targetEntity != null ?
+                        arsenal.getNetDamageAgainstTarget(player._strength + buffBonus, player._magic, player._wisdom, player._science, w._id, targetEntity) :
+                        arsenal.getDamageBreakdown(player._strength + buffBonus, player._magic, player._wisdom, player._science, w._id)['total']
+                    totalDamage += netDmg * uses
+                    playerTP -= w._cost * uses
+                }
+            }
+        }
+
+        for (var cid in mapKeys(arsenal.playerEquippedChips)) {
+            var c = arsenal.playerEquippedChips[cid]
+            if (c == null) continue
+            if (playerTP < c._cost) continue
+            if (getCooldown(c._id, player._id) > 0) continue
+            if (!mapContainsKey(c._effects, EFFECT_DAMAGE) && !mapContainsKey(c._effects, EFFECT_POISON)) continue
+
+            if (targetEntity != null) {
+                var distC = getCellDistance(fromCell, targetEntity._cellPos)
+                if (distC == null || distC < c._minRange || distC > c._maxRange) continue
+                if (!lineOfSight(fromCell, targetEntity._cellPos)) continue
+            }
+
+            var chipUses = min(c._maxUse, floor(playerTP / c._cost))
+            if (chipUses > 0) {
+                var netChipDmg = targetEntity != null ?
+                    arsenal.getNetDamageAgainstTarget(player._strength, player._magic, player._wisdom, player._science, c._id, targetEntity) :
+                    arsenal.getDamageBreakdown(player._strength, player._magic, player._wisdom, player._science, c._id)['total']
+                totalDamage += netChipDmg * chipUses
+                playerTP -= c._cost * chipUses
+            }
+        }
+
+        return totalDamage
+    }
+
+    findBestDamageCellOnPath(targetCell, maxMP) {
+        var playerPos = player._cellPos
+
+        var pathCells = getPath(playerPos, targetCell)
+        if (pathCells == null || count(pathCells) == 0) {
+            return null
+        }
+
+        var bestCell = null
+        var bestDamage = -1
+        var bestDist = 99999
+
+        for (var i = 0; i < count(pathCells); i++) {
+            var cell = pathCells[i]
+
+            if (cell == playerPos) continue
+
+            var distToCell = getCachedPathLength(playerPos, cell)
+            if (distToCell == null || distToCell > maxMP) continue
+
+            if (mapContainsKey(fieldMap.damageMap, cell)) {
+                var cellObj = fieldMap.damageMap[cell]
+
+                if (cellObj._totalDamage > bestDamage || (cellObj._totalDamage == bestDamage && distToCell < bestDist)) {
+                    bestDamage = cellObj._totalDamage
+                    bestCell = cellObj
+                    bestDist = distToCell
+                }
+            }
+        }
+
+        return bestCell
+    }
+
+    useApproachChipsFromCurrentPosition(target, availableTP, debugPrefix) {
+        var playerPos = player._cellPos
+        var originalTP = availableTP
+        var minTPReserve = 2  
+
+        var usableChips = []
+        for (var cid in mapKeys(arsenal.playerEquippedChips)) {
+            var chipObj = arsenal.playerEquippedChips[cid]
+            if (chipObj == null) continue
+            if (availableTP < chipObj._cost + minTPReserve) continue  
+            if (getCooldown(chipObj._id, player._id) > 0) continue
+
+            if (!mapContainsKey(chipObj._effects, EFFECT_DAMAGE) && !mapContainsKey(chipObj._effects, EFFECT_POISON)) continue
+
+            var distToTarget = getCellDistance(playerPos, target._cellPos)
+            if (distToTarget == null || distToTarget < chipObj._minRange || distToTarget > chipObj._maxRange) continue
+            if (!lineOfSight(playerPos, target._cellPos)) continue
+
+            var netDmg = arsenal.getNetDamageAgainstTarget(player._strength, player._magic, player._wisdom, player._science, chipObj._id, target)
+            push(usableChips, ['chip': chipObj, 'damage': netDmg, 'id': chipObj._id])
+        }
+
+        for (var i = 0; i < count(usableChips); i++) {
+            var bestIdx = i
+            for (var j = i + 1; j < count(usableChips); j++) {
+                if (usableChips[j]['damage'] > usableChips[bestIdx]['damage']) bestIdx = j
+            }
+            if (bestIdx != i) {
+                var tmp = usableChips[i]
+                usableChips[i] = usableChips[bestIdx]
+                usableChips[bestIdx] = tmp
+            }
+        }
+
+        var chipsUsed = 0
+        for (var ci = 0; ci < count(usableChips); ci++) {
+            var chipRec = usableChips[ci]
+            var chip = chipRec['chip']
+            if (availableTP < chip._cost + minTPReserve) continue  
+
+            var actualUses = 0
+            while (actualUses < chip._maxUse && availableTP >= chip._cost + minTPReserve) {
+                var result = useChipOnCell(chip._id, target._cellPos)
+                if (result == USE_SUCCESS) {
+                    availableTP -= chip._cost
+                    actualUses += 1
+                    chipsUsed += 1
+                } else {
+                    break
+                }
+            }
+
+            if (availableTP <= minTPReserve) break  
+        }
+
+        var tpSpent = originalTP - availableTP
+        if (chipsUsed > 0) {
+
+            player.updateEntity()
+        }
+
+        return tpSpent
+    }
+
+    findNearbyDamageCellWithEscape(safeCell, maxMP) {
+        var playerPos = player._cellPos
+        var bestCell = null
+        var bestDamage = -1
+        var bestDist = 99999
+
+        for (var cellObj in fieldMap.damageMap) {
+            if (cellObj._id == playerPos) continue  
+
+            var distToCell = getCachedPathLength(playerPos, cellObj._id)
+            if (distToCell == null || distToCell > maxMP || distToCell == 0) continue
+
+            var remainingMP = maxMP - distToCell
+            var distToSafeFromHere = getCachedPathLength(cellObj._id, safeCell)
+
+            if (distToSafeFromHere != null && distToSafeFromHere <= remainingMP) {
+
+                if (cellObj._totalDamage > bestDamage || (cellObj._totalDamage == bestDamage && distToCell < bestDist)) {
+                    bestDamage = cellObj._totalDamage
+                    bestCell = cellObj
+                    bestDist = distToCell
+                }
+            }
+        }
+
+        return bestCell
+    }
+
+    findDamageCellOnEscapeRoute(safeCell, maxMP) {
+        var playerPos = player._cellPos
+
+        var pathToSafe = getPath(playerPos, safeCell)
+        if (pathToSafe == null || count(pathToSafe) == 0) {
+            return null
+        }
+
+        var bestCell = null
+        var bestDamage = -1
+        var bestDist = 99999
+
+        for (var i = 0; i < count(pathToSafe); i++) {
+            var pathCell = pathToSafe[i]
+
+            if (pathCell == playerPos) continue
+
+            var distToCell = getCachedPathLength(playerPos, pathCell)
+            if (distToCell == null || distToCell > maxMP) continue
+
+            if (mapContainsKey(fieldMap.damageMap, pathCell)) {
+                var cellObj = fieldMap.damageMap[pathCell]
+
+                var remainingMP = maxMP - distToCell
+                var distToSafeFromHere = getCachedPathLength(pathCell, safeCell)
+
+                if (distToSafeFromHere != null && distToSafeFromHere <= remainingMP) {
+
+                    if (cellObj._totalDamage > bestDamage || (cellObj._totalDamage == bestDamage && distToCell < bestDist)) {
+                        bestDamage = cellObj._totalDamage
+                        bestCell = cellObj
+                        bestDist = distToCell
+                    }
+                }
+            }
+        }
+
+        return bestCell
+    }
+
+    detectFightType() {
+        var enemies = fieldMap.getEnemySubMap()
+        var chests = fieldMap.getChestSubMap()
+
+        var enemyList = []
+        for (var eid in mapKeys(enemies)) {
+            push(enemyList, enemies[eid])
+        }
+        var chestList = []
+        for (var cid in mapKeys(chests)) {
+            push(chestList, chests[cid])
+        }
+
+        var hasCrystals = false
+        var hasGrail = false
+        for (var i = 0; i < count(enemyList); i++) {
+            var e = enemyList[i]
+            var name = getName(e._id)
+            if (name == "Crystal" || name == "Cristal") hasCrystals = true
+            if (name == "Grail" || name == "Graal") hasGrail = true
+        }
+        if (hasCrystals && hasGrail) {
+            return "boss"
+        }
+
+        if (count(enemyList) == 0 && count(chestList) > 0) {
+            return "chest"
+        }
+
+        for (var j = 0; j < count(enemyList); j++) {
+            var e2 = enemyList[j]
+            var entityType = getType(e2._id)
+            if (entityType == ENTITY_LEEK) {
+                return "pvp"
+            }
+        }
+
+        return "pve"
+    }
+
+    turnOneBuffs() {
+        if (_isBossFight && _bossPhase == "PUZZLE") {
+            // Boss PUZZLE: only self-cast KNOWLEDGE on turn 1
+            // HP buffs (ELEVATION, ARMORING) are handled in the gather phase
+            if (mapContainsKey(arsenal.playerEquippedChips, CHIP_KNOWLEDGE)) {
+                useChip(CHIP_KNOWLEDGE, player._id)
+            }
+            if (getWeapon() == null) {
+                setWeapon(arsenal.getHighestDamageWeapon())
+            }
+            return;
+        }
+
+        var isMagicBuild = player._magic > player._strength + 100 && player._magic > player._agility + 100
+        if (!isMagicBuild) {
+            if (mapContainsKey(arsenal.playerEquippedChips, CHIP_KNOWLEDGE)) {
+                useChip(CHIP_KNOWLEDGE, player._id)
+            }
+            if (mapContainsKey(arsenal.playerEquippedChips, CHIP_ELEVATION)) {
+                useChip(CHIP_ELEVATION, player._id)
+            }
+            if (mapContainsKey(arsenal.playerEquippedChips, CHIP_ARMORING)) {
+                useChip(CHIP_ARMORING, player._id)
+            }
+        }
+
+        var fightType = this.detectFightType()
+
+        var closestEnemy = fieldMap.getClosestEnemy()
+        var distToEnemy = 99999
+        if (closestEnemy != null) {
+            distToEnemy = getCellDistance(player._cellPos, closestEnemy._cellPos)
+            if (distToEnemy == null) distToEnemy = 99999
+        }
+
+        if (fightType == "boss") {
+            if (getWeapon() == null) {
+                setWeapon(arsenal.getHighestDamageWeapon())
+            }
+            return
+        }
+
+        if (fightType == "chest") {
+            if (getWeapon() == null) {
+                setWeapon(arsenal.getHighestDamageWeapon())
+            }
+            return
+        }
+
+        if (distToEnemy > 10) {
+
+            if (player._strength >= player._agility && player._strength >= player._magic) {
+                if (this.isChipAvailable(CHIP_FORTRESS, 12)) {  
+                    useChip(CHIP_FORTRESS, player._id)
+                }
+            }
+        }
+
+        if (getWeapon() == null) {
+            setWeapon(arsenal.getHighestDamageWeapon())
+        }
+
+    }
+
+    createMovementAction(type, targetHitCellID, target) {
+        push(this._actions, new Action(
+            type,
+            -1,
+            -1,
+            targetHitCellID,
+            target
+        ))
+        var targetName = target != null ? getName(target._id) : "none"
+    }
+
+    createAttackAction(type, target, weaponID = -1, chipID = -1, aimCell = -1) {
+
+        var targetCell = (aimCell != -1) ? aimCell : target._cellPos
+
+        push(this._actions, new Action(
+            type,
+            weaponID,
+            chipID,
+            targetCell,
+            target
+        ))
+
+    }
+
+    createOffensiveScenario(target, targetHitCell) {
+
+        if (player._magic > player._strength) {
+
+            var weightedCell = fieldMap.getBestWeightedDamageCell(1.5, 1)
+            if (weightedCell != -1) {
+                targetHitCell = weightedCell
+            }
+        }
+
+        var hnsApproach = fieldMap.findHideAndSeekCell("approach", target)
+        if (hnsApproach != null) {
+
+            var adopt = false
+            if (hnsApproach['canAttack'] || targetHitCell == -1) adopt = true
+            else if (targetHitCell != -1 && targetHitCell != null) {
+
+                if (mapContainsKey(fieldMap.damageMap, hnsApproach['cell']) && mapContainsKey(fieldMap.damageMap, targetHitCell._id)) {
+                    var hCellObj = fieldMap.damageMap[hnsApproach['cell']]
+                    if (hCellObj._totalDamage == targetHitCell._totalDamage) {
+                        var distCurrent = getCachedPathLength(player._cellPos, targetHitCell._id)
+                        var distH = getCachedPathLength(player._cellPos, hCellObj._id)
+                        if (distH != null && distCurrent != null && distH < distCurrent) adopt = true
+                    }
+                }
+            }
+            if (adopt) {
+
+                if (mapContainsKey(fieldMap.damageMap, hnsApproach['cell'])) {
+                    targetHitCell = fieldMap.damageMap[hnsApproach['cell']]
+                } else {
+
+                    targetHitCell = new Cell(hnsApproach['cell'], false, -1, 0, 0, false, -1, -1)
+                }
+            }
+        }
+
+        var playerPos = player._cellPos
+        var playerMP = player._currMp
+        var playerTP = player._currTp
+        var pathLength = getCachedPathLength(playerPos, targetHitCell._id)
+
+        if (pathLength > playerMP) {
+
+            createMovementAction(Action.MOVEMENT_APPROACH, targetHitCell._id, target)
+            return;
+        }
+
+        if (pathLength > 0) {
+            createMovementAction(Action.MOVEMENT_OFFENSIVE, targetHitCell._id, target)
+        }
+
+        playerPos = targetHitCell._id
+        playerMP -= pathLength
+
+        if (targetHitCell._bestType == 0 && targetHitCell._highestDamageWeapon != -1) {
+
+            if (getWeapon() != targetHitCell._highestDamageWeapon._id) {
+                if (playerTP < 1 + targetHitCell._highestDamageWeapon._cost) {
+                } else {
+                    createAttackAction(Action.ACTION_WEAPON_SWAP, target, targetHitCell._highestDamageWeapon._id, -1)
+                    playerTP -= 1
+                }
+            }
+            var useCount = targetHitCell._highestDamageWeapon._maxUse
+            while (playerTP >= targetHitCell._highestDamageWeapon._cost && useCount > 0) {
+                createAttackAction(Action.ACTION_DIRECT, target, targetHitCell._highestDamageWeapon._id, -1)
+                playerTP -= targetHitCell._highestDamageWeapon._cost
+                useCount -= 1
+            }
+        }
+        else if (targetHitCell._bestType == 1 && targetHitCell._highestDamageChip != -1) {
+
+            var chipRef = targetHitCell._highestDamageChip
+
+            var chipUses = chipRef._maxUse
+            while (playerTP >= chipRef._cost && chipUses > 0) {
+                createAttackAction(Action.ACTION_DIRECT, target, -1, chipRef._id)
+                playerTP -= chipRef._cost
+                chipUses -= 1
+            }
+        }
+
+        var primaryWid = -1
+        if (targetHitCell._highestDamageWeapon != -1 && targetHitCell._highestDamageWeapon != null) primaryWid = targetHitCell._highestDamageWeapon._id
+        var weaponIds = mapKeys(arsenal.playerEquippedWeapons)
+        for (var wi = 0; wi < count(weaponIds); wi++) {
+            var wid = weaponIds[wi]
+            var wObj = arsenal.playerEquippedWeapons[wid]
+            if (wObj == null) continue
+            if (wObj._id == primaryWid) continue
+            if (playerTP < wObj._cost + 1) {
+                continue
+            }
+            var secondHitCell = fieldMap.getClosestHitCellForWeapon(wObj)
+            if (secondHitCell == -1) {
+                continue
+            }
+            var secondPathLength = getCachedPathLength(playerPos, secondHitCell._id)
+            if (secondPathLength != null && secondPathLength <= playerMP) {
+                if (secondPathLength > 0) {
+                    createMovementAction(Action.MOVEMENT_OFFENSIVE, secondHitCell._id, target)
+                    playerMP -= secondPathLength
+                }
+                createAttackAction(Action.ACTION_WEAPON_SWAP, target, wObj._id, -1)
+                playerTP -= 1
+                while (playerTP >= wObj._cost) {
+                    createAttackAction(Action.ACTION_DIRECT, target, wObj._id, -1)
+                    playerTP -= wObj._cost
+                }
+            }
+        }
+
+        if (playerTP > 0) {
+            if (targetHitCell._bestType == 0) {
+
+                for (var c in arsenal.playerEquippedChips) {
+                    if (playerTP < c._cost) continue
+                    if (!mapContainsKey(c._effects, EFFECT_DAMAGE) && !mapContainsKey(c._effects, EFFECT_POISON)) continue
+                    createAttackAction(Action.ACTION_DIRECT, target, -1, c._id)
+                    playerTP -= c._cost
+                }
+            } else {
+
+                var activeWeapon = getWeapon()
+                if (activeWeapon != null && mapContainsKey(arsenal.playerEquippedWeapons, activeWeapon)) {
+                    var aw = arsenal.playerEquippedWeapons[activeWeapon]
+                    var useCount2 = aw._maxUse
+                    while (playerTP >= aw._cost && useCount2 > 0) {
+                        createAttackAction(Action.ACTION_DIRECT, target, aw._id, -1)
+                        playerTP -= aw._cost
+                        useCount2 -= 1
+                    }
+                }
+            }
+        }
+
+        if (playerMP > 0) {
+            var hnsInfo = fieldMap.findHideAndSeekCell()
+            if (hnsInfo != null) {
+                var hideCellId = hnsInfo['cell']
+                if (hideCellId != targetHitCell._id) {
+                    var legLen = getCachedPathLength(targetHitCell._id, hideCellId)
+                    if (legLen != null && legLen <= playerMP) {
+                        createMovementAction(Action.MOVEMENT_HNS, hideCellId, target)
+                        playerMP -= legLen
+                    }
+                }
+            }
+        }
+    }
+
+    executeWeaponFocusedOffensive(target, bestWeaponCell, playerPos, playerMP, playerTP, chipExclusionList, debugPrefix, skipHideAndSeek) {
+
+        if (skipHideAndSeek == null) skipHideAndSeek = false
+
+        var hnsApproach = fieldMap.findHideAndSeekCell("approach", target)
+        if (hnsApproach != null && hnsApproach['canAttack'] && mapContainsKey(fieldMap.damageMap, hnsApproach['cell'])) {
+            var hCellObj = fieldMap.damageMap[hnsApproach['cell']]
+            if (hCellObj._highestDamageWeapon != -1) {
+                var distOrig = getCachedPathLength(playerPos, bestWeaponCell._id)
+                var distH = getCachedPathLength(playerPos, hCellObj._id)
+                if (distH != null && distOrig != null && hCellObj._weaponDamage >= bestWeaponCell._weaponDamage && distH < distOrig) {
+                    bestWeaponCell = hCellObj
+                }
+            }
+        }
+
+        fieldMap.markChosenDestinationAndPath(player._cellPos, bestWeaponCell._id)
+
+        var pathLen = getCachedPathLength(playerPos, bestWeaponCell._id)
+        if (pathLen == null) pathLen = 99999
+        var reachedWeaponCell = false
+        if (pathLen > playerMP) {
+
+            var reachableCell = this.findBestReachableDamageCell(playerMP)
+
+            if (reachableCell != null && reachableCell._id != playerPos) {
+
+                this.createMovementAction(Action.MOVEMENT_APPROACH, reachableCell._id, target)
+
+                this.executeAndFlushActions()
+                playerPos = player._cellPos
+                playerMP = player._currMp
+                playerTP = player._currTp
+
+                if (playerPos == reachableCell._id) {
+                    reachedWeaponCell = true
+                    bestWeaponCell = reachableCell  
+                }
+            } else {
+
+                var usedLeatherBoots = false
+                if (mapContainsKey(arsenal.playerEquippedChips, CHIP_LEATHER_BOOTS) &&
+                    getCooldown(CHIP_LEATHER_BOOTS, player._id) == 0 &&
+                    playerTP >= 3) {
+
+                    var boostedMP = playerMP + 2  
+                    var wouldReachCell = this.findBestReachableDamageCell(boostedMP)
+
+                    if (wouldReachCell != null) {
+
+                        useChip(CHIP_LEATHER_BOOTS, player._id)
+                        playerTP -= 3
+
+                        player.updateEntity()
+                        playerMP = player._currMp  
+                        usedLeatherBoots = true
+
+                        reachableCell = this.findBestReachableDamageCell(playerMP)
+                    }
+
+                    if (reachableCell != null && reachableCell._id != playerPos) {
+
+                        this.createMovementAction(Action.MOVEMENT_APPROACH, reachableCell._id, target)
+
+                        this.executeAndFlushActions()
+                        playerPos = player._cellPos
+                        playerMP = player._currMp
+                        playerTP = player._currTp
+
+                        if (playerPos == reachableCell._id) {
+                            reachedWeaponCell = true
+                            bestWeaponCell = reachableCell
+                        }
+                    }
+                }
+
+                var bsApproachTele = getAvailableTeleportChip(arsenal, player._id)
+                if (reachableCell == null && bsApproachTele != null &&
+                    playerTP >= getCachedChipCost(bsApproachTele) &&
+                    bestWeaponCell != -1 && bestWeaponCell != null) {
+
+                    var tpTeleportApproach = getCachedChipCost(bsApproachTele)
+                    var approachMaxRange = getTeleportMaxRange(bsApproachTele)
+                    var teleportDist = getCellDistance(playerPos, bestWeaponCell._id)
+                    if (teleportDist != null && teleportDist >= 1 && teleportDist <= approachMaxRange) {
+
+                        var tpAfterTeleport = playerTP - tpTeleportApproach
+                        var primaryWeapon = bestWeaponCell._highestDamageWeapon
+                        var canAffordPrimary = (primaryWeapon != -1 && primaryWeapon != null && tpAfterTeleport >= primaryWeapon._cost + 1)
+                        var hasBackupAttacks = (count(bestWeaponCell._weaponsList) > 1 || count(bestWeaponCell._chipsList) > 0)
+
+                        if (!canAffordPrimary && !hasBackupAttacks) {
+                        } else {
+
+                            var teleportResult = useChipOnCell(bsApproachTele, bestWeaponCell._id)
+                            playerTP -= tpTeleportApproach
+
+                            if (teleportResult == USE_SUCCESS || teleportResult == USE_CRITICAL) {
+
+                                player.updateEntity()
+                                playerPos = player._cellPos
+                                playerMP = player._currMp
+                                playerTP = player._currTp
+
+                                if (playerPos == bestWeaponCell._id) {
+                                    reachedWeaponCell = true
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (reachableCell == null && !reachedWeaponCell && playerMP > 0) {
+
+                    var cellOnPath = this.findBestDamageCellOnPath(bestWeaponCell._id, playerMP)
+
+                    if (cellOnPath != null && cellOnPath._id != playerPos) {
+
+                        this.createMovementAction(Action.MOVEMENT_APPROACH, cellOnPath._id, target)
+
+                        this.executeAndFlushActions()
+                        playerPos = player._cellPos
+                        playerMP = player._currMp
+                        playerTP = player._currTp
+
+                        if (playerPos == cellOnPath._id) {
+                            reachedWeaponCell = true
+                            bestWeaponCell = cellOnPath
+                        }
+                    } else {
+
+                        var tpSpentOnChips = this.useApproachChipsFromCurrentPosition(target, playerTP, debugPrefix)
+                        if (tpSpentOnChips > 0) {
+                            playerTP -= tpSpentOnChips
+                            player._currTp = playerTP
+                        }
+
+                        if (playerMP > 0) {
+                            var moveResult = moveTowardCell(bestWeaponCell._id)
+
+                            player.updateEntity()
+                            playerPos = player._cellPos
+                            playerMP = player._currMp
+                            playerTP = player._currTp
+
+                            if (mapContainsKey(fieldMap.damageMap, playerPos)) {
+                                reachedWeaponCell = true
+                                bestWeaponCell = fieldMap.damageMap[playerPos]
+                            }
+                        }
+                    }
+                }
+            }
+
+        } else if (pathLen > 0) {
+            this.createMovementAction(Action.MOVEMENT_OFFENSIVE, bestWeaponCell._id, target)
+            playerMP -= pathLen
+            playerPos = bestWeaponCell._id
+            reachedWeaponCell = true
+        } else {
+            reachedWeaponCell = true
+        }
+
+        if (!reachedWeaponCell && playerMP == 0) {
+            var curCellCheck = mapContainsKey(fieldMap.damageMap, playerPos) ? fieldMap.damageMap[playerPos] : null
+            if (curCellCheck == null || (count(curCellCheck._weaponsList) == 0 && count(curCellCheck._chipsList) == 0)) {
+            }
+        }
+
+        var primaryWeapon = bestWeaponCell._highestDamageWeapon
+        var currentWeaponId = getWeapon()  
+
+        var primaryWeaponReady = false  
+        if (reachedWeaponCell && primaryWeapon != -1 && primaryWeapon != null) {
+            if (currentWeaponId != primaryWeapon._id) {
+                if (playerTP >= 1 + primaryWeapon._cost) {
+                    this.createAttackAction(Action.ACTION_WEAPON_SWAP, target, primaryWeapon._id, -1)
+                    playerTP -= 1
+                    primaryWeaponReady = true
+                }
+            } else {
+                primaryWeaponReady = true
+            }
+
+            if (primaryWeaponReady) {
+
+                var currentCellObj = mapContainsKey(fieldMap.damageMap, playerPos) ?
+                                     fieldMap.damageMap[playerPos] : null
+                var optimalAim = target._cellPos  
+
+                if (currentCellObj != null &&
+                    mapContainsKey(currentCellObj._weaponOptimalAims, primaryWeapon._id)) {
+                    optimalAim = currentCellObj._weaponOptimalAims[primaryWeapon._id]
+                }
+
+                var uses = primaryWeapon._maxUse
+                while (playerTP >= primaryWeapon._cost && uses > 0) {
+                    this.createAttackAction(Action.ACTION_DIRECT, target, primaryWeapon._id, -1, optimalAim)
+                    playerTP -= primaryWeapon._cost
+                    uses -= 1
+                }
+            }
+        }
+
+        var primaryWid = (reachedWeaponCell && primaryWeapon != -1 && primaryWeapon != null) ? primaryWeapon._id : -1
+        var curCellObj = null
+        if (mapContainsKey(fieldMap.damageMap, playerPos)) {
+            curCellObj = fieldMap.damageMap[playerPos]
+        }
+
+        if (curCellObj != null && count(curCellObj._weaponsList) > 0) {
+
+            for (var wL = 0; wL < count(curCellObj._weaponsList); wL++) {
+                var wObj = curCellObj._weaponsList[wL]
+                if (wObj == null) continue
+                if (wObj._id == primaryWid) continue  
+                if (playerTP < wObj._cost) continue  
+
+                var currentWeapon = getWeapon()  
+                if (currentWeapon != wObj._id) {
+                    if (playerTP < 1) continue  
+                    this.createAttackAction(Action.ACTION_WEAPON_SWAP, target, wObj._id, -1)
+                    playerTP -= 1
+                }
+
+                var wOptimalAim = target._cellPos
+                if (mapContainsKey(curCellObj._weaponOptimalAims, wObj._id)) {
+                    wOptimalAim = curCellObj._weaponOptimalAims[wObj._id]
+                }
+
+                var uses2 = wObj._maxUse
+                while (playerTP >= wObj._cost && uses2 > 0) {
+                    this.createAttackAction(Action.ACTION_DIRECT, target, wObj._id, -1, wOptimalAim)
+                    playerTP -= wObj._cost
+                    uses2 -= 1
+                }
+            }
+        } else if (curCellObj == null && playerTP > 0) {
+
+            var fallbackWeapons = []
+            for (var fwid in mapKeys(arsenal.playerEquippedWeapons)) {
+                var fweaponObj = arsenal.playerEquippedWeapons[fwid]
+                if (fweaponObj == null) continue
+                if (fweaponObj._id == primaryWid) continue  
+                if (playerTP < fweaponObj._cost) continue  
+
+                var fwdist = getCellDistance(playerPos, target._cellPos)
+                if (fwdist == null || fwdist < fweaponObj._minRange || fwdist > fweaponObj._maxRange) continue
+                if (!lineOfSight(playerPos, target._cellPos)) continue
+
+                var fwnetDmg = arsenal.getNetDamageAgainstTarget(player._strength, player._magic, player._wisdom, player._science, fweaponObj._id, target)
+                push(fallbackWeapons, ['weapon': fweaponObj, 'damage': fwnetDmg])
+            }
+
+            for (var fwi = 0; fwi < count(fallbackWeapons); fwi++) {
+                var fwbestIdx = fwi
+                for (var fwj = fwi + 1; fwj < count(fallbackWeapons); fwj++) {
+                    if (fallbackWeapons[fwj]['damage'] > fallbackWeapons[fwbestIdx]['damage']) fwbestIdx = fwj
+                }
+                if (fwbestIdx != fwi) {
+                    var fwtmp = fallbackWeapons[fwi]
+                    fallbackWeapons[fwi] = fallbackWeapons[fwbestIdx]
+                    fallbackWeapons[fwbestIdx] = fwtmp
+                }
+            }
+
+            for (var fwci = 0; fwci < count(fallbackWeapons); fwci++) {
+                var fweaponRec = fallbackWeapons[fwci]
+                var fweapon = fweaponRec['weapon']
+
+                var fcurrentWeapon = getWeapon()
+                if (fcurrentWeapon != fweapon._id) {
+                    if (playerTP < 1) continue  
+                    this.createAttackAction(Action.ACTION_WEAPON_SWAP, target, fweapon._id, -1)
+                    playerTP -= 1
+                }
+
+                var fwuses = 0
+                while (fwuses < fweapon._maxUse && playerTP >= fweapon._cost) {
+                    this.createAttackAction(Action.ACTION_DIRECT, target, fweapon._id, -1, target._cellPos)
+                    playerTP -= fweapon._cost
+                    fwuses += 1
+                }
+
+                if (playerTP <= 0) break
+            }
+
+            if (count(fallbackWeapons) == 0) {
+            }
+        }
+
+        if (playerTP > 0 && curCellObj != null && count(curCellObj._chipsList) > 0) {
+            var dmgChips = []
+
+            for (var cL = 0; cL < count(curCellObj._chipsList); cL++) {
+                var chipObj = curCellObj._chipsList[cL]
+                if (chipObj == null) continue
+
+                var excluded = false
+                for (var ex = 0; ex < count(chipExclusionList); ex++) {
+                    if (chipObj._id == chipExclusionList[ex]) {
+                        excluded = true
+                        break
+                    }
+                }
+                if (excluded) {
+                    continue
+                }
+
+                if (!mapContainsKey(chipObj._effects, EFFECT_DAMAGE) && !mapContainsKey(chipObj._effects, EFFECT_POISON)) {
+                    continue
+                }
+
+                var bd = arsenal.getDamageBreakdown(player._strength, player._magic, player._wisdom, player._science, chipObj._id)
+                push(dmgChips, ['chip': chipObj, 'per': bd['total']])
+            }
+
+            for (var i = 0; i < count(dmgChips); i++) {
+                var bestIdx = i
+                for (var j = i + 1; j < count(dmgChips); j++) {
+                    if (dmgChips[j]['per'] > dmgChips[bestIdx]['per']) bestIdx = j
+                }
+                if (bestIdx != i) {
+                    var tmp = dmgChips[i]
+                    dmgChips[i] = dmgChips[bestIdx]
+                    dmgChips[bestIdx] = tmp
+                }
+            }
+
+            for (var dc = 0; dc < count(dmgChips); dc++) {
+                var rec = dmgChips[dc]
+                var chipUse = rec['chip']
+                if (playerTP < chipUse._cost) {
+                    continue
+                }
+
+                if (getCooldown(chipUse._id, player._id) > 0) {
+                    continue
+                }
+
+                var cOptimalAim = target._cellPos
+                if (mapContainsKey(curCellObj._chipOptimalAims, chipUse._id)) {
+                    cOptimalAim = curCellObj._chipOptimalAims[chipUse._id]
+                }
+
+                var actualUsesC = 0
+                while (actualUsesC < chipUse._maxUse && playerTP >= chipUse._cost) {
+                    this.createAttackAction(Action.ACTION_DIRECT, target, -1, chipUse._id, cOptimalAim)
+                    playerTP -= chipUse._cost
+                    actualUsesC += 1
+                }
+                if (playerTP <= 0) break
+            }
+        } else if (playerTP > 0 && curCellObj == null) {
+
+            var fallbackChips = []
+            for (var fcid in mapKeys(arsenal.playerEquippedChips)) {
+                var fchipObj = arsenal.playerEquippedChips[fcid]
+                if (fchipObj == null) continue
+                if (playerTP < fchipObj._cost) continue
+                if (getCooldown(fchipObj._id, player._id) > 0) continue
+
+                if (!mapContainsKey(fchipObj._effects, EFFECT_DAMAGE) && !mapContainsKey(fchipObj._effects, EFFECT_POISON)) continue
+
+                var fexcluded = false
+                for (var fex = 0; fex < count(chipExclusionList); fex++) {
+                    if (fchipObj._id == chipExclusionList[fex]) {
+                        fexcluded = true
+                        break
+                    }
+                }
+                if (fexcluded) continue
+
+                var fdist = getCellDistance(playerPos, target._cellPos)
+                if (fdist == null || fdist < fchipObj._minRange || fdist > fchipObj._maxRange) continue
+                if (!lineOfSight(playerPos, target._cellPos)) continue
+
+                var fnetDmg = arsenal.getNetDamageAgainstTarget(player._strength, player._magic, player._wisdom, player._science, fchipObj._id, target)
+                push(fallbackChips, ['chip': fchipObj, 'damage': fnetDmg])
+            }
+
+            for (var fi = 0; fi < count(fallbackChips); fi++) {
+                var fbestIdx = fi
+                for (var fj = fi + 1; fj < count(fallbackChips); fj++) {
+                    if (fallbackChips[fj]['damage'] > fallbackChips[fbestIdx]['damage']) fbestIdx = fj
+                }
+                if (fbestIdx != fi) {
+                    var ftmp = fallbackChips[fi]
+                    fallbackChips[fi] = fallbackChips[fbestIdx]
+                    fallbackChips[fbestIdx] = ftmp
+                }
+            }
+
+            for (var fci = 0; fci < count(fallbackChips); fci++) {
+                var fchipRec = fallbackChips[fci]
+                var fchip = fchipRec['chip']
+
+                var factualUses = 0
+                while (factualUses < fchip._maxUse && playerTP >= fchip._cost) {
+                    this.createAttackAction(Action.ACTION_DIRECT, target, -1, fchip._id, target._cellPos)
+                    playerTP -= fchip._cost
+                    factualUses += 1
+                }
+
+                if (playerTP <= 0) break
+            }
+
+            if (count(fallbackChips) == 0) {
+            }
+        }
+
+        if (!skipHideAndSeek && playerMP > 0) {
+            var hnsInfo = fieldMap.findHideAndSeekCell()
+            if (hnsInfo != null) {
+                var hideCellId = hnsInfo['cell']
+                if (hideCellId != playerPos) {
+                    var legLen = getCachedPathLength(playerPos, hideCellId)
+                    if (legLen != null && legLen <= playerMP) {
+                        this.createMovementAction(Action.MOVEMENT_HNS, hideCellId, target)
+                        playerMP -= legLen
+                    }
+                }
+            }
+        }
+
+        return ['playerMP': playerMP, 'playerTP': playerTP]
+    }
+
+    findBestWeaponAtPosition(position, target) {
+        var distToTarget = getCellDistance(position, target._cellPos)
+        if (distToTarget == null) return null
+
+        var bestWeapon = null
+        var bestDamage = -1
+
+        if (!mapContainsKey(fieldMap.damageMap, position)) return null
+
+        var cell = fieldMap.damageMap[position]
+        if (count(cell._weaponsList) == 0) return null
+
+        for (var wIdx = 0; wIdx < count(cell._weaponsList); wIdx++) {
+            var weapon = cell._weaponsList[wIdx]
+
+            if (distToTarget >= weapon._minRange && distToTarget <= weapon._maxRange) {
+
+                if (lineOfSight(position, target._cellPos)) {
+                    var bd = arsenal.getDamageBreakdown(player._strength, player._magic, player._wisdom, player._science, weapon._id)
+                    var dmg = bd['total']
+                    if (dmg > bestDamage) {
+                        bestDamage = dmg
+                        bestWeapon = weapon
+                    }
+                }
+            }
+        }
+
+        return bestWeapon
+    }
+
+    findBestAttackAtPosition(position, target) {
+        var distToTarget = getCellDistance(position, target._cellPos)
+        if (distToTarget == null) return null
+
+        var bestAttack = null
+        var bestDamage = -1
+
+        if (!mapContainsKey(fieldMap.damageMap, position)) return null
+        var cell = fieldMap.damageMap[position]
+
+        if (count(cell._weaponsList) > 0) {
+            for (var wIdx = 0; wIdx < count(cell._weaponsList); wIdx++) {
+                var weapon = cell._weaponsList[wIdx]
+
+                if (distToTarget >= weapon._minRange && distToTarget <= weapon._maxRange) {
+
+                    if (lineOfSight(position, target._cellPos)) {
+                        var bd = arsenal.getDamageBreakdown(player._strength, player._magic, player._wisdom, player._science, weapon._id)
+                        var dmg = bd['total']
+                        if (dmg > bestDamage) {
+                            bestDamage = dmg
+                            bestAttack = ['type': 'weapon', 'id': weapon._id, 'cost': weapon._cost, 'damage': dmg, 'maxUse': weapon._maxUse]
+                        }
+                    }
+                }
+            }
+        }
+
+        if (count(cell._chipsList) > 0) {
+            for (var cIdx = 0; cIdx < count(cell._chipsList); cIdx++) {
+                var chip = cell._chipsList[cIdx]
+
+                if (!mapContainsKey(chip._effects, EFFECT_DAMAGE) && !mapContainsKey(chip._effects, EFFECT_POISON)) {
+                    continue
+                }
+
+                if (distToTarget >= chip._minRange && distToTarget <= chip._maxRange) {
+
+                    if (lineOfSight(position, target._cellPos)) {
+
+                        if (getCooldown(chip._id, player._id) == 0) {
+                            var chipBd = arsenal.getDamageBreakdown(player._strength, player._magic, player._wisdom, player._science, chip._id)
+                            var chipDmg = chipBd['total']
+                            if (chipDmg > bestDamage) {
+                                bestDamage = chipDmg
+                                bestAttack = ['type': 'chip', 'id': chip._id, 'cost': chip._cost, 'damage': chipDmg, 'maxUse': chip._maxUse]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return bestAttack
+    }
+
+    createDefensiveScenario(target, targetHitCell) {
+        var playerTP = player._currTp
+        var playerMP = player._currMp
+
+        if (getLife() < getTotalLife()) {
+            var hpPercent = (getLife() * 100) / getTotalLife()
+            var healChip = this.selectBestHealingChip(hpPercent)
+            if (healChip != null) {
+                this.createAttackAction(Action.ACTION_DIRECT, player, -1, healChip['chipId'])
+                playerTP -= healChip['cost']
+            }
+        }
+
+        var playerPos = player._cellPos
+        var bestAttack = this.findBestAttackAtPosition(playerPos, target)
+        var attackedFromCurrentPos = false
+
+        if (bestAttack != null && playerTP >= bestAttack['cost']) {
+            var attackType = bestAttack['type']
+            var attackId = bestAttack['id']
+            var attackName = (attackType == 'weapon') ? getWeaponName(attackId) : getChipName(attackId)
+
+            var fleeOptimalAim = target._cellPos
+            var currPosObj = mapContainsKey(fieldMap.damageMap, playerPos) ?
+                             fieldMap.damageMap[playerPos] : null
+
+            if (attackType == 'weapon') {
+
+                if (currPosObj != null && mapContainsKey(currPosObj._weaponOptimalAims, attackId)) {
+                    fleeOptimalAim = currPosObj._weaponOptimalAims[attackId]
+                }
+
+                var currentWeapon = getWeapon()
+                if (currentWeapon != attackId && playerTP >= 1 + bestAttack['cost']) {
+                    this.createAttackAction(Action.ACTION_WEAPON_SWAP, target, attackId, -1)
+                    playerTP -= 1
+                }
+
+                var uses = bestAttack['maxUse']
+                while (playerTP >= bestAttack['cost'] && uses > 0) {
+                    this.createAttackAction(Action.ACTION_DIRECT, target, attackId, -1, fleeOptimalAim)
+                    playerTP -= bestAttack['cost']
+                    uses -= 1
+                }
+            } else {
+
+                if (currPosObj != null && mapContainsKey(currPosObj._chipOptimalAims, attackId)) {
+                    fleeOptimalAim = currPosObj._chipOptimalAims[attackId]
+                }
+
+                var chipUses = bestAttack['maxUse']
+                while (playerTP >= bestAttack['cost'] && chipUses > 0) {
+                    this.createAttackAction(Action.ACTION_DIRECT, target, -1, attackId, fleeOptimalAim)
+                    playerTP -= bestAttack['cost']
+                    chipUses -= 1
+                }
+            }
+
+            player._currTp = playerTP  
+            attackedFromCurrentPos = true
+        }
+
+        var hns = fieldMap.findHideAndSeekCell()
+        if (hns != null) {
+            var hCell = hns['cell']
+            if (hCell != player._cellPos) {
+
+                if (!attackedFromCurrentPos && playerTP >= 6) {  
+
+                    var nearbyDamageCell = this.findNearbyDamageCellWithEscape(hCell, playerMP)
+                    var damageCellOnPath = nearbyDamageCell != null ? nearbyDamageCell : this.findDamageCellOnEscapeRoute(hCell, playerMP)
+
+                    if (damageCellOnPath != null) {
+
+                        this.createMovementAction(Action.MOVEMENT_HNS, damageCellOnPath._id, target)
+
+                        this.executeAndFlushActions()
+
+                        player.updateEntity()
+                        fieldMap.updateMapEntities()
+
+                        var newPos = player._cellPos
+                        var attackAtDamageCell = this.findBestAttackAtPosition(newPos, target)
+
+                        if (attackAtDamageCell != null && playerTP >= attackAtDamageCell['cost']) {
+                            var escapeAttackType = attackAtDamageCell['type']
+                            var escapeAttackId = attackAtDamageCell['id']
+                            var escapeAttackName = (escapeAttackType == 'weapon') ? getWeaponName(escapeAttackId) : getChipName(escapeAttackId)
+
+                            var newPosOptimalAim = target._cellPos
+                            var newPosObj = mapContainsKey(fieldMap.damageMap, newPos) ?
+                                            fieldMap.damageMap[newPos] : null
+
+                            if (escapeAttackType == 'weapon') {
+
+                                if (newPosObj != null && mapContainsKey(newPosObj._weaponOptimalAims, escapeAttackId)) {
+                                    newPosOptimalAim = newPosObj._weaponOptimalAims[escapeAttackId]
+                                }
+
+                                var currentWeapon2 = getWeapon()
+                                if (currentWeapon2 != escapeAttackId && playerTP >= 1 + attackAtDamageCell['cost']) {
+                                    this.createAttackAction(Action.ACTION_WEAPON_SWAP, target, escapeAttackId, -1)
+                                    playerTP -= 1
+                                }
+
+                                var uses2 = attackAtDamageCell['maxUse']
+                                while (playerTP >= attackAtDamageCell['cost'] && uses2 > 0) {
+                                    this.createAttackAction(Action.ACTION_DIRECT, target, escapeAttackId, -1, newPosOptimalAim)
+                                    playerTP -= attackAtDamageCell['cost']
+                                    uses2 -= 1
+                                }
+                            } else {
+
+                                if (newPosObj != null && mapContainsKey(newPosObj._chipOptimalAims, escapeAttackId)) {
+                                    newPosOptimalAim = newPosObj._chipOptimalAims[escapeAttackId]
+                                }
+
+                                var chipUses2 = attackAtDamageCell['maxUse']
+                                while (playerTP >= attackAtDamageCell['cost'] && chipUses2 > 0) {
+                                    this.createAttackAction(Action.ACTION_DIRECT, target, -1, escapeAttackId, newPosOptimalAim)
+                                    playerTP -= attackAtDamageCell['cost']
+                                    chipUses2 -= 1
+                                }
+                            }
+
+                            player._currTp = playerTP
+                        }
+
+                        var currentPos = player._cellPos
+                        if (currentPos != hCell && player._currMp > 0) {
+                            var distToSafe = getCachedPathLength(currentPos, hCell)
+                            if (distToSafe != null && distToSafe > 0 && distToSafe <= player._currMp) {
+                                this.createMovementAction(Action.MOVEMENT_HNS, hCell, target)
+                            }
+                        }
+                    } else {
+
+                        this.createMovementAction(Action.MOVEMENT_HNS, hCell, target)
+                    }
+                } else {
+
+                    this.createMovementAction(Action.MOVEMENT_HNS, hCell, target)
+                }
+            }
+        } else {
+
+            var usedMp = moveAwayFrom(target._id)
+        }
+    }
+
+    createAndExecuteDefensiveScenario(target) {
+        arrayClear(this._actions)
+        this.createDefensiveScenario(target, -1)
+        this.executeScenario()
+    }
+
+    hasLethalOpportunity(target) {
+        if (target == null) return false
+
+        var enemyHP = getLife(target._id)
+        var playerTP = player._currTp
+
+        if (playerTP >= 20 && enemyHP < 2000) {
+            return true
+        }
+
+        if (playerTP >= 15 && enemyHP < 1500) {
+            return true
+        }
+
+        if (playerTP >= 10 && enemyHP < 1000) {
+            return true
+        }
+
+        if (playerTP >= 5 && enemyHP < 600) {
+            return true
+        }
+
+        return false
+    }
+
+    shouldEnterEmergencyMode(target) {
+        var playerHP = getLife()
+        var hpPercent = (playerHP * 100) / getTotalLife()
+
+        if (hpPercent < 20) {
+            return true
+        }
+
+        if (this.hasLethalOpportunity(target)) {
+            return false
+        }
+
+        var currentThreat = fieldMap.getThreatAtCell(player._cellPos)
+
+        if (currentThreat >= playerHP) {
+            return true
+        }
+
+        if (currentThreat * 2 > playerHP) {
+            return true
+        }
+
+        var maxHP = getTotalLife()
+        if (currentThreat > maxHP * 0.3 && hpPercent < 50) {
+            return true
+        }
+
+        if (hpPercent < 35) {
+            var healChip = this.selectBestHealingChip(hpPercent)
+            if (healChip != null) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    createEmergencyScenario(target, targetHitCell) {
+        var playerHP = getLife()
+        var hpPercent = (playerHP * 100) / getTotalLife()
+        var currentThreat = fieldMap.getThreatAtCell(player._cellPos)
+        var playerTP = player._currTp
+
+        var isCritical = (hpPercent < 10 || currentThreat >= playerHP)
+
+        var fleeTeleChip = getAvailableTeleportChip(arsenal, player._id)
+        if (isCritical && fleeTeleChip != null) {
+            var tpTeleportFlee = getCachedChipCost(fleeTeleChip)
+            var fleeMaxRange = getTeleportMaxRange(fleeTeleChip)
+            if (playerTP >= tpTeleportFlee) {
+
+            var bestSafeCell = -1
+            var bestSafeCellDist = -1
+
+            for (var candidateCell = 0; candidateCell < 650; candidateCell++) {
+
+                if (isObstacle(candidateCell) || isEntity(candidateCell)) continue
+
+                var distToCell = getCellDistance(player._cellPos, candidateCell)
+                if (distToCell == null || distToCell < 1 || distToCell > fleeMaxRange) continue
+
+                var cellThreat = fieldMap.getThreatAtCell(candidateCell)
+                if (cellThreat > 0) continue
+
+                var minDistToEnemies = 999
+                var enemies = getEnemies()
+                for (var eIdx = 0; eIdx < count(enemies); eIdx++) {
+                    var enemyCell = getCell(enemies[eIdx])
+                    var distToEnemy = getCellDistance(candidateCell, enemyCell)
+                    if (distToEnemy != null && distToEnemy < minDistToEnemies) {
+                        minDistToEnemies = distToEnemy
+                    }
+                }
+
+                if (minDistToEnemies > bestSafeCellDist) {
+                    bestSafeCellDist = minDistToEnemies
+                    bestSafeCell = candidateCell
+                }
+            }
+
+            if (bestSafeCell != -1) {
+
+                var teleportAction = new Action(Action.ACTION_TELEPORT, -1, fleeTeleChip, bestSafeCell, target)
+                push(this._actions, teleportAction)
+                playerTP -= tpTeleportFlee
+
+                var attackAfterTeleport = this.findBestAttackAtPosition(bestSafeCell, target)
+                if (attackAfterTeleport != null && playerTP >= attackAfterTeleport['cost']) {
+
+                    if (attackAfterTeleport['type'] == 'weapon') {
+
+                        var currentWeapon = getWeapon()
+                        if (currentWeapon != attackAfterTeleport['id'] && playerTP >= 1 + attackAfterTeleport['cost']) {
+                            this.createAttackAction(Action.ACTION_WEAPON_SWAP, target, attackAfterTeleport['id'], -1)
+                            playerTP -= 1
+                        }
+
+                        var uses = attackAfterTeleport['maxUse']
+                        while (playerTP >= attackAfterTeleport['cost'] && uses > 0) {
+                            this.createAttackAction(Action.ACTION_DIRECT, target, attackAfterTeleport['id'], -1, target._cellPos)
+                            playerTP -= attackAfterTeleport['cost']
+                            uses -= 1
+                        }
+                    } else {
+
+                        var chipUses = attackAfterTeleport['maxUse']
+                        while (playerTP >= attackAfterTeleport['cost'] && chipUses > 0) {
+                            this.createAttackAction(Action.ACTION_DIRECT, target, -1, attackAfterTeleport['id'], target._cellPos)
+                            playerTP -= attackAfterTeleport['cost']
+                            chipUses -= 1
+                        }
+                    }
+                }
+
+                return
+            }
+
+        }
+        }
+
+        this.createDefensiveScenario(target, targetHitCell)
+    }
+
+    createAndExecuteScenario(target, targetHitCell) {
+        arrayClear(this._actions)
+
+        this._originalTP = player._currTp
+        this._originalMP = player._currMp
+
+        var useMultiScenario = true  
+
+        if (useMultiScenario) {
+            this.generateAndEvaluateBestScenario(target, targetHitCell)
+        } else {
+
+            if (this.shouldEnterEmergencyMode(target)) {
+                this.createEmergencyScenario(target, targetHitCell)
+            } else {
+                this.createOffensiveScenario(target, targetHitCell)
+            }
+        }
+
+        this.executeScenario()
+    }
+
+    createOTKOScenario(target, targetHitCell) {
+
+        return false
+    }
+
+    hasOTKOOpportunity(target) {
+        if (target == null) return false
+
+        var enemyHP = target._currHealth
+        var playerTP = player._currTp
+        var playerPos = player._cellPos
+
+        if (playerTP < 10) {  
+            return false
+        }
+
+        var burstFromCurrent = this.calculateBurstDamage(target, playerPos, playerTP)
+        var killProbCurrent = burstFromCurrent / enemyHP
+
+        if (killProbCurrent >= 0.85) {
+            return true
+        }
+
+        var otkoTeleChip = getAvailableTeleportChip(arsenal, player._id)
+        if (otkoTeleChip != null) {
+            var tpTeleportOTKO = getCachedChipCost(otkoTeleChip)
+            if (playerTP >= tpTeleportOTKO + 6) {
+                var teleportInfo = fieldMap.findOptimalTeleportCell(target)
+                if (teleportInfo != null) {
+                    var projectedDamage = teleportInfo['damage']
+                    var killProbTeleport = projectedDamage / enemyHP
+
+                    if (killProbTeleport >= 0.85) {
+                        return true
+                    }
+                }
+            }
+        }
+
+        return false
+    }
+
+    calculateBurstDamage(target, fromPosition, availableTP) {
+        var totalDamage = 0
+        var tpBudget = availableTP
+        var str = player._strength
+        var mag = player._magic
+        var wis = player._wisdom
+        var sci = player._science
+
+        if (fromPosition != player._cellPos && hasAnyTeleportChip(arsenal)) {
+            var calcTeleChip = getAvailableTeleportChip(arsenal, player._id)
+            if (calcTeleChip != null) tpBudget -= getCachedChipCost(calcTeleChip)
+        }
+
+        for (var weaponId in mapKeys(arsenal.playerEquippedWeapons)) {
+            var weapon = arsenal.playerEquippedWeapons[weaponId]
+            if (weapon == null) continue
+
+            var distToTarget = getCellDistance(fromPosition, target._cellPos)
+            if (distToTarget == null) continue
+            if (distToTarget < weapon._minRange || distToTarget > weapon._maxRange) continue
+            if (!lineOfSight(fromPosition, target._cellPos)) continue
+
+            if (weapon._aoeType == AREA_LASER_LINE) {
+                if (!fieldMap.isOnSameLine(fromPosition, target._cellPos)) continue
+            }
+
+            var weaponDmg = arsenal.getNetDamageAgainstTarget(str, mag, wis, sci, weaponId, target)
+
+            var swapCost = (getWeapon() != weaponId) ? 1 : 0
+            if (tpBudget <= swapCost) continue
+
+            var maxUses = min(weapon._maxUse, floor((tpBudget - swapCost) / weapon._cost))
+            if (maxUses <= 0) continue
+
+            totalDamage += weaponDmg * maxUses
+            tpBudget -= (swapCost + maxUses * weapon._cost)
+        }
+
+        if (tpBudget > 0) {
+            for (var chipId in mapKeys(arsenal.playerEquippedChips)) {
+                var chip = arsenal.playerEquippedChips[chipId]
+                if (chip == null) continue
+
+                if (!mapContainsKey(chip._effects, EFFECT_DAMAGE)) continue
+
+                var distChip = getCellDistance(fromPosition, target._cellPos)
+                if (distChip == null) continue
+                if (distChip < chip._minRange || distChip > chip._maxRange) continue
+
+                var chipCost = chip._cost
+                if (tpBudget < chipCost) continue
+
+                var chipDmg = arsenal.getNetDamageAgainstTarget(str, mag, wis, sci, chipId, target)
+
+                var chipUses = min(chip._maxUse, floor(tpBudget / chipCost))
+                totalDamage += chipDmg * chipUses
+                tpBudget -= (chipUses * chipCost)
+            }
+        }
+
+        return totalDamage
+    }
+
+    generateAndEvaluateBestScenario(target, targetHitCell) {
+
+        if (this.hasOTKOOpportunity(target)) {
+            if (this.createOTKOScenario(target, targetHitCell)) {
+                return  
+            }
+        }
+
+        if (this.shouldEnterEmergencyMode(target)) {
+            this.createDefensiveScenario(target, targetHitCell)
+            return
+        }
+
+        var distToTarget = getCellDistance(player._cellPos, target._cellPos)
+        var maxWeaponRange = 12  
+        var currentMP = getMP()
+        var canAttackThisTurn = (distToTarget != null && distToTarget <= maxWeaponRange + currentMP)
+
+        if (!canAttackThisTurn && distToTarget != null && distToTarget > 25) {
+
+            this.createMovementAction(Action.MOVEMENT_APPROACH, target._cellPos, target)
+            return
+        }
+
+        var generator = new ScenarioGenerator(arsenal, player, target, fieldMap, this)
+        var scenarios = generator.generateScenarios()
+        var scenarioCount = count(scenarios)
+
+        if (count(scenarios) == 0) {
+            this.createOffensiveScenario(target, targetHitCell)
+            return
+        }
+
+        var quickScorer = new ScenarioQuickScorer(player, target, fieldMap, arsenal)
+        var scenariosWithQuickScore = []
+
+        for (var i = 0; i < count(scenarios); i++) {
+            var scenario = scenarios[i]
+            if (count(scenario) == 0) continue
+
+            var qScore = quickScorer.quickScore(scenario)
+            push(scenariosWithQuickScore, ['scenario': scenario, 'quickScore': qScore])
+        }
+
+        arraySort(scenariosWithQuickScore, function(a, b) {
+            return b['quickScore'] - a['quickScore']
+        })
+
+        var topK = 50
+        var evaluateCount = min(topK, count(scenariosWithQuickScore))
+
+        var simulator = new ScenarioSimulator(arsenal, player, target, fieldMap)
+        var scorer = new ScenarioScorer(player, target, fieldMap, null)
+
+        var bestScore = -999999
+        var bestScenario = null
+        var bestSimResult = null
+        var scenarioResults = []
+
+        for (var i = 0; i < evaluateCount; i++) {
+            var scenarioData = scenariosWithQuickScore[i]
+            var scenario = scenarioData['scenario']
+            var qScore = scenarioData['quickScore']
+
+            var simResult = simulator.simulate(scenario)
+            var score = scorer.score(simResult, scenario)
+
+            push(scenarioResults, [
+                'scenario': scenario,
+                'simResult': simResult,
+                'score': score,
+                'quickScore': qScore
+            ])
+
+            if (score > bestScore) {
+                bestScore = score
+                bestScenario = scenario
+                bestSimResult = simResult
+            }
+        }
+
+        if (count(scenarioResults) >= 1 && getOperations() < _ops71) {
+            arraySort(scenarioResults, function(a, b) {
+                return b['score'] - a['score']
+            })
+
+            var predictor = new EnemyPredictor(fieldMap, arsenal, player, target)
+            var lookaheadCount = min(1, count(scenarioResults))
+
+            for (var i = 0; i < lookaheadCount; i++) {
+                var scenarioData = scenarioResults[i]
+                var simResult = scenarioData['simResult']
+
+                var endState = [
+                    'endPosition': simResult.finalPosition,
+                    'endHP': player._currHealth + simResult.hpGained,
+                    'endTP': player._currTp - simResult.tpSpent,
+                    'score': scenarioData['score']
+                ]
+
+                var lookahead = predictor.evaluateScenarioWithLookahead(endState, 0.7)
+
+                scenarioData['finalScore'] = lookahead['finalScore']
+                scenarioData['enemyDamage'] = lookahead['enemyDamage']
+
+            }
+
+            for (var i = 0; i < lookaheadCount; i++) {
+                var scenarioData = scenarioResults[i]
+                if (mapContainsKey(scenarioData, 'finalScore')) {
+                    if (scenarioData['finalScore'] > bestScore) {
+                        bestScore = scenarioData['finalScore']
+                        bestScenario = scenarioData['scenario']
+                        bestSimResult = scenarioData['simResult']
+                    }
+                }
+            }
+
+        }
+
+        if (bestScenario == null) {
+            this.createOffensiveScenario(target, targetHitCell)
+            return
+        }
+
+        arrayClear(this._actions)
+        for (var action in bestScenario) {
+            push(this._actions, action)
+        }
+    }
+
+    executeScenario() {
+
+        this.validateAndFilterActions()
+
+        if (count(this._actions) == 0) {
+            return false
+        }
+
+        var targetDied = false
+        var consecutiveFailures = 0
+        var maxConsecutiveFailures = 2
+        var attacksAttempted = 0
+        var attacksSucceeded = 0
+        var hasMoved = false
+        var weaponsDisabled = false
+
+        for (var a in this._actions) {
+            if (a.type == Action.MOVEMENT_APPROACH || a.type == Action.MOVEMENT_OFFENSIVE || a.type == Action.MOVEMENT_DEFENSIVE || a.type == Action.MOVEMENT_OTKO || a.type == Action.MOVEMENT_DOT_OFFENSIVE || a.type == Action.MOVEMENT_DEBUFF) {
+                if (hasMoved && attacksSucceeded == 0) {
+                    continue
+                }
+                var posBefore = getCell()
+                moveTowardCell(a.targetCell)
+                var posAfter = getCell()
+                hasMoved = true
+            }
+            else if (a.type == Action.MOVEMENT_FLEE) {
+                if (hasMoved && attacksSucceeded == 0) {
+                    continue
+                }
+                moveAwayFrom(a.targetEntity._id)
+                hasMoved = true
+            }
+            else if (a.type == Action.MOVEMENT_HNS) {
+                if (hasMoved && attacksSucceeded == 0) {
+                    continue
+                }
+                moveTowardCell(a.targetCell)
+                hasMoved = true
+            }
+            else if (a.type == Action.ACTION_WEAPON_SWAP) {
+                setWeapon(a.weaponId)
+            }
+            else if (a.type == Action.ACTION_DIRECT || a.type == Action.ACTION_DOT || a.type == Action.ACTION_DEBUFF) {
+                if (a.targetEntity != null && isDead(a.targetEntity._id)) {
+                    continue
+                }
+
+                var currentPos = getCell()
+                var currentWeap = getWeapon()
+                var targetPos = a.targetCell
+                var dist = getCellDistance(currentPos, targetPos)
+
+                if (a.chip != -1) {
+                    if (a.targetEntity != null && a.targetEntity._id != player._id) {
+                        var chipItem = null
+                        if (mapContainsKey(arsenal.playerEquippedChips, a.chip)) {
+                            chipItem = arsenal.playerEquippedChips[a.chip]
+                        }
+                        if (chipItem != null && chipItem._aoeType != AREA_POINT) {
+                            if (fieldMap.wouldAoEHitCell(targetPos, chipItem._aoeType, currentPos, currentPos)) {
+                                continue
+                            }
+                        }
+                    }
+
+                    useChipOnCell(a.chip, a.targetCell)
+
+                    if (a.chip == CHIP_INVERSION && _isBossFight) {
+                        _usedInversion = true
+                    }
+
+                    if ((a.chip == CHIP_GRAPPLE || a.chip == CHIP_BOXING_GLOVE || a.chip == CHIP_INVERSION) && a.targetEntity != null && !isDead(a.targetEntity._id)) {
+                        var oldEnemyCell = a.targetEntity._cellPos
+                        a.targetEntity._cellPos = getCell(a.targetEntity._id)
+                        a.targetEntity.updateEntity()
+                        var newEnemyCell = a.targetEntity._cellPos
+
+                        if (oldEnemyCell != newEnemyCell) {
+                            for (var futureAction in this._actions) {
+                                if (futureAction.targetCell == oldEnemyCell) {
+                                    futureAction.targetCell = newEnemyCell
+                                }
+                            }
+                        }
+                    }
+
+                    if (a.targetEntity != null && isDead(a.targetEntity._id)) {
+                        targetDied = true
+                        break
+                    }
+                }
+                else if (a.weaponId != -1) {
+                    if (weaponsDisabled) continue
+                    attacksAttempted++
+                    if (dist == null) {
+                        continue
+                    }
+
+                    var minRange = 0
+                    var maxRange = 0
+                    var weaponFound = false
+
+                    if (mapContainsKey(arsenal.playerEquippedWeapons, a.weaponId)) {
+                        var weaponObj = arsenal.playerEquippedWeapons[a.weaponId]
+                        minRange = weaponObj._minRange
+                        maxRange = weaponObj._maxRange
+                        weaponFound = true
+                    }
+
+                    if (!weaponFound) {
+                        continue
+                    }
+
+                    if (dist < minRange || dist > maxRange) {
+                        consecutiveFailures++
+                        if (consecutiveFailures >= maxConsecutiveFailures) {
+                            weaponsDisabled = true
+                            continue
+                        }
+                        continue
+                    }
+
+                    if (!lineOfSight(currentPos, targetPos)) {
+                        consecutiveFailures++
+                        if (consecutiveFailures >= maxConsecutiveFailures) {
+                            weaponsDisabled = true
+                            continue
+                        }
+                        continue
+                    }
+
+                    var weaponItem = arsenal.playerEquippedWeapons[a.weaponId]
+                    if (weaponItem != null && weaponItem._aoeType != AREA_POINT) {
+                        if (fieldMap.wouldAoEHitCell(targetPos, weaponItem._aoeType, currentPos, currentPos)) {
+                            weaponsDisabled = true
+                            continue
+                        }
+                    }
+
+                    if (currentWeap != a.weaponId) {
+                        setWeapon(a.weaponId)
+                        currentWeap = a.weaponId
+                    }
+
+                    var tpBefore = getTP()
+
+                    var result = useWeaponOnCell(a.targetCell)
+
+                    var tpAfter = getTP()
+
+                    if (result == USE_INVALID_TARGET || tpBefore == tpAfter) {
+                        consecutiveFailures++
+                        if (consecutiveFailures >= maxConsecutiveFailures) {
+                            weaponsDisabled = true
+                            continue
+                        }
+                        continue
+                    }
+                    consecutiveFailures = 0
+                    attacksSucceeded++
+
+                    if (a.targetEntity != null && isDead(a.targetEntity._id)) {
+                        targetDied = true
+                        break
+                    }
+                }
+            }
+            else if (a.type == Action.ACTION_BUFF) {
+                if (a.chip != -1) {
+                    var buffTargetId = (a.targetEntity != null && a.targetEntity != -1) ? a.targetEntity._id : getEntity()
+                    useChip(a.chip, buffTargetId)
+
+                    if (a.chip == CHIP_LEATHER_BOOTS && buffTargetId == player._id) {
+                        player._currMp = getMP()
+                    }
+
+                    if (a.chip == CHIP_ADRENALINE && buffTargetId == player._id) {
+                        player._currTp = getTP()
+                    }
+
+                    if (a.chip == CHIP_MANUMISSION && buffTargetId == player._id) {
+                        player._currTp = getTP()
+                    }
+                }
+            }
+            else if (a.type == Action.ACTION_TELEPORT) {
+                if (a.chip == CHIP_TELEPORTATION || a.chip == CHIP_JUMP) {
+                    var cooldown = getCooldown(a.chip, getEntity())
+                    var tpCost = getChipCost(a.chip)
+                    var currentPos = getCell()
+                    var dist = getCellDistance(currentPos, a.targetCell)
+                    var maxRange = getTeleportMaxRange(a.chip)
+
+                    var isObst = isObstacle(a.targetCell)
+                    var isEnt = isEntity(a.targetCell)
+
+                    if (cooldown == 0 && getTP() >= tpCost) {
+                        if (isObst || isEnt) {
+                        } else if (dist == null || dist < 1 || dist > maxRange) {
+                        } else {
+
+                            var result = useChipOnCell(a.chip, a.targetCell)
+                        }
+                    }
+                }
+            }
+            else if (a.type == Action.ACTION_SUMMON) {
+                if (a.chip != -1 && a.targetCell != -1 && a.bulbAIFunc != null) {
+                    var cooldown = getCooldown(a.chip, getEntity())
+                    var cost = getChipCost(a.chip)
+                    if (cooldown == 0 && getTP() >= cost && !isObstacle(a.targetCell) && !isEntity(a.targetCell)) {
+                        summon(a.chip, a.targetCell, a.bulbAIFunc)
+                    }
+                }
+            }
+            else if (a.type == Action.ACTION_CHECKPOINT) {
+
+                player.updateEntity()
+
+                var continuation = this.evaluateCheckpoint(a)
+
+                if (continuation != null && count(continuation) > 0) {
+
+                    for (var contAction in continuation) {
+                        push(this._actions, contAction)
+                    }
+                }
+            }
+        }
+
+        if (getTP() >= 16) {
+            player.updateEntity()
+            var _summonHelper = new ScenarioHelpers(arsenal, player, player, this._fieldMap, this)
+            var summonAction = _summonHelper.createSummonAction()
+            if (summonAction != null) {
+                var sChip = summonAction.chip
+                var sCell = summonAction.targetCell
+                var sAI = summonAction.bulbAIFunc
+                if (sChip != -1 && sCell != -1 && sAI != null) {
+                    var sCD = getCooldown(sChip, getEntity())
+                    var sCost = getChipCost(sChip)
+                    if (sCD == 0 && getTP() >= sCost && !isObstacle(sCell) && !isEntity(sCell)) {
+                        var sResult = summon(sChip, sCell, sAI)
+                    }
+                }
+            }
+        }
+
+        var poisonTrackTarget = null
+        for (var action in this._actions) {
+            if (action.targetEntity != null && action.targetEntity._id != player._id) {
+                poisonTrackTarget = action.targetEntity
+                break
+            }
+        }
+        if (poisonTrackTarget != null) {
+            poisonTrackTarget.updateEntity()
+            PREV_ENEMY_POISON = poisonTrackTarget.getEffectRemaining(EFFECT_POISON)
+        }
+
+        return targetDied
+    }
+
+    executeAndFlushActions() {
+        var targetDied = this.executeScenario()
+        arrayClear(this._actions)
+        player.updateEntity()
+        return targetDied
+    }
+
+    evaluateCheckpoint(checkpoint) {
+
+        if (checkpoint.checkpointType == "BUFF_RECHECK") {
+            return this.evaluateBuffRecheckContinuation(checkpoint.context)
+        }
+        else if (checkpoint.checkpointType == "VULNERABILITY_RECHECK") {
+            return this.evaluateVulnerabilityRecheckContinuation(checkpoint.context)
+        }
+        else if (checkpoint.checkpointType == "HEAL_RECHECK") {
+            return this.evaluateHealRecheckContinuation(checkpoint.context)
+        }
+        else {
+            return null
+        }
+    }
+
+    evaluateBuffRecheckContinuation(context) {
+        var target = context['target']
+        if (target == null) {
+            return null
+        }
+
+        var currentTP = getTP()
+        var currentPos = getCell()
+        var enemyHP = target._currHealth
+
+        var burstDamage = this.calculateBurstDamage(target, currentPos, currentTP)
+        var killProb = burstDamage / enemyHP
+
+        if (killProb >= 0.85) {
+            return this.generateOTKOBurstContinuation(target, currentTP)
+        }
+
+        else {
+            return this.generateNormalAttackContinuation(target, currentTP)
+        }
+    }
+
+    evaluateVulnerabilityRecheckContinuation(context) {
+        var target = context['target']
+        var vulnPercent = context['vulnerabilityPercent']
+
+        if (target == null) {
+            return null
+        }
+
+        var currentTP = getTP()
+        var enemyHP = target._currHealth
+
+        var multiplier = 1.0 + (vulnPercent / 100.0)
+        var baseDamage = this.calculateBurstDamage(target, getCell(), currentTP)
+        var amplifiedDamage = baseDamage * multiplier
+
+        var damageRatio = amplifiedDamage / enemyHP
+        if (damageRatio >= 0.7) {
+            return this.generateAggressiveBurstContinuation(target, currentTP)
+        }
+
+        else {
+            return this.generateBalancedAttackContinuation(target, currentTP)
+        }
+    }
+
+    evaluateHealRecheckContinuation(context) {
+        var target = context['target']
+        if (target == null) return null
+
+        var currentHP = player._currHealth
+        var maxHP = player._maxHealth
+        var hpPercent = (currentHP * 100) / maxHP
+        var currentTP = getTP()
+
+        if (hpPercent > 60) {
+            return this.generateAggressiveBurstContinuation(target, currentTP)
+        }
+
+        else if (hpPercent > 40) {
+            return this.generateBalancedAttackContinuation(target, currentTP)
+        }
+
+        else {
+            return this.generateDefensiveKiteContinuation(target, currentTP)
+        }
+    }
+
+    generateOTKOBurstContinuation(target, availableTP) {
+        var actions = []
+        var burstTeleChip = getAvailableTeleportChip(arsenal, player._id)
+
+        if (burstTeleChip != null) {
+            var tpTeleportBurst = getCachedChipCost(burstTeleChip)
+            var burstTeleMaxRange = getTeleportMaxRange(burstTeleChip)
+            if (availableTP >= tpTeleportBurst + 3) {
+                var bestOTKO = fieldMap.getBestOTKOCell()
+                if (bestOTKO != null) {
+                    var dist = getCellDistance(getCell(), bestOTKO._id)
+                    if (dist != null && dist >= 1 && dist <= burstTeleMaxRange) {
+                        push(actions, new Action(Action.ACTION_TELEPORT, -1, burstTeleChip, bestOTKO._id, target))
+                        availableTP -= tpTeleportBurst
+                    }
+                }
+            }
+        }
+
+        var weaponActions = this.generateWeaponSpamActions(target, availableTP)
+        for (var wa in weaponActions) {
+            push(actions, wa)
+        }
+
+        return actions
+    }
+
+    generateNormalAttackContinuation(target, availableTP) {
+        var actions = []
+
+        var tpForAttacks = floor(availableTP * 0.8)
+        var weaponActions = this.generateWeaponSpamActions(target, tpForAttacks)
+        for (var wa in weaponActions) {
+            push(actions, wa)
+        }
+
+        if (count(weaponActions) == 0) {
+            if (getMP() >= 2) {
+                push(actions, new Action(Action.MOVEMENT_APPROACH, -1, -1, target._cellPos, target))
+            }
+        } else {
+
+            var hideCell = fieldMap.getHideAndSeekCell()
+            if (hideCell != null && getMP() >= 2) {
+                push(actions, new Action(Action.MOVEMENT_HNS, -1, -1, hideCell, target))
+            }
+        }
+
+        return actions
+    }
+
+    generateAggressiveBurstContinuation(target, availableTP) {
+        var actions = []
+        var weaponActions = this.generateWeaponSpamActions(target, availableTP)
+        for (var wa in weaponActions) {
+            push(actions, wa)
+        }
+        return actions
+    }
+
+    generateBalancedAttackContinuation(target, availableTP) {
+        var actions = []
+        var tpForAttacks = floor(availableTP * 0.7)
+        var weaponActions = this.generateWeaponSpamActions(target, tpForAttacks)
+        for (var wa in weaponActions) {
+            push(actions, wa)
+        }
+
+        var hideCell = fieldMap.getHideAndSeekCell()
+        if (hideCell != null && getMP() >= 2) {
+            push(actions, new Action(Action.MOVEMENT_HNS, -1, -1, hideCell, target))
+        }
+
+        return actions
+    }
+
+    generateDefensiveKiteContinuation(target, availableTP) {
+        var actions = []
+
+        var tpForAttacks = floor(availableTP * 0.3)
+        if (tpForAttacks >= 4) {
+            var weaponActions = this.generateWeaponSpamActions(target, tpForAttacks)
+            for (var wa in weaponActions) {
+                push(actions, wa)
+            }
+        }
+
+        if (getMP() >= 2) {
+            push(actions, new Action(Action.MOVEMENT_FLEE, -1, -1, -1, target))
+        }
+
+        return actions
+    }
+
+    generateWeaponSpamActions(target, tpBudget) {
+        var actions = []
+        var currentWeapon = getWeapon()
+        var currentPos = getCell()
+
+        var weaponDamages = []  
+
+        for (var weaponId in mapKeys(arsenal.playerEquippedWeapons)) {
+            var weapon = arsenal.playerEquippedWeapons[weaponId]
+            if (weapon == null) continue
+
+            var dist = getCellDistance(currentPos, target._cellPos)
+            if (dist == null) continue
+            if (dist < weapon._minRange || dist > weapon._maxRange) continue
+            if (!lineOfSight(currentPos, target._cellPos)) continue
+
+            var dmg = arsenal.getNetDamageAgainstTarget(player._strength, player._magic, player._wisdom, player._science, weaponId, target)
+
+            push(weaponDamages, ['weaponId': weaponId, 'damage': dmg])
+        }
+
+        for (var i = 0; i < count(weaponDamages) - 1; i++) {
+            for (var j = 0; j < count(weaponDamages) - i - 1; j++) {
+                if (weaponDamages[j]['damage'] < weaponDamages[j+1]['damage']) {
+                    var temp = weaponDamages[j]
+                    weaponDamages[j] = weaponDamages[j+1]
+                    weaponDamages[j+1] = temp
+                }
+            }
+        }
+
+        for (var wd in weaponDamages) {
+            var weaponId = wd['weaponId']
+            var weapon = arsenal.playerEquippedWeapons[weaponId]
+            var weaponCost = weapon._cost
+            var maxUses = weapon._maxUse
+            var uses = 0
+
+            if (currentWeapon != weaponId && tpBudget >= 1) {
+                push(actions, new Action(Action.ACTION_WEAPON_SWAP, weaponId, -1, -1, target))
+                tpBudget -= 1
+                currentWeapon = weaponId
+            }
+
+            while (uses < maxUses && tpBudget >= weaponCost) {
+                push(actions, new Action(Action.ACTION_DIRECT, weaponId, -1, target._cellPos, target))
+                tpBudget -= weaponCost
+                uses++
+            }
+        }
+
+        return actions
+    }
+
+    findAlternativeMovementCell(originalCell, maxMP) {
+
+        var bestAlt = this.findBestReachableDamageCell(maxMP)
+        if (bestAlt != null) {
+            return bestAlt._id
+        }
+
+        var path = getPath(player._cellPos, originalCell)
+        if (path != null && count(path) > 0) {
+
+            for (var i = count(path) - 1; i >= 0; i--) {
+                var cell = path[i]
+                if (cell == player._cellPos) continue
+                var dist = getCachedPathLength(player._cellPos, cell)
+                if (dist != null && dist <= maxMP) {
+                    return cell
+                }
+            }
+        }
+
+        return -1
+    }
+
+    validateAndFilterActions() {
+        var validActions = []
+        var initialActionCount = count(this._actions)
+        var fallbacksAdded = 0
+
+        var simulatedPos = player._cellPos
+        var simulatedTP = this._originalTP  
+        var simulatedMP = this._originalMP  
+        var simulatedEquippedWeapon = getWeapon()  
+
+        for (var i = 0; i < initialActionCount; i++) {
+            var action = this._actions[i]
+            var isValid = true
+            var reason = ""
+
+            if (action.type == Action.MOVEMENT_APPROACH ||
+                action.type == Action.MOVEMENT_OFFENSIVE ||
+                action.type == Action.MOVEMENT_DEFENSIVE ||
+                action.type == Action.MOVEMENT_OTKO ||
+                action.type == Action.MOVEMENT_DOT_OFFENSIVE ||
+                action.type == Action.MOVEMENT_DEBUFF ||
+                action.type == Action.MOVEMENT_FLEE ||
+                action.type == Action.MOVEMENT_HNS) {
+
+                if (action.targetCell != -1 && simulatedPos == action.targetCell) {
+                    continue
+                }
+
+                var path = getPath(simulatedPos, action.targetCell)
+                if (path != null && count(path) > 0) {
+                    var mpCost = count(path) - 1  
+                    if (mpCost <= simulatedMP) {
+                        push(validActions, action)
+                        simulatedPos = action.targetCell  
+                        simulatedMP -= mpCost  
+                    } else {
+
+                        var altCell = this.findAlternativeMovementCell(action.targetCell, simulatedMP)
+                        if (altCell != -1) {
+                            action.targetCell = altCell
+                            push(validActions, action)
+                            var altPath = getPath(simulatedPos, altCell)
+                            var altMpCost = (altPath != null && count(altPath) > 0) ? count(altPath) - 1 : 0
+                            simulatedPos = altCell
+                            simulatedMP -= altMpCost
+                            fallbacksAdded += 1
+                        }
+                    }
+                } else {
+
+                    var altCell2 = this.findAlternativeMovementCell(action.targetCell, simulatedMP)
+                    if (altCell2 != -1) {
+                        action.targetCell = altCell2
+                        push(validActions, action)
+                        var altPath2 = getPath(simulatedPos, altCell2)
+                        var altMpCost2 = (altPath2 != null && count(altPath2) > 0) ? count(altPath2) - 1 : 0
+                        simulatedPos = altCell2
+                        simulatedMP -= altMpCost2
+                        fallbacksAdded += 1
+                    }
+                }
+                continue
+            }
+
+            if (action.type == Action.ACTION_SUMMON) {
+                if (action.chip != -1 && action.targetCell != -1) {
+                    var summonCost = getChipCost(action.chip)
+                    if (simulatedTP >= summonCost && getCooldown(action.chip, player._id) == 0 &&
+                        !isObstacle(action.targetCell) && !isEntity(action.targetCell)) {
+                        push(validActions, action)
+                        simulatedTP -= summonCost
+                    }
+                }
+                continue
+            }
+
+            if (action.type == Action.ACTION_TELEPORT) {
+                var teleMaxR = getTeleportMaxRange(action.chip)
+                var distTele = getCellDistance(simulatedPos, action.targetCell)
+                if (distTele != null && distTele >= 1 && distTele <= teleMaxR && !isObstacle(action.targetCell) && !isEntity(action.targetCell)) {
+                    push(validActions, action)
+                    simulatedPos = action.targetCell
+                }
+                continue
+            }
+
+            if (action.targetEntity != null && !action.targetEntity._isAlive) {
+                isValid = false
+                reason = "Target dead (ID: " + action.targetEntity._id + ")"
+            }
+
+            if (isValid && action.weaponId != -1 && action.type != Action.ACTION_WEAPON_SWAP && action.weaponId != simulatedEquippedWeapon) {
+                var weapon = arsenal.playerEquippedWeapons[action.weaponId]
+                if (weapon != null && simulatedTP >= 1 + weapon._cost) {
+
+                    var swapAction = new Action(Action.ACTION_WEAPON_SWAP, action.weaponId, -1, -1, action.targetEntity)
+                    push(validActions, swapAction)
+                    simulatedTP -= 1
+                    simulatedEquippedWeapon = action.weaponId
+                    fallbacksAdded += 1
+                } else if (weapon != null && simulatedTP < 1 + weapon._cost) {
+                    isValid = false
+                    reason = "Insufficient TP for weapon swap + attack: need " + (1 + weapon._cost) + ", have " + simulatedTP
+                }
+            }
+
+            if (isValid && action.weaponId != -1 && action.type != Action.ACTION_WEAPON_SWAP) {
+                var weapon = arsenal.playerEquippedWeapons[action.weaponId]
+                if (weapon == null) {
+                    isValid = false
+                    reason = "Weapon not found: " + action.weaponId
+                }
+                else if (simulatedTP < weapon._cost) {
+                    isValid = false
+                    reason = "Insufficient TP for weapon: need " + weapon._cost + ", have " + simulatedTP
+                }
+            }
+
+            if (isValid && action.type == Action.ACTION_WEAPON_SWAP) {
+                if (simulatedTP < 1) {
+                    isValid = false
+                    reason = "Insufficient TP for weapon swap: need 1, have " + simulatedTP
+                }
+            }
+
+            if (isValid && action.chip != -1) {
+                var chipCost = getChipCost(action.chip)
+                if (simulatedTP < chipCost) {
+                    isValid = false
+                    reason = "Insufficient TP for chip: need " + chipCost + ", have " + simulatedTP
+                }
+                else if (getCooldown(action.chip, player._id) > 0) {
+                    isValid = false
+                    reason = "Chip on cooldown: " + getChipName(action.chip)
+                }
+            }
+
+            if (isValid && (action.type == Action.ACTION_DIRECT ||
+                           action.type == Action.ACTION_DOT ||
+                           action.type == Action.ACTION_DEBUFF ||
+                           action.type == Action.ACTION_BUFF)) {
+                if (!this.validateActionRangeAndLOS(action, simulatedPos)) {
+                    isValid = false
+                    reason = "Out of range/LOS"
+                }
+            }
+
+            if (isValid && _isBossFight && _bossPhase == "PUZZLE") {
+                if (action.type == Action.ACTION_DIRECT || action.type == Action.ACTION_DOT) {
+                    isValid = false
+                    reason = "PUZZLE: damage action blocked (Apocalypse risk)"
+                }
+                if (isValid && action.type == Action.ACTION_DEBUFF) {
+                    if (action.chip != CHIP_GRAPPLE && action.chip != CHIP_BOXING_GLOVE && action.chip != CHIP_INVERSION) {
+                        isValid = false
+                        reason = "PUZZLE: non-crystal debuff blocked"
+                    }
+                }
+            }
+
+            if (isValid && (action.type == Action.ACTION_DIRECT ||
+                           action.type == Action.ACTION_DOT ||
+                           action.type == Action.ACTION_DEBUFF)) {
+                var aoeItem = null
+                if (action.chip != -1 && mapContainsKey(arsenal.playerEquippedChips, action.chip)) {
+                    aoeItem = arsenal.playerEquippedChips[action.chip]
+                } else if (action.weaponId != -1 && mapContainsKey(arsenal.playerEquippedWeapons, action.weaponId)) {
+                    aoeItem = arsenal.playerEquippedWeapons[action.weaponId]
+                }
+                if (aoeItem != null && aoeItem._aoeType != AREA_POINT) {
+                    var aimCell = action.targetCell
+                    if (aimCell != -1 && aimCell != simulatedPos) {
+                        if (fieldMap.wouldAoEHitCell(aimCell, aoeItem._aoeType, simulatedPos, simulatedPos)) {
+                            isValid = false
+                            reason = "AoE would hit caster"
+                        }
+                    }
+                }
+            }
+
+            if (isValid) {
+                push(validActions, action)
+
+                var tpBefore = simulatedTP
+                if (action.type == Action.ACTION_WEAPON_SWAP) {
+                    simulatedTP -= 1  
+                    simulatedEquippedWeapon = action.weaponId  
+                } else if (action.weaponId != -1) {
+                    var weapon = arsenal.playerEquippedWeapons[action.weaponId]
+                    if (weapon != null) {
+
+                        var swapCost = (simulatedEquippedWeapon != action.weaponId) ? 1 : 0
+                        simulatedTP -= swapCost + weapon._cost
+                        simulatedEquippedWeapon = action.weaponId  
+                    }
+                } else if (action.chip != -1) {
+                    var chipCost = getChipCost(action.chip)
+                    simulatedTP -= chipCost
+
+                    var chipTargetId = (action.targetEntity != null && action.targetEntity != -1) ? action.targetEntity._id : player._id
+                    if (action.chip == CHIP_LEATHER_BOOTS && chipTargetId == player._id) {
+                        var mpBefore = simulatedMP
+                        simulatedMP += 2
+                    }
+
+                    if (action.chip == CHIP_ADRENALINE && chipTargetId == player._id) {
+                        simulatedTP += 5
+                    }
+                }
+            }
+        }
+
+        var removedCount = initialActionCount - count(validActions)
+
+        var hasDamageActions = false
+        for (var action in validActions) {
+            if (action.type == Action.ACTION_DIRECT || action.type == Action.ACTION_DEBUFF) {
+                hasDamageActions = true
+                break
+            }
+        }
+
+        if (!hasDamageActions) {
+            var beforeCleanup = count(validActions)
+            var cleanedActions = []
+            for (var action in validActions) {
+                if (action.type != Action.MOVEMENT_HNS) {
+                    push(cleanedActions, action)
+                }
+            }
+
+            if (count(cleanedActions) < beforeCleanup) {
+                validActions = cleanedActions
+            }
+        }
+
+        this._actions = validActions
+    }
+
+    shouldUseAdrenaline(requiredTP) {
+        if (!this.isChipAvailable(CHIP_ADRENALINE)) return false
+
+        var playerTP = player._currTp
+
+        var shortage = requiredTP - playerTP
+        if (shortage >= 1 && shortage <= 4) {
+            return true
+        }
+
+        return false
+    }
+}

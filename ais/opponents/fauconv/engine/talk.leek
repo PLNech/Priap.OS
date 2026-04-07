@@ -1,0 +1,110 @@
+/*****************************************************************************
+ * Talk
+ * static
+ *
+ * permet de faire parler le poireau automatiquement
+ *
+ * contextType filter :
+ *   1 = appel a l index courant
+ *   2 = appel d un index random avec suppression des phrases utilises
+ *   4 = appel a l index courant puis increment
+ *   8 = appel a l index courant puis increment qui repete le dernier a l infini
+ *   (16 = appel unique = 1 appel a talk avec le context courant puis retour au context CONT_NORMAL)
+ *   17 = appel unique a l index courant
+ *   18 = appel unique random avec suppression des phrases utilises
+ *   20 = appel unique incremental
+ *   24 = appel unique incremental qui repete le dernier a l infini
+ *   (32 = appel unique + mix avec CONT_NORMAL)
+ *   34 = appel unique (+mix avec normal) random avec suppression des phrases utilises
+ *
+ *****************************************************************************/
+class Talk extends Objects {
+  public static integer CURRENT      = 0b000001;
+  public static integer RANDOM       = 0b000010;
+  public static integer INC          = 0b000100;
+  public static integer INC_REP      = 0b001000;
+  public static integer UNI          = 0b010000;
+  public static integer UNIQ         = 0b010001;
+  public static integer UNI_RAND     = 0b010010;
+  public static integer UNI_INC      = 0b010100;
+  public static integer UNI_INC_REP  = 0b011000;
+  public static integer MIX          = 0b100000;
+  public static integer UNI_RAND_MIX = 0b100010;
+  public static string CONT_START   = "start";
+  public static string CONT_END     = "end";
+  public static string CONT_NORMAL  = "normal";
+  public static string context;
+  private static Object iteration    = {start:0,normal:0,end:0}; // index du context
+  public static Object contextType  = {start:RANDOM,normal:RANDOM,end:RANDOM};
+  public static Object sentences    = {start:["Hello",
+                                       "Oh ! un autre poireau ! Salut !", 
+                                       "Je poureautais dans l'coin, quand on m'a dit : toi tu seras un poireau de combat"],
+                                normal:["Hum... il me reste des PT, t'en veux ?", 
+                                        "Mais qu'est ce qu'on fout là ?",
+                                        "Je vais te dire un secret... chui pas vraiment un poireau",
+                                        "t'es lent ! tu me tues ou on y passe la journée ?",
+                                        "On est pas obligé de parler si tu veux",
+                                        "hum... *fais semblant de réfléchir*",
+                                        "zzzZZZZzzz",
+                                        "j'ai PT, ça sent le poireau"],
+                                end:["bon... comment on range son arme maintenant ?", 
+                                     "J'ai gagné!", 
+                                     "youhou ! c'est moi qui suis pas mort !", 
+                                     "et hop, t'es déja moins vivant!", 
+                                     "et toc !", 
+                                     "et pan dans les dents ! heu... dans le leek", 
+                                     "et voilà je t'ai refroidi... tu te conserveras plus longtemps", 
+                                     "heu... ca fait mal d'être mort ?", 
+                                     "bon je retourne me coucher", 
+                                     "Oups pardon", 
+                                     "tu dis rien... t'es mort ?... ah oui !"]
+                        }; // Object(Array(string))
+  public static text = "";
+  
+  /**
+   * talk
+   * fait parler le poireau si il reste assez de TP.
+   * si il a quelque chose (dans text) a dire il le dit, sinon il choisi une phrase a dire en fonction du context 
+   * et du type dans le context
+   **/
+  static void talk() {
+    if(getTP() > 0) {
+      if(text == "") {
+        (getAliveEnemiesCount() == 0) and (context = CONT_END);
+        if(!context) {
+          if(gFirstRound) context = CONT_START;
+          else context = CONT_NORMAL;
+        }
+        integer type = contextType[context] as integer;
+        ((type & MIX) && randInt(0,2)) and (context = CONT_NORMAL);
+        Array<string> talkable = sentences[context] as Array<string>;
+        integer sentencesCount = count(talkable);
+        if(sentencesCount > 0) {
+          if(type & RANDOM) {
+            text = remove(talkable, randInt(0,sentencesCount));
+          } else {
+            integer iter = iteration[context] as integer;
+            (iter < sentencesCount) and (text = talkable[iter]);
+            ((type & INC) || (type & INC_REP) && iter < (sentencesCount-1)) and (iteration[context]++);
+          }
+        }
+        (type & UNI || context == CONT_START) and (context = CONT_NORMAL);
+      }
+      (text != "") and (say(text));
+    }
+    text = "";
+  }
+  
+  /**
+   * addContext
+   * permet d ajouter un nouveau context
+   * @param name nom du context
+   * @param type type dans le context
+   * @param list liste des phrases du context
+   **/
+  static void addContext(string name, integer type, Array<string> list) {
+    iteration[name]   = 0;  
+    contextType[name] = type;
+    sentences[name]   = list;  
+  }
+}

@@ -1,0 +1,253 @@
+
+
+class EnemyPredictor {
+    _fieldMap = null
+    _arsenal = null
+    _player = null
+    _enemy = null
+
+    constructor(fieldMap, arsenal, player, enemy) {
+        this._fieldMap = fieldMap
+        this._arsenal = arsenal
+        this._player = player
+        this._enemy = enemy
+    }
+
+    predictEnemyBestWeapon() {
+        var enemyWeapons = getWeapons(this._enemy._id)
+        if (count(enemyWeapons) == 0) return null
+
+        var bestWeapon = null
+        var bestDamage = 0
+
+        for (var weaponId in enemyWeapons) {
+            var minRange = getWeaponMinRange(weaponId)
+            var maxRange = getWeaponMaxRange(weaponId)
+            var cost = getWeaponCost(weaponId)
+
+            if (cost == null || cost <= 0) continue
+
+            var effects = getWeaponEffects(weaponId)
+            var estimatedDamage = 0
+            for (var eff in effects) {
+                if (eff[0] == EFFECT_DAMAGE) {
+                    var avgDmg = (eff[1] + eff[2]) / 2
+                    var statScale = 1 + this._enemy._strength / 100
+                    estimatedDamage += avgDmg * statScale
+                }
+            }
+            if (estimatedDamage == 0) {
+                estimatedDamage = 150 * (cost / 4.0)
+            }
+
+            if (estimatedDamage > bestDamage) {
+                bestDamage = estimatedDamage
+                bestWeapon = [
+                    'id': weaponId,
+                    'damage': estimatedDamage,
+                    'minRange': minRange,
+                    'maxRange': maxRange,
+                    'cost': cost
+                ]
+            }
+        }
+
+        return bestWeapon
+    }
+
+    predictEnemyBestChip() {
+        var enemyChips = getChips(this._enemy._id)
+        var bestDamage = 0
+        var bestCost = 0
+        for (var chipId in enemyChips) {
+            var effects = getChipEffects(chipId)
+            if (effects == null) continue
+            for (var eff in effects) {
+                if (eff[0] == EFFECT_DAMAGE) {
+                    var avgDmg = (eff[1] + eff[2]) / 2
+                    var statScale = 1 + this._enemy._magic / 100
+                    var chipDmg = avgDmg * statScale
+                    if (chipDmg > bestDamage) {
+                        bestDamage = chipDmg
+                        bestCost = getChipCost(chipId)
+                    }
+                }
+            }
+        }
+        if (bestDamage > 0) {
+            return ['damage': bestDamage, 'cost': bestCost]
+        }
+        return null
+    }
+
+    predictEnemyMovement(playerEndPos, enemyMP) {
+        var enemyPos = this._enemy._cellPos
+        var distance = getCellDistance(enemyPos, playerEndPos)
+        if (distance == null || distance <= 1) return enemyPos
+
+        var bestWeapon = this.predictEnemyBestWeapon()
+        var targetRange = 1
+        if (bestWeapon != null) targetRange = bestWeapon['maxRange']
+
+        var gapToClose = max(0, distance - targetRange)
+        if (gapToClose <= 0) return enemyPos
+
+        var closingDist = min(enemyMP, gapToClose)
+        if (closingDist <= 0) return enemyPos
+
+        if (closingDist <= 5) {
+            var bestCell = enemyPos
+            var bestDist = distance
+            var searchR = min(closingDist, 4)
+            var ex = getCellX(enemyPos)
+            var ey = getCellY(enemyPos)
+            for (var dx = -searchR; dx <= searchR; dx++) {
+                for (var dy = -searchR; dy <= searchR; dy++) {
+                    if (abs(dx) + abs(dy) > searchR || (dx == 0 && dy == 0)) continue
+                    var testCell = getCellFromXY(ex + dx, ey + dy)
+                    if (testCell == null || isObstacle(testCell)) continue
+                    var testDist = getCellDistance(testCell, playerEndPos)
+                    if (testDist == null) continue
+                    if (testDist < bestDist && testDist >= max(1, targetRange - 1)) {
+                        var pathLen = getCachedPathLength(enemyPos, testCell)
+                        if (pathLen != null && pathLen <= enemyMP) {
+                            bestDist = testDist
+                            bestCell = testCell
+                        }
+                    }
+                }
+            }
+            return bestCell
+        }
+
+        return enemyPos
+    }
+
+    simulateEnemyResponse(playerEndPos, playerEndHP, playerEndTP) {
+        var enemyTP = min(12, this._enemy._currTp + 6)
+        var enemyMP = this._enemy._currMp
+
+        var weapon = this.predictEnemyBestWeapon()
+        if (weapon == null) {
+            return [
+                'damage': 0,
+                'tpUsed': 0,
+                'enemyEndPos': this._enemy._cellPos
+            ]
+        }
+
+        var enemyEndPos = this.predictEnemyMovement(playerEndPos, enemyMP)
+
+        var affordableUses = floor(enemyTP / weapon['cost'])
+        var distance = getCellDistance(enemyEndPos, playerEndPos)
+
+        if (distance == null || distance < weapon['minRange'] || distance > weapon['maxRange']) {
+            return [
+                'damage': 0,
+                'tpUsed': 0,
+                'enemyEndPos': enemyEndPos
+            ]
+        }
+
+        var totalDamage = weapon['damage'] * affordableUses
+        var tpUsed = weapon['cost'] * affordableUses
+
+        var remainingTP = enemyTP - tpUsed
+        if (remainingTP > 0) {
+            var bestChip = this.predictEnemyBestChip()
+            if (bestChip != null && bestChip['cost'] > 0 && remainingTP >= bestChip['cost']) {
+                var chipUses = floor(remainingTP / bestChip['cost'])
+                totalDamage += bestChip['damage'] * chipUses
+                tpUsed += bestChip['cost'] * chipUses
+            }
+        }
+
+        return [
+            'damage': floor(totalDamage),
+            'tpUsed': tpUsed,
+            'enemyEndPos': enemyEndPos
+        ]
+    }
+
+    evaluateScenarioWithLookahead(scenarioResult, discountFactor = 0.7) {
+        var playerEndPos = scenarioResult['endPosition']
+        var playerEndHP = scenarioResult['endHP']
+        var playerEndTP = scenarioResult['endTP']
+        var currentTurnValue = scenarioResult['score']
+
+        var enemyResponse = this.simulateEnemyResponse(playerEndPos, playerEndHP, playerEndTP)
+        var enemyDamage = enemyResponse['damage']
+        var enemyEndPos = enemyResponse['enemyEndPos']
+
+        var hpAfterEnemy = playerEndHP - enemyDamage
+        var survivalPenalty = 0
+
+        if (hpAfterEnemy <= 0) {
+            survivalPenalty = -10000
+        } else if (hpAfterEnemy < playerEndHP * 0.3) {
+            survivalPenalty = -2000
+        } else if (hpAfterEnemy < playerEndHP * 0.5) {
+            survivalPenalty = -1000
+        }
+
+        var offenseBonus = 0
+        var distToEnemy = getCellDistance(playerEndPos, enemyEndPos)
+        if (distToEnemy != null) {
+            for (var wid in mapKeys(this._arsenal.playerEquippedWeapons)) {
+                var wObj = this._arsenal.playerEquippedWeapons[wid]
+                if (distToEnemy >= wObj._minRange && distToEnemy <= wObj._maxRange) {
+                    var bd = getCachedDamageBreakdown(wid)
+                    if (bd != null) offenseBonus += bd['total'] * 0.3
+                }
+            }
+            for (var cid in mapKeys(this._arsenal.playerEquippedChips)) {
+                if (isHealingChip(cid) || isOffensiveBuff(cid) || isShieldChip(cid) ||
+                    isDamageReturnChip(cid) || isResourceChip(cid)) continue
+                var cObj = this._arsenal.playerEquippedChips[cid]
+                if (distToEnemy >= cObj._minRange && distToEnemy <= cObj._maxRange) {
+                    var bd = getCachedDamageBreakdown(cid)
+                    if (bd != null) offenseBonus += bd['total'] * 0.2
+                }
+            }
+        }
+
+        var nextTurnValue = survivalPenalty + offenseBonus
+
+        var discountedNextTurn = nextTurnValue * discountFactor
+
+        var finalScore = currentTurnValue + discountedNextTurn
+
+        return [
+            'currentTurnValue': currentTurnValue,
+            'nextTurnValue': nextTurnValue,
+            'discountedNextTurn': discountedNextTurn,
+            'finalScore': finalScore,
+            'enemyDamage': enemyDamage,
+            'playerHPAfter': hpAfterEnemy
+        ]
+    }
+}
+
+function enhanceScenariosWithLookahead(scenarios, topK, fieldMap, arsenal, player, enemy) {
+    if (count(scenarios) == 0) return scenarios
+
+    var predictor = new EnemyPredictor(fieldMap, arsenal, player, enemy)
+    var enhancedCount = min(topK, count(scenarios))
+
+    for (var i = 0; i < enhancedCount; i++) {
+        if (getOperations() > _ops86) {
+            break
+        }
+
+        var scenario = scenarios[i]
+        var scenarioResult = scenario
+
+        var lookahead = predictor.evaluateScenarioWithLookahead(scenarioResult, 0.7)
+
+        scenario['lookaheadScore'] = lookahead['finalScore']
+        scenario['enemyDamagePrediction'] = lookahead['enemyDamage']
+        scenario['playerHPAfterEnemy'] = lookahead['playerHPAfter']
+    }
+
+    return scenarios
+}

@@ -1,0 +1,41 @@
+/****************************************************************************
+ * TestsInGame
+ ****************************************************************************/
+class TestsInGame extends Strategy {
+  
+  public static Me me;
+  public static Enemy enemy;    
+  public static integer myId;
+  public static integer enemyId;
+  public static Round currentRound;
+  public static MeRound meRound;
+  public static EnemyRound enemyRound;
+  public static integer myCurrentCellId;
+  public static integer enemyCurrentCellId;
+  
+  /**
+   * isValide
+   **/
+  static boolean isValide() {
+    return TESTS_DEBUG && (getFightContext() == FIGHT_CONTEXT_TEST);
+  }
+  
+  /**
+   * apply
+   **/
+  boolean apply() {
+    enemy = Board.enemies[0];
+    me = Board.me;
+    myId = me.id;
+    enemyId = enemy.id;
+    currentRound = Board.currentRound;
+    meRound = currentRound.meRound;
+    enemyRound = currentRound.enemiesRound[0];
+    myCurrentCellId = meRound.currentCellId;
+    enemyCurrentCellId = enemyRound.currentCellId;
+    
+  }
+
+
+  
+}

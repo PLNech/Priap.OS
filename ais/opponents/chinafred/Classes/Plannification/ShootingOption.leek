@@ -1,0 +1,72 @@
+include("/Classes/Context/World")
+include("/Classes/Leek")
+include("/Classes/Items/Chip")
+include("/Classes/Items/Item")
+include("/Classes/Items/Weapon")
+include("/Classes/Context/DangerMap")
+include("/Classes/Plannification/Action")
+include("/Classes/Context/Coordinates")
+include("/Toolbox/Constants")
+include("/Toolbox/Debug")
+include("/Toolbox/Helpers")
+
+
+
+class ShootingOption{
+	public Array < Action > actions = []
+	public Array <Item> usedItems = []
+	public Array <string> rejected = []
+	public integer tpLeft = 0
+	public integer mpLeft = 0
+	public Coordinates cellToShootFrom = new Coordinates()
+	
+	public boolean willShoot = false
+	public real totalMeanDamages = 0.
+	public Weapon? equipedWeapon = null
+	
+	constructor(ShootingOption previousOption){
+		actions = copyArray(previousOption.actions) 	
+		tpLeft= previousOption.tpLeft
+		usedItems = copyArray(previousOption.usedItems)
+		mpLeft = previousOption.mpLeft
+		cellToShootFrom = previousOption.cellToShootFrom
+		willShoot = previousOption.willShoot
+		totalMeanDamages = previousOption.totalMeanDamages
+		equipedWeapon = previousOption.equipedWeapon
+	}
+	
+	void Init(Leek leek )
+	{
+		tpLeft = leek.tp 
+		mpLeft = leek.mp
+		equipedWeapon = leek.equipedWeapon
+	}
+
+	// table reprenant des copies des items pour faire une exploration en arbre
+	static Array<Item> buildDamagingItemsTable(leek){
+		Operations op = new Operations("Shooting option - build table")
+		Array<Item> damagingItems = leek.getDamagingItems()	
+		Array<Item> potentialAttacks = []
+		
+		for (Item di in damagingItems){
+			for (integer i =1; i<= leek.tp \ di.cost;i++ )	{
+				push(potentialAttacks, di)
+			}
+		}
+		for (Item i in potentialAttacks)
+		debug("potential attacks " + i.name) 
+		op.debugOperations()
+		pause()
+		op.debugOperations()
+		return potentialAttacks
+	}
+	
+	debugUsedItems(){
+		debug("used items in shooting option")
+		for(Item i in usedItems)
+			debug(i.name)
+	}
+	
+}
+
+

@@ -1,0 +1,56 @@
+/**************************************************************************
+ * debug
+ **************************************************************************/
+global boolean EFFECT_DEBUG = true;
+global boolean LEEKROUND_DEBUG = true;
+global boolean BASIC_STRATEGY_DEBUG = true;
+global boolean UNIT_TEST_DEBUG = false;
+global boolean TESTS_DEBUG = false;
+include("utils/gamedebug");
+//include("utils/gamenodebug");
+
+/**************************************************************************
+ * strategy files
+ **************************************************************************/
+include("engine/strategy");
+include("strategies/UT/unit_test");
+include("strategies/testsingame/testsingame");
+include("strategies/basicstrategy/basicstrategy");
+
+/**************************************************************************
+ * init
+ **************************************************************************/
+global Strategy gStrategy = new Strategy();
+if(!gBoardInit) {
+  if(!(gBoardInit = Board.init())) {
+    debugC("Initialisation en 2 temps",COLOR_BLUE);
+    end();
+    return;
+  }
+  // strategies
+  if(UnitTest.isValide()) gStrategy = new UnitTest();
+  else if(TestsInGame.isValide()) gStrategy = new TestsInGame();
+  else if(BasicStrategy.isValide()) gStrategy = new BasicStrategy();
+} else {
+  Board.update();
+}
+
+/*******************************************************
+ * main
+ *******************************************************/
+gStrategy.apply();
+end();
+
+/*********************************************************
+ * end
+ *********************************************************/
+function end() => void {
+  Talk.talk();
+  GameDebug.display();
+  if(gFirstRound) {
+    gFirstRound = false;
+    gSecondRound = true;
+  } else {
+    gSecondRound = false;
+  }
+}

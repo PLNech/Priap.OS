@@ -1,0 +1,23 @@
+/******************************************************************************
+ * RelativeCell
+ * toutes les relativeCell ne sont pas mise en cache seulement celle dont 
+ * les armes peuvent vraiment l atteindre
+ ******************************************************************************/
+class RelativeCell extends Objects {
+  public real AOE;
+  public integer targetCell; // cell where is the target leek
+  public Map<integer, Tool> toolsList;
+  public Map<integer, any> data = [:]; // permet de stocker des donner
+
+  /**
+   * constructors
+   * @param tools : Attention: le tableau n est pas copie
+   **/
+  constructor(integer cellId, real AOE, integer targetCell, Map<integer, Tool> tools) {
+    this.id = cellId;
+    this.AOE = AOE;
+    this.targetCell = targetCell;
+    toolsList = tools;
+  }
+    
+}

@@ -1,0 +1,102 @@
+include("Item")
+include("/Toolbox/Computations")
+include("/Classes/Context/World")
+
+class Chip extends Item{
+		integer cooldown = 10
+
+		constructor(integer myId, Leek ow) {
+			super(myId) // Appel du constructeur de Item
+			owner = ow
+			type = ITEM_TYPE.CHIP
+			name = getChipName(myId)
+			range = [getChipMinRange(myId), getChipMaxRange(myId)]
+			
+ 			effects = new Effects(getChipEffects(this.id))
+			cost = getChipCost(this.id)
+			launch_type = getChipLaunchType(this.id)
+			needLos = chipNeedLos(this.id)
+			meanDamage = this.getMeanDamage(owner)
+			meanHeal = this.getMeanHeal(owner)
+			cooldown  = getChipCooldown(this.id)
+		}
+
+		Action getActionUse(Leek leek,Leek target){
+			return new Action("use on target", function() {
+					this.useOnTarget(target)
+				}, 
+				"use "+ this.name +" on " +target.name  )
+		}
+
+
+		void useOnTarget (Leek target){
+			useChip(this.id, target.id)
+		}
+
+		boolean canReachCell(Coordinates from, Coordinates to){
+			integer distance = getCellDistance(from.cell, to.cell)
+			boolean inRange = (range[0] <= distance) && (range[1]>=distance)
+			boolean losOk = lineOfSight(from.cell, to.cell ) || ! this.needLos
+
+			if (inRange && losOk)
+				return true
+			else	
+				return false
+		}
+
+		Set < integer > fromWhereToUse(Leek target, Set < integer > reachabelCells) {
+			Set cellsFromWhereToUse = arrayToSet(getCellsToUseChip(this.id, target.id))
+			debug("cell where to use")
+			mark(setToArray(cellsFromWhereToUse),COLOR_BLUE)
+			pause()
+			Set x = setIntersection(cellsFromWhereToUse, reachabelCells)
+			debug("where to shoot in range")
+			mark(setToArray(x), COLORS.BROWN)
+			pause()
+			return x
+		}
+
+		Set < integer > fromWhereToUseOnCell(integer targetCell, Set < integer > reachabelCells) {
+			Array cellsToUseWeapon = getCellsToUseChipOnCell(this.id, targetCell)
+			Set cellsFromWhereToShoot = arrayToSet(cellsToUseWeapon)
+			Set x = setIntersection(cellsFromWhereToShoot, reachabelCells)
+			return x
+		}
+
+	
+		static Array<Chip> getHealingChips(Array<Chip> arr){
+			Array<Chip> ret = []
+			for(Chip c in arr)
+				if(c.effects.effect_heal != null)
+					push(ret,c)
+			return ret
+		}
+	
+		static Array<Chip> getDamagingChips(Array<Chip> arr){
+			Array<Chip> ret = []
+			for(Chip c in arr)
+				if(c.effects.effect_damage != null)
+					push(ret,c)
+			return ret
+		}
+	
+		static Array<Chip> getShieldChips(Array<Chip> arr){
+			Array<Chip> ret = []
+			for(Chip c in arr)
+				if(c.effects.effect_absolute_shield != null or c.effects.effect_relative_shield != null)
+					push(ret,c)
+			return ret
+		}
+	
+		static Array<Chip> getStrengthBuffChips(Array<Chip> arr){
+			Array<Chip> ret = []
+			for(Chip c in arr)
+				if(c.effects.effect_buff_strength != null )
+					push(ret,c)
+			return ret
+		}
+	
+
+
+
+}

@@ -1,0 +1,511 @@
+include('scenario_combos.lk')
+
+class ScenarioGenerator extends ScenarioCombos {
+
+    constructor(arsenal, player, target, fieldMap, strategy) {
+        super(arsenal, player, target, fieldMap, strategy)
+    }
+
+    generateScenarios() {
+        if (this._target == null) {
+        } else {
+            this._target.updateEntity()
+        }
+
+        if (this._target != null && this.hasPoisonCapability()) {
+            var currentPoison = this._target.getEffectRemaining(EFFECT_POISON)
+            var tracker = new CooldownTracker(this._target)
+            tracker.detectAntidoteUse(this._target._id, PREV_ENEMY_POISON, currentPoison)
+
+            if (POISON_PHASE == "BAIT") {
+                var enemyChips = this._target._chips
+                var enemyHasAntidote = false
+                for (var chipId in enemyChips) {
+                    if (chipId == CHIP_ANTIDOTE) { enemyHasAntidote = true; break }
+                }
+                if (!enemyHasAntidote) {
+                    POISON_PHASE = "DUMP"
+                }
+            }
+
+            var currentTurn = getTurn()
+
+            if (POISON_PHASE == "SUSTAIN") {
+                var antidoteCD = tracker.getCooldownRemaining(this._target._id, CooldownTracker.CHIP_ANTIDOTE_ID)
+
+                if (antidoteCD == 0 && (currentTurn - LAST_POISON_DUMP_TURN) >= 3) {
+                    POISON_PHASE = "BAIT"
+                    BAIT_START_TURN = currentTurn
+                }
+            }
+
+            if (POISON_PHASE == "BAIT" && (currentTurn - BAIT_START_TURN) >= 5) {
+                POISON_PHASE = "DUMP"
+            }
+        }
+
+        var scenarios = []
+        var availableTP = getTP()
+        var availableMP = getMP()
+
+        var state = this.determineStrategicState()
+
+        // Phase 4a: dynamic beam/mutation scaling.
+        // Reset to baselines first (in case we boosted last turn).
+        _beamMaxDepth = _beamMaxDepthBase
+        _mutationMaxSeeds = _mutationMaxSeedsBase
+        _mutationMaxPerSeed = _mutationMaxPerSeedBase
+        // Boost search when we're losing the damage race in early/mid game and
+        // ops budget has headroom (Phase 1 freed ~1M ops). Skip in PUZZLE/FLEE
+        // and during boss combat where weights/templates already drive behavior.
+        var curT = getTurn()
+        if (state != "PUZZLE" && state != "FLEE" && !_isBossFight) {
+            var weakDamageRate = (curT > 5 && __avgDamageRate > 0 && __avgDamageRate < 100)
+            var earlyStalemate = (curT < 25 && __timePressure)
+            if ((weakDamageRate || earlyStalemate) && getOperations() < _ops64) {
+                _beamMaxDepth = min(12, _beamMaxDepthBase + 2)
+                _mutationMaxSeeds = min(10, _mutationMaxSeedsBase + 4)
+                _mutationMaxPerSeed = min(120, _mutationMaxPerSeedBase + 40)
+            }
+        }
+
+        if (state == "PUZZLE") {
+            this.buildPuzzleScenarios(scenarios, availableTP, availableMP)
+        }
+        else if (state == "KILL") {
+            this.buildKillScenarios(scenarios, availableTP, availableMP)
+        }
+        else if (state == "AGGRO") {
+            this.buildAggroScenarios(scenarios, availableTP, availableMP)
+        }
+        else if (state == "ATTRITION") {
+            this.buildAttritionScenarios(scenarios, availableTP, availableMP)
+        }
+        else if (state == "SUSTAIN") {
+            this.buildSustainScenarios(scenarios, availableTP, availableMP)
+        }
+        else if (state == "FLEE") {
+            this.buildFleeScenarios(scenarios, availableTP, availableMP)
+        }
+
+        if (state != "PUZZLE" && state != "FLEE" && getOperations() < _ops79) {
+            var beamScenarios = beamSearchScenarios(this._player, this._target, this._arsenal, this._fieldMap)
+            for (var bs in beamScenarios) {
+                push(scenarios, bs)
+            }
+        }
+
+        return scenarios
+    }
+
+    buildKillScenarios(scenarios, availableTP, availableMP) {
+
+        var bruiserReflect = this.createBruiserReflectScenario(availableTP, availableMP)
+        if (bruiserReflect != null) {
+            push(scenarios, bruiserReflect)
+        }
+
+        var poisonBait = this.createPoisonBaitScenario(availableTP, availableMP)
+        if (poisonBait != null) {
+            push(scenarios, poisonBait)
+        }
+
+        var poisonDump = this.createPoisonDumpScenario(availableTP, availableMP)
+        if (poisonDump != null) {
+            push(scenarios, poisonDump)
+        }
+
+        var grappleCovid = this.createGrappleCovidScenario(availableTP, availableMP)
+        if (grappleCovid != null) {
+            push(scenarios, grappleCovid)
+        }
+
+        var shieldRotation = this.createShieldRotationScenario(availableTP, availableMP)
+        if (shieldRotation != null) {
+            push(scenarios, shieldRotation)
+        }
+
+        var damageReturnCycling = this.createDamageReturnCyclingScenario(availableTP, availableMP)
+        if (damageReturnCycling != null) {
+            push(scenarios, damageReturnCycling)
+        }
+
+        var neutrinoOTKO = this.createNeutrinoOTKOScenario(availableTP, availableMP)
+        if (neutrinoOTKO != null) {
+            push(scenarios, neutrinoOTKO)
+        }
+
+        var bestOTKO = this._fieldMap.getBestOTKOCell()
+        var killTeleChip = getAvailableTeleportChip(arsenal, player._id)
+
+        if (bestOTKO != null && killTeleChip != null) {
+            var teleportCost = getCachedChipCost(killTeleChip)
+            if (availableTP >= teleportCost + 10) {
+                var distToOTKO = getCellDistance(player._cellPos, bestOTKO._id)
+                var maxRange = getTeleportMaxRange(killTeleChip)
+                if (distToOTKO != null && distToOTKO >= 1 && distToOTKO <= maxRange) {
+                    push(scenarios, this.createOTKOTeleportScenario(bestOTKO._id, availableTP, availableMP))
+                }
+            }
+        }
+
+        var jumpAttackKill = this.createJumpAttackScenario(availableTP, availableMP)
+        if (jumpAttackKill != null) {
+            push(scenarios, jumpAttackKill)
+        }
+
+        push(scenarios, this.createParametricScenario(new ScenarioParams(4, -1, 1.0, 1.0, "otko"), availableTP, availableMP))
+        push(scenarios, this.createParametricScenario(new ScenarioParams(0, -1, 1.0, 1.0, "stand"), availableTP, availableMP))
+
+        push(scenarios, this.createSimpleOffensiveScenario(availableTP, availableMP))
+        push(scenarios, this.createStaticAttackScenario(availableTP, availableMP))
+    }
+
+    buildAggroScenarios(scenarios, availableTP, availableMP) {
+
+        var bruiserReflect = this.createBruiserReflectScenario(availableTP, availableMP)
+        if (bruiserReflect != null) {
+            push(scenarios, bruiserReflect)
+        }
+
+        var novaAttrition = this.createNovaAttritionScenario(availableTP, availableMP)
+        if (novaAttrition != null) {
+            push(scenarios, novaAttrition)
+        }
+
+        var grappleHS = this.createGrappleHeavySwordScenario(availableTP, availableMP)
+        if (grappleHS != null) {
+            push(scenarios, grappleHS)
+        }
+
+        var neutrinoStack = this.createNeutrinoStackingScenario(availableTP, availableMP)
+        if (neutrinoStack != null) {
+            push(scenarios, neutrinoStack)
+        }
+
+        var steroidOTKO = this.createSteroidOTKOScenario(availableTP, availableMP)
+        if (steroidOTKO != null) {
+            push(scenarios, steroidOTKO)
+        }
+
+        var dualBuff = this.createDualBuffAttackScenario(availableTP, availableMP)
+        if (dualBuff != null) {
+            push(scenarios, dualBuff)
+        }
+
+        var steroidRecheck = this.createSteroidRecheckScenario(availableTP, availableMP)
+        if (steroidRecheck != null) {
+            push(scenarios, steroidRecheck)
+        }
+
+        var poisonBait = this.createPoisonBaitScenario(availableTP, availableMP)
+        if (poisonBait != null) {
+            push(scenarios, poisonBait)
+        }
+
+        var poisonDump = this.createPoisonDumpScenario(availableTP, availableMP)
+        if (poisonDump != null) {
+            push(scenarios, poisonDump)
+        }
+
+        var shieldRotation = this.createShieldRotationScenario(availableTP, availableMP)
+        if (shieldRotation != null) {
+            push(scenarios, shieldRotation)
+        }
+
+        var damageReturnCycling = this.createDamageReturnCyclingScenario(availableTP, availableMP)
+        if (damageReturnCycling != null) {
+            push(scenarios, damageReturnCycling)
+        }
+
+        var grappleCovid = this.createGrappleCovidScenario(availableTP, availableMP)
+        if (grappleCovid != null) {
+            push(scenarios, grappleCovid)
+        }
+
+        if (getAvailableTeleportChip(this._arsenal, this._player._id) != null) {
+            var emergencyApproach = this.createEmergencyApproachScenario(availableTP, availableMP)
+            if (emergencyApproach != null) {
+                push(scenarios, emergencyApproach)
+            }
+        }
+
+        var jumpAttackAggro = this.createJumpAttackScenario(availableTP, availableMP)
+        if (jumpAttackAggro != null) {
+            push(scenarios, jumpAttackAggro)
+        }
+
+        var buffApproach = this.createBuffApproachScenario(availableTP, availableMP)
+        if (buffApproach != null) {
+            push(scenarios, buffApproach)
+        }
+
+        push(scenarios, this.createParametricScenario(new ScenarioParams(4, -1, 1.0, 1.0, "hide"), availableTP, availableMP))
+        push(scenarios, this.createParametricScenario(new ScenarioParams(1, -1, 1.0, 1.0, "hide"), availableTP, availableMP))
+        push(scenarios, this.createParametricScenario(new ScenarioParams(0, -1, 1.0, 1.0, "hide"), availableTP, availableMP))
+
+        push(scenarios, this.createParametricScenario(new ScenarioParams(2, -1, 1.0, 1.0, "hide"), availableTP, availableMP))
+
+        if (__timePressure) {
+            var timePressureScenario = this.createTimePressureScenario(availableTP, availableMP)
+            if (timePressureScenario != null && count(timePressureScenario) > 0) {
+                push(scenarios, timePressureScenario)
+            }
+        }
+
+        push(scenarios, this.createSimpleOffensiveScenario(availableTP, availableMP))
+        push(scenarios, this.createStaticAttackScenario(availableTP, availableMP))
+    }
+
+    buildAttritionScenarios(scenarios, availableTP, availableMP) {
+
+        var bruiserReflect = this.createBruiserReflectScenario(availableTP, availableMP)
+        if (bruiserReflect != null) {
+            push(scenarios, bruiserReflect)
+        }
+
+        var novaAttrition = this.createNovaAttritionScenario(availableTP, availableMP)
+        if (novaAttrition != null) {
+            push(scenarios, novaAttrition)
+        }
+
+        var playerHP = this._player._currHealth
+        var enemyHP = this._target._currHealth
+        var losingHPRace = (playerHP < enemyHP)
+
+        if (losingHPRace) {
+            push(scenarios, this.createParametricScenario(new ScenarioParams(2, 0.7, 0.7, 0.7, "hide"), availableTP, availableMP))
+            push(scenarios, this.createParametricScenario(new ScenarioParams(3, 0.5, 0.8, 0.8, "hide"), availableTP, availableMP))
+        }
+
+        var grappleHS = this.createGrappleHeavySwordScenario(availableTP, availableMP)
+        if (grappleHS != null) {
+            push(scenarios, grappleHS)
+        }
+
+        var neutrinoStack = this.createNeutrinoStackingScenario(availableTP, availableMP)
+        if (neutrinoStack != null) {
+            push(scenarios, neutrinoStack)
+        }
+
+        var steroidOTKO = this.createSteroidOTKOScenario(availableTP, availableMP)
+        if (steroidOTKO != null) {
+            push(scenarios, steroidOTKO)
+        }
+
+        var dualBuffAttr = this.createDualBuffAttackScenario(availableTP, availableMP)
+        if (dualBuffAttr != null) {
+            push(scenarios, dualBuffAttr)
+        }
+
+        var neutrinoRecheck = this.createNeutrinoRecheckScenario(availableTP, availableMP)
+        if (neutrinoRecheck != null) {
+            push(scenarios, neutrinoRecheck)
+        }
+
+        var grappleHSRecheck = this.createGrappleHSRecheckScenario(availableTP, availableMP)
+        if (grappleHSRecheck != null) {
+            push(scenarios, grappleHSRecheck)
+        }
+
+        var poisonBait = this.createPoisonBaitScenario(availableTP, availableMP)
+        if (poisonBait != null) {
+            push(scenarios, poisonBait)
+        }
+
+        var poisonDump = this.createPoisonDumpScenario(availableTP, availableMP)
+        if (poisonDump != null) {
+            push(scenarios, poisonDump)
+        }
+
+        var grappleCovid = this.createGrappleCovidScenario(availableTP, availableMP)
+        if (grappleCovid != null) {
+            push(scenarios, grappleCovid)
+        }
+
+        var shieldRotation = this.createShieldRotationScenario(availableTP, availableMP)
+        if (shieldRotation != null) {
+            push(scenarios, shieldRotation)
+        }
+
+        var damageReturnCycling = this.createDamageReturnCyclingScenario(availableTP, availableMP)
+        if (damageReturnCycling != null) {
+            push(scenarios, damageReturnCycling)
+        }
+
+        var buffApproach = this.createBuffApproachScenario(availableTP, availableMP)
+        if (buffApproach != null) {
+            push(scenarios, buffApproach)
+        }
+
+        push(scenarios, this.createParametricScenario(new ScenarioParams(4, -1, 0.8, 0.8, "hide"), availableTP, availableMP))
+        push(scenarios, this.createParametricScenario(new ScenarioParams(3, -1, 0.8, 0.8, "hide"), availableTP, availableMP))
+        push(scenarios, this.createParametricScenario(new ScenarioParams(0, -1, 1.0, 1.0, "hide"), availableTP, availableMP))
+
+        if (__timePressure) {
+            var timePressureScenario = this.createTimePressureScenario(availableTP, availableMP)
+            if (timePressureScenario != null && count(timePressureScenario) > 0) {
+                push(scenarios, timePressureScenario)
+            }
+        }
+
+        push(scenarios, this.createSimpleOffensiveScenario(availableTP, availableMP))
+        push(scenarios, this.createStaticAttackScenario(availableTP, availableMP))
+    }
+
+    buildSustainScenarios(scenarios, availableTP, availableMP) {
+
+        var bruiserReflect = this.createBruiserReflectScenario(availableTP, availableMP)
+        if (bruiserReflect != null) {
+            push(scenarios, bruiserReflect)
+        }
+
+        var novaAttrition = this.createNovaAttritionScenario(availableTP, availableMP)
+        if (novaAttrition != null) {
+            push(scenarios, novaAttrition)
+        }
+
+        var poisonBait = this.createPoisonBaitScenario(availableTP, availableMP)
+        if (poisonBait != null) {
+            push(scenarios, poisonBait)
+        }
+
+        var poisonDump = this.createPoisonDumpScenario(availableTP, availableMP)
+        if (poisonDump != null) {
+            push(scenarios, poisonDump)
+        }
+
+        var grappleCovid = this.createGrappleCovidScenario(availableTP, availableMP)
+        if (grappleCovid != null) {
+            push(scenarios, grappleCovid)
+        }
+
+        var shieldRotation = this.createShieldRotationScenario(availableTP, availableMP)
+        if (shieldRotation != null) {
+            push(scenarios, shieldRotation)
+        }
+
+        var damageReturnCycling = this.createDamageReturnCyclingScenario(availableTP, availableMP)
+        if (damageReturnCycling != null) {
+            push(scenarios, damageReturnCycling)
+        }
+
+        var healRecheck = this.createHealRecheckScenario(availableTP, availableMP)
+        if (healRecheck != null) {
+            push(scenarios, healRecheck)
+        }
+
+        var buffApproach = this.createBuffApproachScenario(availableTP, availableMP)
+        if (buffApproach != null) {
+            push(scenarios, buffApproach)
+        }
+
+        push(scenarios, this.createParametricScenario(new ScenarioParams(2, 0.7, 0.6, 0.6, "hide"), availableTP, availableMP))
+        push(scenarios, this.createParametricScenario(new ScenarioParams(4, 0.7, 0.6, 0.6, "kite"), availableTP, availableMP))
+        push(scenarios, this.createParametricScenario(new ScenarioParams(3, -1, 0.6, 0.6, "hide"), availableTP, availableMP))
+
+        push(scenarios, this.createSimpleOffensiveScenario(availableTP, availableMP))
+        push(scenarios, this.createStaticAttackScenario(availableTP, availableMP))
+    }
+
+    buildFleeScenarios(scenarios, availableTP, availableMP) {
+
+        var poisonBait = this.createPoisonBaitScenario(availableTP, availableMP)
+        if (poisonBait != null) {
+            push(scenarios, poisonBait)
+        }
+
+        var poisonDump = this.createPoisonDumpScenario(availableTP, availableMP)
+        if (poisonDump != null) {
+            push(scenarios, poisonDump)
+        }
+
+        var grappleCovid = this.createGrappleCovidScenario(availableTP, availableMP)
+        if (grappleCovid != null) {
+            push(scenarios, grappleCovid)
+        }
+
+        var shieldRotation = this.createShieldRotationScenario(availableTP, availableMP)
+        if (shieldRotation != null) {
+            push(scenarios, shieldRotation)
+        }
+
+        var damageReturnCycling = this.createDamageReturnCyclingScenario(availableTP, availableMP)
+        if (damageReturnCycling != null) {
+            push(scenarios, damageReturnCycling)
+        }
+
+        var fleeTeleChip = getAvailableTeleportChip(arsenal, player._id)
+
+        if (fleeTeleChip != null) {
+            var currentThreat = this._fieldMap.getThreatAtCell(player._cellPos)
+            if (currentThreat > 200) {
+                var escapeScenario = this.createTeleportEscapeScenario(availableTP, availableMP)
+                if (escapeScenario != null) {
+                    push(scenarios, escapeScenario)
+                }
+            }
+        }
+
+        var jumpAttackAttr = this.createJumpAttackScenario(availableTP, availableMP)
+        if (jumpAttackAttr != null) {
+            push(scenarios, jumpAttackAttr)
+        }
+
+        var healRecheck = this.createHealRecheckScenario(availableTP, availableMP)
+        if (healRecheck != null) {
+            push(scenarios, healRecheck)
+        }
+
+        var buffApproach = this.createBuffApproachScenario(availableTP, availableMP)
+        if (buffApproach != null) {
+            push(scenarios, buffApproach)
+        }
+
+        var hasRegen = mapContainsKey(arsenal.playerEquippedChips, CHIP_REGENERATION)
+        var regenAvailable = hasRegen && getCooldown(CHIP_REGENERATION, player._id) == 0
+
+        if (regenAvailable) {
+            push(scenarios, this.createParametricScenario(new ScenarioParams(2, 1.0, 0.2, 0.2, "hide"), availableTP, availableMP))
+            push(scenarios, this.createParametricScenario(new ScenarioParams(2, 1.0, 0.3, 0.2, "hide"), availableTP, availableMP))
+        } else {
+            push(scenarios, this.createParametricScenario(new ScenarioParams(2, 0.7, 0.5, 1.0, "kite"), availableTP, availableMP))
+            push(scenarios, this.createParametricScenario(new ScenarioParams(2, 0.5, 0.3, 1.0, "kite"), availableTP, availableMP))
+        }
+
+        push(scenarios, this.createSimpleOffensiveScenario(availableTP, availableMP))
+        push(scenarios, this.createStaticAttackScenario(availableTP, availableMP))
+    }
+
+    buildPuzzleScenarios(scenarios, availableTP, availableMP) {
+        var crystalInfo = "null"
+        if (_bossTargetEID != null) {
+            crystalInfo = _myCrystalColor + " cell=" + _myCrystalCell + " solved=" + _myCrystalSolved
+        }
+
+        var slide = this.createCrystalSlideScenario(availableTP, availableMP)
+        if (slide != null) {
+            push(scenarios, slide)
+        }
+
+        var multiSlide = this.createMultiSlideScenario(availableTP, availableMP)
+        if (multiSlide != null) {
+            push(scenarios, multiSlide)
+        }
+
+        var inversion = this.createCrystalInversionScenario(availableTP, availableMP)
+        if (inversion != null) {
+            push(scenarios, inversion)
+        }
+
+        var approach = this.createCrystalApproachScenario(availableTP, availableMP)
+        if (approach != null) {
+            push(scenarios, approach)
+        }
+
+        var defense = this.createPuzzleDefenseScenario(availableTP, availableMP)
+        if (defense != null) {
+            push(scenarios, defense)
+        }
+    }
+}

@@ -1,0 +1,243 @@
+include("chain");
+include("objects");
+include("functions");
+
+/*****************************************************************************
+ * GameDebug
+ * permet un debugage plus fin 
+ *****************************************************************************/
+class GameDebug {
+  
+  private static string str = "\n";
+  private static integer opt = 0;
+  private static integer ram = 0;
+ 
+  /**
+   * display
+   **/
+  static void display() {
+    addOperation(true, "( "+getTP()+" TP / "+getMP()+" MP left ) total operations, turn "+getTurn(), 0,0);
+    debug(str);
+    str = "\n";
+    opt = 0;
+    ram = 0;
+    pause();
+  }
+  
+  /***
+   * arrayDebug
+   *
+   * internal
+   **/
+  private static void arrayDebug(Array<any>|Map<any,any>|Set array, integer depth, Array<integer> limit, Array<integer> start, Array<boolean> revers, string space, string debugFunction) {
+    integer lim = 1000;
+    integer star = 0;
+    integer cnt = 0;
+    integer cpt;
+    boolean rev = false;
+    Array<any>|Map<any,any>|Set tab = array;
+    if(count(limit) > 0) lim = shift(limit) as integer;
+    if(count(start) > 0) star = shift(start) as integer;
+    if(count(revers) > 0) rev = shift(revers) as boolean;
+    integer type = typeOf(array);
+    if(type == TYPE_ARRAY) {
+      cpt = count(array as Array<any>);
+      if(rev) reverse(tab as Array<any>);
+    } else if(type == TYPE_MAP) {
+      cpt = mapSize(array as Map<any,any>);
+    } else {
+      cpt = setSize(array as Set);
+    }
+    str+= array.class.name+"("+star+"-"+lim+"/"+cpt+") [";
+    if(cpt != 0 && depth > 0) {
+      str += "\n"
+      string space2 = space + "  ";
+      depth--;
+      for(any key:any value in tab) {
+        if(cnt >= lim) break;
+        if(cnt < star) {
+          cnt++;
+          continue;
+        }
+        str += space2+key+": ";
+        add(true, value, "", depth, limit, start, revers, debugFunction, space2); // ret2 pour bug de compil
+        cnt++;
+      }
+      str += space+"]";
+    } else {
+      str += "]";
+    }
+    unshift(revers,rev);
+    unshift(limit,lim);
+    unshift(start, star);
+  }
+  
+  /**
+   * chainDebug
+   * internal
+   **/
+  private static void chainDebug(Chain obj, integer depth, Array<integer> limit, Array<integer> start, Array<boolean> revers, string space, string debugFunction) {
+    integer lim = 1000;
+    integer star = 0;
+    integer cnt = 0;
+    integer cpt;
+    boolean rev = false;
+    if(count(limit) > 0) lim = shift(limit) as integer;
+    if(count(start) > 0) star = shift(start) as integer;
+    if(count(revers) > 0) rev = shift(revers) as boolean;
+    cpt = obj.count();
+    str+= "Chain("+star+"-"+lim+"/"+cpt+") [";
+    if(cpt != 0 && depth > 0) {
+      str += "\n"
+      string space2 = space + "  ";
+      depth--;
+      _ChainElement|null current = obj.getCurrentChainElement();
+      obj.first(true);
+      for(integer i = 0; i < cpt;i++) {
+        if(cnt >= lim) break;
+        if(cnt < star) {
+          cnt++;
+          continue;
+        }
+        str += space2+i+": ";
+        add(true, obj.getCurrent(), "", depth, limit, start, revers, debugFunction, space2);
+        cnt++;
+        obj.next();
+      }
+      obj.setCurrentChainElement(current);
+      str += space+"]";
+    } else {
+      str += "]";
+    }
+    unshift(revers,rev);
+    unshift(limit,lim);
+    unshift(start, star);
+  }
+
+  /**
+   * objectDebug
+   * @param obj : TYPE_OBJECT => Object ou Objects
+   * internal
+   **/
+  private static void objectDebug(any obj, integer depth, Array<integer> limit, Array<integer> start, Array<boolean> revers, string space, string debugFunction) {
+    string ret;
+    if(depth == 0) {
+      if(obj instanceof Object) {
+        str += "Object";
+        return;
+      }
+      if(obj instanceof Objects) {
+        if(debugFunction == "shortString") str += (obj as Objects).shortString(space);
+          else str += (obj as Objects).string(space);
+        return;
+      }
+      str += obj.class.name + ": not herite from Objects";
+      return;  
+    }
+    Array<string> keys;
+    if(obj instanceof Object) {
+      str += "Object {";
+      keys = (obj as Object).keys();
+    } else {
+      str += obj.class.name + " {";
+      keys = obj.class.fields;
+    }
+    integer cpt = count(keys);
+    if(cpt != 0) {
+      str += "\n"
+      string space2 = space + "  ";
+      depth--;
+      for(any value in keys) {
+        str += space2+value+": ";
+        if(obj instanceof Object) {
+          add(true, (obj as Object)[value], "", depth, limit, start, revers, debugFunction, space2);
+        } else {
+          add(true, (obj as Objects)[value], "", depth, limit, start, revers, debugFunction, space2);
+        }
+      }
+      str += space+"}";
+    } else {
+      str += "}";
+    }
+  }
+  
+  /**
+   * add
+   *
+   * ajoute un element a debugger dans la liste a afficher
+   **/
+  static void add(boolean condition, any element, string txt = "", integer depth = 1, Array<integer> limit = [], Array<integer> start = [], Array<boolean> revers = [], string debugFunction = "shortString", string space = "") {
+    if(!condition) return;
+    if(txt != "") str+= txt +" => ";
+    integer type = typeOf(element);
+    if(type == TYPE_ARRAY || type == TYPE_MAP || type == TYPE_SET) {
+      arrayDebug(element as Array<any>|Map<any,any>, depth, limit, start, revers, space, debugFunction);
+    } else if(type == TYPE_OBJECT) {
+      if(element instanceof Chain) 
+        chainDebug(element as Chain, depth, limit, start, revers, space, debugFunction);
+      else 
+        objectDebug(element, depth, limit, start, revers, space, debugFunction);
+    } else {
+      str += string(element); // type simple et interval
+    }
+    str += "\n";
+  }
+  
+  /**
+   * addBackground
+   *
+   * change la couleur de fond d une liste de cells ou d'un cellId
+   **/
+  static void addBackground(boolean condition, Objects|Array<integer|Objects>|Map<any,integer|Objects>|integer cellsOrCellId, integer color = 0) {
+    if(!condition) return;
+    integer type = typeOf(cellsOrCellId);
+    if(type == TYPE_NUMBER) {
+      mark(cellsOrCellId as integer, color,1);
+    } else if(type == TYPE_OBJECT) {
+      mark((cellsOrCellId as Objects).id, color, 1);
+    } else { // array ou map
+      for(any cell in cellsOrCellId as Array<integer|Objects>|Map<any,integer|Objects>) {
+        type = typeOf(cell);
+        break;
+      }
+      if(type == TYPE_OBJECT) {
+        for(Objects cell in cellsOrCellId as Array<Objects>|Map<any,Objects>) {
+          mark(cell.id, color, 1);
+        }
+      } else { // Attention: bug si ce n est pas un integer ce n est pas sense arrive
+        for(integer cell in cellsOrCellId  as Array<integer>|Map<any,integer>) {
+          mark(cell, color, 1);
+        }
+      }
+    }
+  }
+
+  /**
+   * addCellText
+   *
+   * ecrit le text (contenu dans cellsTexts) correspondant dans chacune des cases en index de cellsTexts
+   **/
+  static void addCellText(boolean condition, Map<integer, any> cellsTexts, integer color = 0) {
+    if(!condition) return;
+    for(integer cellId: any text in cellsTexts) {
+      markText(cellId,text,color,1)
+    }
+  }
+  
+  /**
+   * addOperation
+   * calcul les opt et la ram depuis le dernier addOperation et l affiche
+   **/
+  static void addOperation(boolean condition, string txt = "", integer relativeOpt = opt, integer relativeRam = ram) {
+    if(!condition) return;
+    integer opt2 = getOperations()-relativeOpt;
+    integer ram2 = getUsedRAM()-relativeRam;
+    if(str != "") str += txt+" : "+opt2+"("+(opt2*100.0/getMaxOperations())+"%Ops) / "+ram2+"("+(ram2*100.0/getMaxRAM())+"%RAM)\n";
+    ram = getUsedRAM();
+    opt = getOperations();
+  }
+  
+}
+
+
+

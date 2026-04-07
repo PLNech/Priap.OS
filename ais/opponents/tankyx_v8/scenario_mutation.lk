@@ -1,0 +1,449 @@
+include('scenario_simulator.lk')
+include('cache_manager.lk')
+
+class MutationDescriptor {
+    actionIndex = -1
+    field = ""
+    newValue = null
+    description = ""
+
+    constructor(actionIndex, field, newValue, description) {
+        this.actionIndex = actionIndex
+        this.field = field
+        this.newValue = newValue
+        this.description = description
+    }
+}
+
+class MutationResult {
+    scenario = null
+    mutationType = ""
+    scoreImprovement = 0
+    description = ""
+    score = 0
+
+    constructor(scenario, mutationType, scoreImprovement, description) {
+        this.scenario = scenario
+        this.mutationType = mutationType
+        this.scoreImprovement = scoreImprovement
+        this.description = description
+        this.score = 0
+    }
+}
+
+class ScenarioMutator {
+    _arsenal = null
+    _player = null
+    _target = null
+    _fieldMap = null
+
+    constructor(arsenal, player, target, fieldMap) {
+        this._arsenal = arsenal
+        this._player = player
+        this._target = target
+        this._fieldMap = fieldMap
+    }
+
+    generateMutationDescriptors(scenario) {
+        var descriptors = []
+
+        var aimDescriptors = this.generateAimCellDescriptors(scenario)
+        for (var desc in aimDescriptors) {
+            push(descriptors, desc)
+        }
+
+        var swapDescriptors = this.generateSwapDescriptors(scenario)
+        for (var desc in swapDescriptors) {
+            push(descriptors, desc)
+        }
+
+        var subDescriptors = this.generateSubstitutionDescriptors(scenario)
+        for (var desc in subDescriptors) {
+            push(descriptors, desc)
+        }
+
+        var insDescriptors = this.generateInsertionDescriptors(scenario)
+        for (var desc in insDescriptors) {
+            push(descriptors, desc)
+        }
+
+        return descriptors
+    }
+
+    generateAimCellDescriptors(scenario) {
+        var descriptors = []
+
+        for (var i = 0; i < count(scenario); i++) {
+            var action = scenario[i]
+
+            if (!this.isAoEAction(action)) continue
+
+            var currentAimCell = action.targetCell
+            if (currentAimCell == -1) {
+                if (action.targetEntity != null) {
+                    currentAimCell = action.targetEntity._cellPos
+                }
+            }
+
+            if (currentAimCell == -1) continue
+
+            var adjacentCells = this.getAdjacentCells(currentAimCell)
+
+            for (var adjCell in adjacentCells) {
+                var desc = new MutationDescriptor(
+                    i,
+                    "targetCell",
+                    adjCell,
+                    "Aim shift: " + currentAimCell + " → " + adjCell
+                )
+                push(descriptors, desc)
+            }
+        }
+
+        return descriptors
+    }
+
+    generateSwapDescriptors(scenario) {
+        var descriptors = []
+        for (var i = 0; i < count(scenario) - 1; i++) {
+            var a = scenario[i]
+            var b = scenario[i + 1]
+            if (this.isChipOrWeaponAction(a) && this.isChipOrWeaponAction(b)) {
+                if (a.type == Action.ACTION_BUFF && b.chip != -1 &&
+                    (isHealingChip(b.chip) || b.type == Action.ACTION_DIRECT || b.type == Action.ACTION_DOT)) {
+                    continue
+                }
+                var desc = new MutationDescriptor(i, "swap", i + 1, "Swap actions " + i + " <-> " + (i + 1))
+                push(descriptors, desc)
+            }
+        }
+        return descriptors
+    }
+
+    generateSubstitutionDescriptors(scenario) {
+        var descriptors = []
+        var usedChips = [:]
+        for (var action in scenario) {
+            if (action.chip != -1) {
+                usedChips[action.chip] = true
+            }
+        }
+
+        for (var i = 0; i < count(scenario); i++) {
+            var action = scenario[i]
+            if (action.chip == -1) continue
+
+            var actionType = action.type
+            var equippedChips = mapKeys(this._arsenal.playerEquippedChips)
+            for (var altChip in equippedChips) {
+                if (altChip == action.chip) continue
+                if (mapContainsKey(usedChips, altChip)) continue
+                if (getCooldown(altChip, this._player._id) != 0) continue
+
+                var altType = this.classifyChipActionType(altChip)
+                var curType = this.classifyChipActionType(action.chip)
+                if (altType != curType) continue
+
+                var desc = new MutationDescriptor(i, "substituteChip", altChip,
+                    "Sub chip @" + i + ": " + action.chip + " -> " + altChip)
+                push(descriptors, desc)
+            }
+        }
+        return descriptors
+    }
+
+    generateInsertionDescriptors(scenario) {
+        var descriptors = []
+
+        var usedChips = [:]
+        for (var action in scenario) {
+            if (action.chip != -1) {
+                usedChips[action.chip] = true
+            }
+        }
+
+        var candidates = []
+        var hpFull = (this._player._currHealth >= this._player._maxHealth)
+        var equippedChips = mapKeys(this._arsenal.playerEquippedChips)
+        for (var chipId in equippedChips) {
+            if (mapContainsKey(usedChips, chipId)) continue
+            if (getCooldown(chipId, this._player._id) != 0) continue
+            if (hpFull && isHealingChip(chipId)) continue
+            if (isUtilityChip(chipId)) continue
+            push(candidates, chipId)
+        }
+
+        var insertPoints = [0]
+        if (count(scenario) > 0) push(insertPoints, count(scenario))
+        for (var i = 0; i < count(scenario); i++) {
+            if (scenario[i].type >= Action.MOVEMENT_APPROACH && scenario[i].type <= Action.MOVEMENT_PAB) {
+                push(insertPoints, i + 1)
+                break
+            }
+        }
+
+        for (var chipId in candidates) {
+            var actionType = this.classifyChipActionType(chipId)
+            for (var pos in insertPoints) {
+                var desc = new MutationDescriptor(pos, "insertChip", chipId,
+                    "Insert chip " + chipId + " at pos " + pos)
+                push(descriptors, desc)
+            }
+        }
+        return descriptors
+    }
+
+    generateRemovalDescriptors(scenario) {
+        var descriptors = []
+        for (var i = 0; i < count(scenario); i++) {
+            var action = scenario[i]
+            if (action.type == Action.ACTION_DIRECT && (action.weaponId != -1 || action.chip != -1)) {
+                var desc = new MutationDescriptor(i, "removeAction", null,
+                    "Remove action @" + i)
+                push(descriptors, desc)
+            }
+        }
+        return descriptors
+    }
+
+    classifyChipActionType(chipId) {
+        if (isPoisonChip(chipId) || isDebuffChip(chipId)) return 1
+        if (isOffensiveBuff(chipId)) return 2
+        if (isHealingChip(chipId)) return 3
+        if (isShieldChip(chipId)) return 4
+        if (isResourceChip(chipId)) return 5
+        if (isUtilityChip(chipId)) return 6
+        if (isDamageReturnChip(chipId)) return 7
+        return 0
+    }
+
+    isChipOrWeaponAction(action) {
+        return action.type == Action.ACTION_DIRECT ||
+               action.type == Action.ACTION_DOT ||
+               action.type == Action.ACTION_DEBUFF ||
+               action.type == Action.ACTION_BUFF
+    }
+
+    applyMutation(scenario, descriptor) {
+        var originalValue = null
+
+        if (descriptor.field == "targetCell") {
+            var action = scenario[descriptor.actionIndex]
+            originalValue = action.targetCell
+            action.targetCell = descriptor.newValue
+        } else if (descriptor.field == "swap") {
+            var idxA = descriptor.actionIndex
+            var idxB = descriptor.newValue
+            var tmp = scenario[idxA]
+            scenario[idxA] = scenario[idxB]
+            scenario[idxB] = tmp
+            originalValue = [idxA, idxB]
+        } else if (descriptor.field == "substituteChip") {
+            var action = scenario[descriptor.actionIndex]
+            originalValue = action.chip
+            action.chip = descriptor.newValue
+        } else if (descriptor.field == "insertChip") {
+            var chipId = descriptor.newValue
+            var chipType = this.classifyChipActionType(chipId)
+            var aType = Action.ACTION_BUFF
+            if (chipType == 1) aType = Action.ACTION_DOT
+            else if (chipType == 3) aType = Action.ACTION_BUFF
+            else if (chipType == 4) aType = Action.ACTION_BUFF
+
+            var targetEntity = (chipType == 1) ? this._target : this._player
+            var targetCell = (chipType == 1) ? this._target._cellPos : this._player._cellPos
+            var newAction = new Action(aType, -1, chipId, targetCell, targetEntity)
+            insert(scenario, newAction, descriptor.actionIndex)
+            originalValue = descriptor.actionIndex
+        } else if (descriptor.field == "removeAction") {
+            originalValue = scenario[descriptor.actionIndex]
+            remove(scenario, descriptor.actionIndex)
+        }
+
+        return originalValue
+    }
+
+    revertMutation(scenario, descriptor, originalValue) {
+        if (descriptor.field == "targetCell") {
+            var action = scenario[descriptor.actionIndex]
+            action.targetCell = originalValue
+        } else if (descriptor.field == "swap") {
+            var idxA = originalValue[0]
+            var idxB = originalValue[1]
+            var tmp = scenario[idxA]
+            scenario[idxA] = scenario[idxB]
+            scenario[idxB] = tmp
+        } else if (descriptor.field == "substituteChip") {
+            var action = scenario[descriptor.actionIndex]
+            action.chip = originalValue
+        } else if (descriptor.field == "insertChip") {
+            remove(scenario, originalValue)
+        } else if (descriptor.field == "removeAction") {
+            insert(scenario, originalValue, descriptor.actionIndex)
+        }
+    }
+
+    isAoEAction(action) {
+        if (action.weaponId != -1) {
+            if (mapContainsKey(this._arsenal.playerEquippedWeapons, action.weaponId)) {
+                var weaponObj = this._arsenal.playerEquippedWeapons[action.weaponId]
+                if (weaponObj != null && weaponObj._aoeType > 0) {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    isMovementAction(action) {
+        return false
+    }
+
+    getAdjacentCells(cell) {
+        var adjacent = []
+        var offsets = [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1]
+        ]
+
+        var cellX = getCellX(cell)
+        var cellY = getCellY(cell)
+
+        for (var offset in offsets) {
+            var newX = cellX + offset[0]
+            var newY = cellY + offset[1]
+            var newCell = getCellFromXY(newX, newY)
+
+            if (newCell != null && newCell >= 0 && newCell < 613) {
+                push(adjacent, newCell)
+            }
+        }
+
+        return adjacent
+    }
+
+    cloneScenario(scenario) {
+        var cloned = []
+        for (var i = 0; i < count(scenario); i++) {
+            var src = scenario[i]
+            var dst = new Action(src.type, src.weaponId, src.chip, src.targetCell, src.targetEntity)
+            dst.isSplash = src.isSplash
+            dst.checkpointType = src.checkpointType
+            dst.continuationFn = src.continuationFn
+            dst.context = src.context
+            if (src.weapon != null) dst.weapon = src.weapon
+            if (src.bulbAIFunc != null) dst.bulbAIFunc = src.bulbAIFunc
+            push(cloned, dst)
+        }
+        return cloned
+    }
+}
+
+class HybridMutationPlanner {
+    _arsenal = null
+    _player = null
+    _target = null
+    _fieldMap = null
+    _mutator = null
+    _simulator = null
+    _scorer = null
+    _summonTPReserve = 0
+
+    MAX_MUTATIONS_PER_SEED = 80
+    MAX_SEEDS = 6
+
+    constructor(arsenal, player, target, fieldMap, scorer) {
+        this.MAX_MUTATIONS_PER_SEED = _mutationMaxPerSeed
+        this.MAX_SEEDS = _mutationMaxSeeds
+        this._arsenal = arsenal
+        this._player = player
+        this._target = target
+        this._fieldMap = fieldMap
+        this._mutator = new ScenarioMutator(arsenal, player, target, fieldMap)
+        this._simulator = new ScenarioSimulator(arsenal, player, target, fieldMap)
+        this._scorer = scorer
+
+        this._summonTPReserve = 0
+        var hasSavant = mapContainsKey(arsenal.playerEquippedChips, CHIP_SAVANT_BULB)
+        var hasMetallic = mapContainsKey(arsenal.playerEquippedChips, CHIP_METALLIC_BULB)
+        if (hasSavant || hasMetallic) {
+            var bulbChip = hasSavant ? CHIP_SAVANT_BULB : CHIP_METALLIC_BULB
+            if (getCooldown(bulbChip, player._id) == 0) {
+                this._summonTPReserve = getChipCost(bulbChip)
+            }
+        }
+    }
+
+    planWithMutations(seedScenarios) {
+
+        var opsBefore = getOperations()
+        var tpBudget = this._player._currTp + 5 - this._summonTPReserve
+
+        var topSeeds = this.selectTopSeeds(seedScenarios)
+
+        var bestScenario = null
+        var bestScore = -999999
+        var mutationsEvaluated = 0
+
+        for (var seed in topSeeds) {
+            var originalSimResult = this._simulator.simulate(seed)
+            var originalScore = this._scorer.score(originalSimResult, seed)
+
+            if (originalScore > bestScore) {
+                bestScore = originalScore
+                bestScenario = seed
+            }
+
+            if (getOperations() > _ops86) break
+
+            var descriptors = this._mutator.generateMutationDescriptors(seed)
+
+            var mutationLimit = min(count(descriptors), this.MAX_MUTATIONS_PER_SEED)
+
+            for (var i = 0; i < mutationLimit; i++) {
+                if (getOperations() > _ops86) {
+                    break
+                }
+
+                var desc = descriptors[i]
+
+                var originalValue = this._mutator.applyMutation(seed, desc)
+
+                var simResult = this._simulator.simulate(seed)
+                mutationsEvaluated++
+
+                if (simResult.tpSpent > tpBudget) {
+                    this._mutator.revertMutation(seed, desc, originalValue)
+                    continue
+                }
+
+                var score = this._scorer.score(simResult, seed)
+
+                if (score > bestScore) {
+                    bestScore = score
+                    bestScenario = seed
+                } else {
+                    this._mutator.revertMutation(seed, desc, originalValue)
+                }
+            }
+        }
+
+        var opsUsed = getOperations() - opsBefore
+
+        return bestScenario
+    }
+
+    selectTopSeeds(scenarios) {
+        var limit = min(count(scenarios), this.MAX_SEEDS)
+        var topSeeds = []
+
+        for (var i = 0; i < limit; i++) {
+            push(topSeeds, this._mutator.cloneScenario(scenarios[i]))
+        }
+
+        return topSeeds
+    }
+}

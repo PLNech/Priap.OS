@@ -1,0 +1,232 @@
+/******************************************************************************
+ * Cell
+ * modelise une cellule du plateau
+ * stock les informations d une cellule qui ne change pas a chaque tour
+ ******************************************************************************/
+class Cell extends Objects {
+  
+  public integer x;
+  public integer y;
+  public boolean isDeadEnd;
+  public boolean isWall;
+  public Cell top;
+  public Cell bottom;
+  public Cell left;
+  public Cell right;
+  public Cell leftTop;
+  public Cell rightTop;
+  public Cell leftBottom;
+  public Cell rightBottom;
+  
+  public Array<InterCellInfo> interCellInfo = []
+  
+  /**
+   * constructor
+   * @param idCell id de la cell a creer
+   * @param interCellNull l objet intercell unique pour les interecell non concerne
+   **/
+  protected constructor(integer idCell, InterCellInfo interCellNull) {
+      
+    id = idCell;
+    x = getCellX(idCell) as integer;
+    y = getCellY(idCell) as integer;
+    
+    fill(interCellInfo, interCellNull, NB_CELLS);
+      
+  }
+  
+  /**
+   * getTrajectory
+   * equivalent de getPath mais en ligne droite entre this et endCell
+   * calcule d interpolation lineaire pour obtenir le meme resultat que lineOfSight
+   * @param endCell la cellule objectif du chemin
+   * @return la liste des cellules en ligne droite entre la cellule courante et endCell. La cellule de depart et d arrivee ne sont pas incluse dans la liste
+   * O(n) n = longueur de la liste
+   *
+   **/
+  public Array<Integer> getTrajectory(Cell endCell) {
+    integer x2 = endCell.x;
+    integer y2 = endCell.y;
+    integer dx = x2-x;
+    integer dy = y2-y;
+    integer incX = 1;
+    integer incY = 1;
+    Array<integer> ret = [];
+    
+    if(y > y2) {
+      incY = -1;
+      dy = y-y2;
+    }
+    (x > x2) and (incX = -1);
+    if(abs(dy) > abs(dx)) {
+      real rap = (x2-x)/(y2-y);
+      for(integer newY = y+incY; newY != y2; newY=newY+incY) {
+        push(ret,getCellFromXY(round((newY-y)*rap+x), newY));
+      }
+    } else if (dx != 0) {
+      real rap = (y2-y)/(x2-x);
+      for(integer newX = x+incX; newX != x2; newX=newX+incX) {
+        push(ret,getCellFromXY(newX, round((newX-x)*rap+y)));
+      }
+    }
+    
+    return ret;
+  }
+  
+  /**
+   * getRelativeCells
+   * determine les cellules que l on peut viser pour atteindre this grace a l AOE des tools
+   * ne verifie pas que le tool peut atteindre la cellule vise
+   * @param tools la liste des tools dont on veut les relativeCells
+   * @return la liste des relativeCells que l on peut viser pour atteindre this
+   **/
+  public Map<integer,RelativeCell> getRelativeCells(Array<Tool> tools) {
+    Map<integer,RelativeCell> ret = [:];
+    Cell|null reachableCell = this;
+    for(Tool tool in tools) {
+      if(ret[id]) ret[id]!.toolsList[tool.id] = tool;
+      else ret[id] = new RelativeCell(id, 1.0, id, [tool.id:tool]);        
+      if(tool.isAOE) {
+        if(tool.AOELaunchType == LAUNCH_TYPE_CIRCLE) { //  ------------ LAUNCH_TYPE_CIRCLE
+          for(string direction in HEIGHT_DIRECTION) {
+            reachableCell = this;
+            real pourcent = 1.0;
+            for(integer i = tool.AOERange; i > 0; i--) {
+              pourcent -= AOE_DEC_LINE_FACTOR;
+              reachableCell = addRelativeCell(ret,reachableCell!,direction,tool,pourcent,id);
+              if(reachableCell == null) break;
+            }
+          }
+          for(string direction in WIDTH_DIRECTION) {
+            reachableCell = this;
+            real pourcent = 1.0;
+            for(integer i = tool.AOERange; i > 0; i--) {
+              pourcent -= AOE_DEC_LINE_FACTOR;
+              reachableCell = addRelativeCell(ret,reachableCell!,direction,tool,pourcent,id);
+              if(reachableCell == null) break;
+              for(string direction2 in HEIGHT_DIRECTION) {
+                Cell|null reachableCell2 = reachableCell;
+                var pourcent2 = pourcent;
+                for(var i2 = (i-1); i2 > 0; i2--) {
+                  pourcent2 -= AOE_DEC_LINE_FACTOR;
+                  reachableCell2 = addRelativeCell(ret,reachableCell2!,direction2,tool,pourcent2,id);
+                  if(reachableCell2 == null) break;
+                }
+              }
+            }
+          }
+        } else if(tool.AOELaunchType == LAUNCH_TYPE_SQUARE) { //  ---------  LAUNCH_TYPE_SQUARE
+          for(var direction in HEIGHT_DIRECTION) {
+            reachableCell = this;
+            real pourcent = 1.0;
+            for(integer i = tool.AOERange; i > 0; i--) {
+              pourcent -= AOE_DEC_LINE_FACTOR;
+              reachableCell = addRelativeCell(ret,reachableCell!,direction,tool,pourcent,id);
+              if(reachableCell == null) break;
+            }
+          }
+          for(string direction in WIDTH_DIRECTION) {
+            reachableCell = this;
+            real pourcent = 1.0;
+            for(var i = tool.AOERange; i > 0; i--) {
+              pourcent -= AOE_DEC_LINE_FACTOR;
+              reachableCell = addRelativeCell(ret,reachableCell!,direction,tool,pourcent,id);
+              if(reachableCell == null) break;
+              for(var direction2 in HEIGHT_DIRECTION) {
+                Cell|null reachableCell2 = reachableCell;
+                var pourcent2 = pourcent;
+                for(var i2 = tool.AOERange; i2 > 0; i2--) {
+                  pourcent2 -= AOE_DEC_LINE_FACTOR;
+                  reachableCell2 = addRelativeCell(ret,reachableCell2!,direction2,tool,pourcent2,id);
+                  if(reachableCell2 == null) break;
+                }
+              }
+            }
+          }
+        } else if(tool.AOELaunchType == LAUNCH_TYPE_DIAGONAL) { //  ---------   LAUNCH_TYPE_DIAGONAL 
+          for(var direction in DIAG_DIRECTION) {
+            reachableCell = this;
+            real pourcent = 1.0;
+            for(var i = tool.AOERange; i > 0; i--) {
+              pourcent -= AOE_DEC_DIAG_FACTOR;
+              reachableCell = addRelativeCell(ret,reachableCell!,direction,tool,pourcent,id);
+              if(reachableCell == null) break;
+            }
+          }
+        } else  { // ------       LAUNCH_TYPE_LINE
+          for(var direction in LINE_DIRECTION) {
+            reachableCell = this;
+            real pourcent = 1.0;
+            for(var i = tool.AOERange; i > 0; i--) {
+              pourcent -= AOE_DEC_LINE_FACTOR;
+              reachableCell = addRelativeCell(ret,reachableCell!,direction,tool,pourcent,id);
+              if(reachableCell == null) break;
+            }
+          }
+        }
+      }
+    }
+    return ret;
+  }
+
+  /**
+   * addRelativeCell
+   * macro pour getRelativeCells
+   **/
+  private Cell|null addRelativeCell(Map<integer,RelativeCell> ret, Cell reachableCell, string direction, Tool tool, real pourcent, integer targetCellId) {
+    if(reachableCell[direction]) {
+      reachableCell = reachableCell[direction] as Cell;
+      if(!reachableCell.isWall) {
+          if(ret[reachableCell.id]) ret[reachableCell.id]!.toolsList[tool.id] = tool;
+          else ret[reachableCell.id] = new RelativeCell(reachableCell.id, pourcent, targetCellId, [tool.id:tool]);
+      }
+      return reachableCell;
+    }
+    return null;
+  }
+
+  /**
+   * toString
+   *
+   * @return string
+   **/
+  string string(string space = "") {
+    return this.class.name+":{ id:"+id+"\n  x:"+x+" y:"+y+" isWall:"+isWall+"}\n";
+  }
+}
+
+/******************************************************************************
+ * FreeCell
+ ******************************************************************************/
+class FreeCell extends Cell {
+  
+  /**
+   * constructor
+   * @param idCell id de la cell a creer
+   * @param interCellNull l objet intercell unique pour les interecell non concerne
+   **/
+  public constructor(integer idCell, InterCellInfo interCellNull) {
+    super(idCell, interCellNull);
+    isWall = false;
+    isDeadEnd = false;
+  }
+ 
+}
+
+/******************************************************************************
+ * Wall
+ ******************************************************************************/
+class Wall extends Cell {
+  
+  /**
+   * constructor
+   * @param idCell id de la cell a creer
+   * @param interCellNull l objet intercell unique pour les interecell non concerne
+   **/
+  public constructor(integer idCell, InterCellInfo interCellNull) {
+    super(idCell, interCellNull);
+    isWall = true;
+    isDeadEnd = true;
+  }
+  
+}

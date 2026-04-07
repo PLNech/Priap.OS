@@ -1,0 +1,779 @@
+include('field_map_core.lk')
+
+class FieldMapPatterns extends FieldMapCore {
+    damageMap = [:]
+    weaponHitmap = [:]  
+    chipHitmap = [:]    
+
+    _damageMapCache = [:]        
+    _lastCacheKey = ""           
+
+    private static x_offset = 18
+    private static y_offset = 17
+    private static up_right_offset = 18 - 17
+    private static down_right_offset = 18 + 17
+    private static down_left_offset = -1 * (18 - 17)
+    private static up_left_offset = -1 * (18 + 17)
+    private static board_cell_count = 613
+
+    constructor() {
+        super()
+    }
+
+    getLineHits(hitCells, cell, minR, maxR, aoeType, weapon=null, chip=null) {
+        var curCell = cell
+        for (var dir = 0; dir < 4; dir++) {
+            for (var dist = minR; dist <= maxR; dist++) {
+                if (dir == 0) {
+                    curCell = cell - y_offset * dist
+                } else if (dir == 1) {
+                    curCell = cell + x_offset * dist
+                } else if (dir == 2) {
+                    curCell = cell + y_offset * dist
+                } else if (dir == 3) {
+                    curCell = cell - x_offset * dist
+                }
+
+                var actualDist = getCellDistance(cell, curCell)
+                if (actualDist == null || actualDist < minR || actualDist > maxR) continue
+
+                var _hasLOS = getCachedLineOfSight(cell, curCell)
+                if (_hasLOS && curCell >= 0 && curCell < FieldMapPatterns.board_cell_count) {
+
+                    this.updateHitCells(hitCells, curCell, weapon, chip, cell)
+                }
+            }
+        }
+        return hitCells
+    }
+
+    getDiagonalHits(hitCells, cell, minR, maxR, aoeType, weapon=null, chip=null) {
+        var curCell = cell
+        for (var dir = 0; dir < 4; dir++) {
+            for (var dist = minR; dist <= maxR; dist++) {
+                if (dir == 0) {
+                    curCell = cell + up_right_offset * dist
+                } else if (dir == 1) {
+                    curCell = cell + down_right_offset * dist
+                } else if (dir == 2) {
+                    curCell = cell + down_left_offset * dist
+                } else if (dir == 3) {
+                    curCell = cell + up_left_offset * dist
+                }
+
+                var actualDist = getCellDistance(cell, curCell)
+                if (actualDist == null || actualDist < minR || actualDist > maxR) continue
+
+                var _hasLOS = getCachedLineOfSight(cell, curCell)
+                if (_hasLOS && curCell >= 0 && curCell < FieldMapPatterns.board_cell_count) {
+
+                    this.updateHitCells(hitCells, curCell, weapon, chip, cell)
+                }
+            }
+        }
+        return hitCells
+    }
+
+    getStarHits(hitCells, cell, minR, maxR, aoeType, weapon=null, chip=null) {
+        var lineMap = [:]
+        lineMap = this.getLineHits(lineMap, cell, minR, maxR, aoeType, weapon, chip)
+        var diagMap = [:]
+        diagMap = this.getDiagonalHits(diagMap, cell, minR, maxR, aoeType, weapon, chip)
+        var merged = mapMerge(lineMap, diagMap)
+        return mapMerge(hitCells, merged)
+    }
+
+    getCircleHits(hitCells, cell, minR, maxR, aoeType, weapon=null, chip=null) {
+        for (var dx = -maxR; dx <= maxR; dx++) {
+            for (var dy = -maxR; dy <= maxR; dy++) {
+                var dist = abs(dx) + abs(dy)
+                if (dist >= minR && dist <= maxR) {
+                    var curCell = cell + FieldMapPatterns.x_offset * dx + FieldMapPatterns.y_offset * dy
+                    var _hasLOS = getCachedLineOfSight(cell, curCell)
+                    if (_hasLOS && curCell >= 0 && curCell < FieldMapPatterns.board_cell_count) {
+
+                        this.updateHitCells(hitCells, curCell, weapon, chip, cell)
+                    }
+                }
+            }
+        }
+        return hitCells
+    }
+
+    getAimCandidates(primaryTarget, aoeType, itemRange) {
+        var candidates = []
+        var targetCell = primaryTarget._cellPos
+
+        if (aoeType == AREA_POINT) {
+            push(candidates, targetCell)
+            return candidates
+        }
+
+        var enemiesArray = fieldMap.getEnemyArray()
+
+        if (aoeType == AREA_LASER_LINE) {
+            push(candidates, targetCell)
+            for (var e in enemiesArray) {
+                if (e._cellPos != targetCell && !isDead(e._id)) {
+                    push(candidates, e._cellPos)
+                }
+            }
+            return candidates
+        }
+
+        var processedCells = [:]
+
+        // Always include enemy cells themselves first
+        for (var e in enemiesArray) {
+            if (!isDead(e._id) && !mapContainsKey(processedCells, e._cellPos)) {
+                push(candidates, e._cellPos)
+                processedCells[e._cellPos] = true
+            }
+        }
+
+        var aoeRadius = 1
+        if (aoeType == AREA_CIRCLE_3 || aoeType == AREA_PLUS_3 ||
+            aoeType == AREA_X_3 || aoeType == AREA_SQUARE_2) {
+            aoeRadius = 3
+        } else if (aoeType == AREA_CIRCLE_2 || aoeType == AREA_PLUS_2) {
+            aoeRadius = 2
+        }
+
+        // Cap candidate count to keep findOptimalAimPoint cheap. Enemy cells
+        // already included, so the cap mostly limits offset cells.
+        var maxCandidates = 15
+
+        for (var e in enemiesArray) {
+            if (count(candidates) >= maxCandidates) break
+            if (isDead(e._id)) continue
+            var enemyCell = e._cellPos
+
+            for (var dx = -aoeRadius; dx <= aoeRadius; dx++) {
+                if (count(candidates) >= maxCandidates) break
+                for (var dy = -aoeRadius; dy <= aoeRadius; dy++) {
+                    if (count(candidates) >= maxCandidates) break
+                    if (dx == 0 && dy == 0) continue
+                    var dist = abs(dx) + abs(dy)
+                    if (dist > aoeRadius) continue
+
+                    var aimCell = enemyCell + FieldMapPatterns.x_offset * dx +
+                                  FieldMapPatterns.y_offset * dy
+
+                    if (aimCell >= 0 && aimCell < FieldMapPatterns.board_cell_count &&
+                        !isObstacle(aimCell) && !mapContainsKey(processedCells, aimCell)) {
+                        push(candidates, aimCell)
+                        processedCells[aimCell] = true
+                    }
+                }
+            }
+        }
+
+        return candidates
+    }
+
+    findOptimalAimPoint(shooterCell, item, isWeapon, primaryTarget) {
+
+        var enemiesArray = fieldMap.getEnemyArray()
+        var primaryCell = primaryTarget._cellPos
+
+        if (item._aoeType == AREA_POINT) {
+
+            var result = arsenal.calculateMultiEnemyDamage(shooterCell, primaryCell, item._id, enemiesArray)
+            var totalDamage = result['total']
+            if (isWeapon) {
+                totalDamage *= item._maxUse
+            }
+            return [
+                'aimCell': primaryCell,
+                'damage': totalDamage,
+                'enemies': result['enemies'],
+                'hitCount': count(result['enemies'])
+            ]
+        }
+
+        var itemId = item._id
+
+        var aimCandidates = this.getAimCandidates(primaryTarget, item._aoeType, item._maxRange)
+
+        var bestAimCell = primaryCell
+        var bestDamage = 0
+        var bestEnemies = []
+        var bestHitCount = 0
+        // Track best aim distance to primary target so we don't recompute it each iteration
+        var bestDistToTarget = 0
+
+        for (var aimCell in aimCandidates) {
+
+            var dist = getCellDistance(shooterCell, aimCell)
+            if (dist == null || dist < item._minRange || dist > item._maxRange) continue
+            if (!getCachedLineOfSight(shooterCell, aimCell)) continue
+
+            var result = arsenal.calculateMultiEnemyDamage(
+                shooterCell, aimCell, itemId, enemiesArray
+            )
+
+            var totalDamage = result['total']
+            var hitEnemies = result['enemies']
+            var hitCount = count(hitEnemies)
+
+            if (isWeapon) {
+                totalDamage *= item._maxUse
+            }
+
+            var isBetter = false
+            var distToTarget = -1
+            if (totalDamage > bestDamage) {
+                isBetter = true
+            } else if (totalDamage == bestDamage && hitCount > bestHitCount) {
+                isBetter = true
+            } else if (totalDamage == bestDamage && hitCount == bestHitCount) {
+                distToTarget = getCellDistance(aimCell, primaryCell)
+                if (distToTarget != null && distToTarget < bestDistToTarget) {
+                    isBetter = true
+                }
+            }
+
+            if (isBetter) {
+                bestDamage = totalDamage
+                bestAimCell = aimCell
+                bestEnemies = hitEnemies
+                bestHitCount = hitCount
+                if (distToTarget == -1) {
+                    var d = getCellDistance(aimCell, primaryCell)
+                    bestDistToTarget = (d == null) ? 9999 : d
+                } else {
+                    bestDistToTarget = distToTarget
+                }
+            }
+        }
+
+        return [
+            'aimCell': bestAimCell,
+            'damage': bestDamage,
+            'enemies': bestEnemies,
+            'hitCount': bestHitCount
+        ]
+    }
+
+    buildSingleItemHitMap(localMap, oppCell, item, isWeapon) {
+        if (!this.isDamageItem(item)) {
+            return localMap
+        }
+        var minR = item._minRange
+        var maxR = item._maxRange
+        var launchType = item._launchType
+        var aoeType = item._aoeType
+        var weapon = isWeapon ? item : null
+        var chip = isWeapon ? null : item
+
+        if (launchType == LAUNCH_TYPE_CIRCLE) {
+            return this.getCircleHits(localMap, oppCell, minR, maxR, aoeType, weapon, chip)
+        } else if (launchType == LAUNCH_TYPE_STAR) {
+            return this.getStarHits(localMap, oppCell, minR, maxR, aoeType, weapon, chip)
+        } else if (launchType == LAUNCH_TYPE_LINE) {
+            return this.getLineHits(localMap, oppCell, minR, maxR, aoeType, weapon, chip)
+        } else if (launchType == LAUNCH_TYPE_DIAGONAL) {
+            return this.getDiagonalHits(localMap, oppCell, minR, maxR, aoeType, weapon, chip)
+        }
+        return localMap
+    }
+
+    markLocalHits(localMap, isWeapon) {
+        if (isWeapon) {
+            for (var c in localMap) {
+                if (c._highestDamageWeapon != -1 && mapContainsKey(this.wColors, c._highestDamageWeapon._id)) {
+                    mark(c._id, this.wColors[c._highestDamageWeapon._id].getIntColor(), 2)
+                }
+            }
+        } else {
+            for (var cc in localMap) {
+                if (cc._highestDamageChip != -1 && mapContainsKey(this.cColors, cc._highestDamageChip._id)) {
+                    var chipId = cc._highestDamageChip._id
+                    var chipName = getChipName(chipId)
+                    var shortName = chipName
+                    var temp = substring(chipName, 0, 2)
+                    if (temp != null) shortName = temp
+                    var code = "C_" + shortName
+                    var baseCol = this.cColors[chipId]
+                    var dr = max(0, baseCol._r - 60)
+                    var dg = max(0, baseCol._g - 60)
+                    var db = max(0, baseCol._b - 60)
+                    var darkInt = getColor(dr, dg, db)
+                    markText(cc._id, code, darkInt, 1)
+                }
+            }
+        }
+    }
+
+    markChosenDestinationAndPath(playerPos, destinationCell) {
+        if (destinationCell != null && destinationCell != playerPos) {
+            var path = getPath(playerPos, destinationCell)
+            if (path != null) {
+                var pathLength = count(path)
+                if (pathLength > 0) {
+                    for (var pathCell in path) {
+                        if (pathCell != playerPos && pathCell != destinationCell) {
+                            var blueColor = getColor(100, 200, 255)
+                            mark(pathCell, blueColor, 2)
+                        }
+                    }
+                    var goldColor = getColor(255, 215, 0)
+                    mark(destinationCell, goldColor, 3)
+                }
+            }
+        }
+    }
+
+    buildHitMap(oppCell, reachableGraph = null) {
+
+        var enemyId = getEntityOnCell(oppCell)
+        if (enemyId == null) enemyId = -1
+        var cacheKey = enemyId + "_" + oppCell
+
+        if (this._lastCacheKey == cacheKey && this._lastCacheKey != "") {
+            this.damageMap = this._damageMapCache
+            return this.damageMap
+        }
+
+        clearMarks()
+        mapClear(this.damageMap)
+
+        this.integrateEquippedItemsIntoDamageMap(oppCell)
+
+        var chipCells = []
+        var weaponOnlyCells = []
+        for (var dmCell in this.damageMap) {
+            if (count(dmCell._chipsList) > 0) push(chipCells, dmCell._id)
+            else if (count(dmCell._weaponsList) > 0) push(weaponOnlyCells, dmCell._id)
+        }
+
+        var multiHitCells = []
+        for (var cell in this.damageMap) {
+            if (cell._enemiesHitCount >= 2) {
+                push(multiHitCells, ['cell': cell._id, 'enemies': cell._enemiesHitCount, 'damage': cell._totalAoEDamage])
+            }
+        }
+        if (count(multiHitCells) > 0) {
+            for (var mh in multiHitCells) {
+            }
+        }
+
+        var target = null
+        var enemiesArray = fieldMap.getEnemyArray()
+        for (var e in enemiesArray) {
+            if (e._cellPos == oppCell) {
+                target = e
+                break
+            }
+        }
+
+        if (target != null) {
+            target.updateEntity()
+        }
+
+        var enableOTKOCells = true  
+        if (enableOTKOCells && target != null && player._currTp >= 10 && target._currHealth < (target._maxHealth * 0.7)) {
+            var playerTP = player._currTp
+
+            var candidateCells = []
+            for (var dmCell in this.damageMap) {
+                push(candidateCells, dmCell)
+            }
+
+            var otkoCount = 0
+            var cellsChecked = 0
+            var cellsLimit = min(count(candidateCells), 20)  
+            var maxOTKOCells = 5  
+
+            for (var idx = 0; idx < cellsLimit && idx < count(candidateCells); idx++) {
+                var cell = candidateCells[idx]
+                cellsChecked++
+
+                var burstInfo = fieldMap.calculateBurstDamageFromCell(cell._id, target, playerTP)
+                if (burstInfo == null) continue
+
+                var damage = burstInfo['damage']
+                var tpRequired = burstInfo['tpRequired']
+                var killProb = burstInfo['killProbability']
+
+                if (killProb >= 0.85) {
+                    cell._isOTKOCell = true
+                    cell._otkoDamage = damage
+                    cell._otkoKillProbability = killProb
+                    cell._otkoTPRequired = tpRequired
+                    otkoCount++
+
+                    if (otkoCount <= 3) {
+                        var goldColor = getColor(255, 215, 0)
+                        mark(cell._id, goldColor, 3)
+                        markText(cell._id, "OTKO", goldColor, 2)
+                    }
+
+                    if (otkoCount >= maxOTKOCells) {
+                        break
+                    }
+                }
+            }
+
+        }
+
+        this._damageMapCache = this.damageMap
+        this._lastCacheKey = cacheKey
+
+        return this.damageMap
+    }
+
+    integrateReachableGraphIntoDamageMap(oppCell, reachableGraph) {
+        var reachableCells = reachableGraph.getReachableCells()
+
+        mapClear(this.weaponHitmap)
+        mapClear(this.chipHitmap)
+
+        for (var cellData in reachableCells) {
+            if (cellData.damageToTarget <= 0) continue
+
+            var cellId = cellData.cellId
+
+            for (var weaponId in cellData.usableWeapons) {
+                var weapon = arsenal.playerEquippedWeapons[weaponId]
+                if (weapon != null) {
+                    this.updateHitCells(this.damageMap, cellId, weapon, null, oppCell)
+
+                    var weaponCells = this.weaponHitmap[weaponId]
+                    if (weaponCells == null) {
+                        weaponCells = []
+                        this.weaponHitmap[weaponId] = weaponCells
+                    }
+                    push(weaponCells, cellId)
+                }
+            }
+
+            for (var chipId in cellData.usableChips) {
+                if (this.isBuffChip(chipId)) continue
+
+                var chip = arsenal.playerEquippedChips[chipId]
+                if (chip != null) {
+                    this.updateHitCells(this.damageMap, cellId, null, chip, oppCell)
+
+                    var chipCells = this.chipHitmap[chipId]
+                    if (chipCells == null) {
+                        chipCells = []
+                        this.chipHitmap[chipId] = chipCells
+                    }
+                    push(chipCells, cellId)
+                }
+            }
+        }
+
+        for (var weaponId in mapKeys(this.weaponHitmap)) {
+            var cells = this.weaponHitmap[weaponId]
+        }
+
+        for (var chipId in mapKeys(this.chipHitmap)) {
+            var cells = this.chipHitmap[chipId]
+        }
+    }
+
+    isBuffChip(chipId) {
+        return isBuffChipRole(chipId)
+    }
+
+    integrateEquippedItemsIntoDamageMap(oppCell) {
+        var reachableCells = getReachableCells()
+        var useGraph = count(reachableCells) > 0
+
+        for (var wid in mapKeys(arsenal.playerEquippedWeapons)) {
+            var wObj = arsenal.playerEquippedWeapons[wid]
+            var listIDs = []
+
+            if (useGraph) {
+                var localWeaponMap = [:]
+                localWeaponMap = this.buildSingleItemHitMap(localWeaponMap, oppCell, wObj, true)
+
+                for (var cellRef in localWeaponMap) {
+                    if (cellRef._isObstacle) continue
+
+                    var cellId = cellRef._id
+                    if (mapContainsKey(ReachableGraph, cellId)) {
+                        this.updateHitCells(this.damageMap, cellId, wObj, null, oppCell)
+                        push(listIDs, cellId)
+                    }
+                }
+            } else {
+                var localWeaponMap = [:]
+                localWeaponMap = this.buildSingleItemHitMap(localWeaponMap, oppCell, wObj, true)
+                for (var cellRef in localWeaponMap) {
+                    if (cellRef._isObstacle) continue
+                    this.updateHitCells(this.damageMap, cellRef._id, wObj, null, oppCell)
+                    push(listIDs, cellRef._id)
+                }
+            }
+
+            this.weaponHitmap[wObj._id] = listIDs
+        }
+
+        for (var cid in mapKeys(arsenal.playerEquippedChips)) {
+            var chipObj = arsenal.playerEquippedChips[cid]
+
+            if (this.isBuffChip(cid)) continue
+
+            var listCID = []
+
+            if (useGraph) {
+                var localChipMap = [:]
+                localChipMap = this.buildSingleItemHitMap(localChipMap, oppCell, chipObj, false)
+
+                for (var cellRef2 in localChipMap) {
+                    if (cellRef2._isObstacle) continue
+
+                    var cellId = cellRef2._id
+                    if (mapContainsKey(ReachableGraph, cellId)) {
+                        this.updateHitCells(this.damageMap, cellId, null, chipObj, oppCell)
+                        push(listCID, cellId)
+                    }
+                }
+            } else {
+                var localChipMap = [:]
+                localChipMap = this.buildSingleItemHitMap(localChipMap, oppCell, chipObj, false)
+                for (var cellRef2 in localChipMap) {
+                    if (cellRef2._isObstacle) continue
+                    this.updateHitCells(this.damageMap, cellRef2._id, null, chipObj, oppCell)
+                    push(listCID, cellRef2._id)
+                }
+            }
+
+            this.chipHitmap[chipObj._id] = listCID
+        }
+    }
+
+    updateHitCells(hitCells, curCell, weapon=null, chip=null, targetCell=-1) {
+        if (weapon == null && chip == null) {
+            return hitCells
+        }
+
+        var item = weapon != null ? weapon : chip
+        var itemId = item._id
+
+        var target = null
+        var enemiesArray = fieldMap.getEnemyArray()
+        for (var e in enemiesArray) {
+            if (e._cellPos == targetCell) {
+                target = e
+                break
+            }
+        }
+        if (target == null && count(enemiesArray) > 0) target = enemiesArray[0]
+
+        var optimalAim = this.findOptimalAimPoint(curCell, item, weapon != null, target)
+        var optimalAimCell = optimalAim['aimCell']
+        var totalDamage = optimalAim['damage']
+        var hitEnemies = optimalAim['enemies']
+        var enemyCount = optimalAim['hitCount']
+
+        if (mapContainsKey(hitCells, curCell)) {
+            var cell = hitCells[curCell]
+
+            if (weapon != null) {
+                if (totalDamage > cell._weaponDamage) {
+                    cell._weaponDamage = totalDamage
+                    cell._highestDamageWeapon = weapon
+                    cell._totalAoEDamage = totalDamage
+                    cell._enemiesHit = hitEnemies
+                    cell._enemiesHitCount = enemyCount
+
+                    mapPut(cell._weaponOptimalAims, itemId, optimalAimCell)
+                }
+
+                var already = false
+                for (var w in cell._weaponsList) {
+                    if (w._id == weapon._id) { already = true; break }
+                }
+                if (!already) {
+                    push(cell._weaponsList, weapon)
+
+                    mapPut(cell._weaponOptimalAims, itemId, optimalAimCell)
+                }
+            } else {
+                cell._chipDamage += totalDamage
+                cell._totalAoEDamage += totalDamage
+
+                for (var e in hitEnemies) {
+                    var found = false
+                    for (var existing in cell._enemiesHit) {
+                        if (existing._id == e._id) { found = true; break }
+                    }
+                    if (!found) {
+                        push(cell._enemiesHit, e)
+                        cell._enemiesHitCount += 1
+                    }
+                }
+                push(cell._chipsList, chip)
+
+                mapPut(cell._chipOptimalAims, itemId, optimalAimCell)
+            }
+        } else {
+
+            var newCell = new Cell(curCell, false, getEntityOnCell(curCell),
+                                   weapon != null ? totalDamage : 0,
+                                   chip != null ? totalDamage : 0,
+                                   true, weapon != null ? weapon : -1, chip != null ? chip : -1)
+            newCell._totalAoEDamage = totalDamage
+            newCell._enemiesHit = hitEnemies
+            newCell._enemiesHitCount = enemyCount
+
+            if (weapon != null) {
+                push(newCell._weaponsList, weapon)
+
+                mapPut(newCell._weaponOptimalAims, itemId, optimalAimCell)
+            }
+            if (chip != null) {
+                push(newCell._chipsList, chip)
+
+                mapPut(newCell._chipOptimalAims, itemId, optimalAimCell)
+            }
+
+            mapPut(hitCells, curCell, newCell)
+        }
+
+        if (mapContainsKey(hitCells, curCell)) {
+            var cellRef = hitCells[curCell]
+            cellRef._totalDamage = cellRef._weaponDamage + cellRef._chipDamage
+            if (cellRef._weaponDamage >= cellRef._chipDamage && cellRef._weaponDamage > 0) cellRef._bestType = 0
+            else if (cellRef._chipDamage > cellRef._weaponDamage) cellRef._bestType = 1
+        }
+        return hitCells
+    }
+
+    getClosestHighestDmgHitCell() {
+        var playerPos = player._cellPos
+        var closestCell = -1
+        var closestDist = 999
+        var highestDmg = -1
+
+        for (var c in this.damageMap) {
+            var dist = getCachedPathLength(playerPos, c._id)
+            if (dist == null) continue
+
+            if (c._weaponDamage > highestDmg) {
+                highestDmg = c._weaponDamage
+                closestDist = dist
+                closestCell = c
+            }
+            else if (c._weaponDamage == highestDmg && dist < closestDist) {
+                closestDist = dist
+                closestCell = c
+            }
+        }
+
+        if (closestCell != -1 && closestDist > player._currMp) {
+            var potentialCell = this.getClosestHitCell()
+            var dist = getCachedPathLength(playerPos, potentialCell._id)
+
+            if (potentialCell != -1 && dist <= player._currMp) {
+                closestCell = potentialCell
+            }
+        }
+
+        return closestCell
+    }
+
+    getClosestHitCellForWeapon(weapon) {
+        var playerPos = player._cellPos
+        var closestCell = -1
+        var closestDist = 999
+
+        for (var c in this.damageMap) {
+            if (c._highestDamageWeapon == -1) continue
+            if (c._highestDamageWeapon._id != weapon._id) continue
+
+            var dist = getCachedPathLength(playerPos, c._id)
+            if (dist == null) {
+                continue
+            }
+
+            if (dist < closestDist && dist <= player._currMp) {
+                closestDist = dist
+                closestCell = c
+            }
+        }
+        return closestCell
+    }
+
+    getClosestHitCell() {
+        var playerPos = this.getPlayerPos()
+        var closestCell = -1
+        var closestDist = 999
+
+        for (var c in this.damageMap) {
+            var dist = getCachedPathLength(playerPos, c._id)
+            if (dist == null) {
+                continue
+            }
+
+            if (dist < closestDist) {
+                closestDist = dist
+                closestCell = c
+            }
+        }
+        return closestCell
+    }
+
+    getBestWeaponOrChipCell() {
+        var best = -1
+        var bestDmg = -1
+        var bestDist = 99999
+        var playerPos = player._cellPos
+        for (var c in this.damageMap) {
+            var dmg = c._totalDamage
+            var dist = getCachedPathLength(playerPos, c._id)
+            if (dist == null) continue
+            if (dmg > bestDmg || (dmg == bestDmg && dist < bestDist)) {
+                bestDmg = dmg
+                best = c
+                bestDist = dist
+            }
+        }
+        return best
+    }
+
+    getBestWeightedDamageCell(dotWeight, directWeight) {
+        var best = -1
+        var bestScore = -1
+        for (var c in this.damageMap) {
+            var score = c._directDamage * directWeight + c._dotDamage * dotWeight
+            if (score > bestScore) {
+                bestScore = score
+                best = c
+            }
+        }
+        return best
+    }
+
+    getAllCellsForItem(item, isWeapon) {
+        var result = []
+        for (var c in this.damageMap) {
+            if (isWeapon) {
+                if (c._highestDamageWeapon != -1 && c._highestDamageWeapon._id == item._id) {
+                    push(result, c)
+                }
+            } else {
+                if (c._highestDamageChip != -1 && c._highestDamageChip._id == item._id) {
+                    push(result, c)
+                }
+            }
+        }
+        return result
+    }
+
+    canShootFromCell(weaponId, cellId) {
+        if (!mapContainsKey(this.weaponHitmap, weaponId)) return false
+        var shooterCells = this.weaponHitmap[weaponId]
+        return inArray(shooterCells, cellId)
+    }
+
+    canShootChipFromCell(chipId, cellId) {
+        if (!mapContainsKey(this.chipHitmap, chipId)) return false
+        var shooterCells = this.chipHitmap[chipId]
+        return inArray(shooterCells, cellId)
+    }
+}

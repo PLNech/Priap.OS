@@ -1,0 +1,203 @@
+include("/Classes/Context/World")
+
+/**
+ * Represents coordinates in the game grid.
+ */
+class Coordinates {
+    /**
+     * The x-coordinate.
+     */
+    public integer x = 0
+
+    /**
+     * The y-coordinate.
+     */
+    public integer y = 0
+
+    /**
+     * The cell number.
+     */
+    public integer cell = -100
+
+    /**
+     * Constructor to initialize the coordinates.
+     * @param {integer} a - The x-coordinate.
+     * @param {integer} b - The y-coordinate.
+     */
+    constructor(integer a, integer b) {
+        x = a 
+        y = b
+        toCell()
+    }
+
+	 /**
+     * Constructor to initialize the coordinates.
+     * @param {integer} cell - The cell number.
+     */
+	constructor(integer c ){
+		cell = c 
+		toXY()
+	}
+
+    /**
+     * Converts x and y coordinates to a cell number.
+     */
+    private void toCell() {
+        cell =  getCellFromXY(x, y)
+    }
+
+	/**
+     * Converts x and y coordinates to a cell number.
+     */
+	private void toXY(){
+		Coordinates c =  world.getCoordinatesFromCell(cell)
+		x = c.x
+		y = c.y 
+
+	}
+
+	/**
+     * Calculates the Manhattan distance between two coordinates.
+     * @param {Coordinates} other - The other coordinates.
+     * @returns {integer} - The Manhattan distance.
+     */
+    public integer getDistance(Coordinaintertes other) {
+        return getCellDistance(this.cell , other.cell)
+    }
+
+    /**
+     * Calculates the length of the path between two coordinates.
+     * This method assumes that the path consists only of horizontal and vertical segments.
+     * @param {Coordinates} other - The other coordinates.
+     * @returns {integer} - The length of the path.
+     */
+    public integer getPathLength(Coordinates other) {
+        return getPathLength(this.cell, other.cell)
+    }
+
+	/**
+	* Calculates the distances from a given set of coordinates to a specific position.
+	* @param {Set<Coordinates>} coordinates - The set of coordinates.
+	* @param {Coordinates} position - The target position.
+	* @returns {Map<Coordinates, integer>} - A map containing distances from each coordinate to the target position.
+	*/
+	static Map<Coordinates, integer> getDistanceToCells(Set<Coordinates> coordinates, Coordinates position) {
+		// Initialize a map to store distances from coordinates to the target position.
+		Map<Coordinates, integer> distanceToCells = new Map()
+
+		// Iterate over each coordinate in the set.
+		for (Coordinates c in coordinates) {
+			// Calculate the path length from the current coordinate to the target position and store it in the map.
+			mapPut(distanceToCells, c, getPathLength(c.cell, position.cell))
+		}
+
+		// Return the map containing distances from each coordinate to the target position.
+		return distanceToCells
+	}
+
+	/**
+	* Finds the closest cell to a given cell from a set of cells.
+	* @param {Coordinates} cell - The reference cell.
+	* @param {Set<Coordinates>} cells - The set of cells to search from.
+	* @returns {Coordinates} - The closest cell from the set.
+	*/
+	static Coordinates getClosestCellFromSet(Coordinates cell, Set<Coordinates> cells) {
+
+		// Initialize variables to store the minimum distance and the closest cell.
+		integer minDist = 10000000
+		integer dist = 10000000
+		Coordinates closestCell = new Coordinates()
+
+		// Check if the set of cells is not empty.
+		if (setSize(cells) > 0) {
+			// Iterate over each cell in the set.
+			for (Coordinates c in cells) {
+
+				// Calculate the path length from the reference cell to the current cell.
+				dist = getPathLength(cell.cell, c.cell)
+
+				// If the current cell is closer than the previously closest cell, update the closest cell and the minimum distance.
+				if (dist < minDist) {
+					closestCell = c
+					minDist = dist
+				}
+			}
+		}
+
+		// Return the closest cell from the set.
+		return closestCell
+	}
+
+	/**
+	* Finds the furthest cell from a given cell in a set of cells.
+	* @param {Coordinates} cell - The reference cell.
+	* @param {Set<Coordinates>} cells - The set of cells to search from.
+	* @returns {Coordinates} - The furthest cell from the set.
+	*/
+	static Coordinates getFurthestCellFromSet(Coordinates cell, Set<Coordinates> cells) {
+
+		// Initialize variables to store the maximum distance and the furthest cell.
+		integer maxDist = -1
+		integer dist = -1
+		Coordinates furthestCell = new Coordinates()
+		// Remove obstacles from set
+		cells = setDifference(cells, world.obstaclesCoordinatesSet)
+		// Check if the set of cells is not empty.
+		if (setSize(cells) > 0) {
+			// Iterate over each cell in the set.
+			for (Coordinates c in cells) {
+			
+				// Calculate the path length from the reference cell to the current cell.
+				if (getPathLength(cell.cell, c.cell))
+				{
+					dist = getPathLength(cell.cell, c.cell)
+					// If the current cell is further than the previously furthest cell, update the furthest cell and the maximum distance.
+					if (dist > maxDist) {
+						furthestCell = c
+						maxDist = dist
+					}
+				}
+				else 
+				{
+					debugC("NULL VALUE" , COLOR_RED)
+					debug(" c " + c.cell)
+					debug("cell.cell " + cell.cell)
+				}
+				
+			}
+		}
+
+
+		// Return the furthest cell from the set.
+		return furthestCell
+	}
+
+	/**
+	* Marks the current cell with the specified color.
+	* @param color - The color with which the cell should be marked.
+	*/
+	void mark(color) {
+		// Marks the current cell with the specified color.
+		mark(cell, color)
+	}
+
+
+
+	/**
+	* Marks the specified cells in an array with a given color.
+	* @param arr - The array of coordinates of cells to mark.
+	* @param color - The color with which the cells should be marked.
+	*/
+	static void markArray(Array<Coordinates> arr, color) {
+		// Create a new array to store cell IDs.
+		Array<integer> arrInt = []
+		// Iterate over each coordinate in the specified array.
+		for (Coordinates c in arr)
+			// Add the cell ID to the integer array.
+			push(arrInt, c.cell)
+		// Mark the identified cells with the specified color.
+		mark(arrInt, color)
+	}
+
+
+}

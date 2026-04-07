@@ -1,0 +1,209 @@
+
+
+global __adversarialThreatCache = [:]
+global __adversarialThreatCacheBuilt = false
+
+global __reachableCellsCache = [:]
+global __damageCache = [:]
+global __chipCostCache = [:]
+global __weaponCostCache = [:]
+global __pathLengthCache = [:]
+global __losCache = [:]
+// Per-turn cache: count of enemy access cells with LoS to a candidate cell.
+// Used by FieldMapTactical.computeDangerForCell. enemyAccess is fixed per turn,
+// so we key by candidate cellId only.
+global __dangerCellCache = [:]
+// Streak counter: incremented each turn we deal zero damage, reset on damage.
+// Used by no-damage penalty in scenario_scorer.lk.
+global __zeroDamageStreak = 0
+
+function hashTwoCells(cell1, cell2) {
+    return cell1 * 1024 + cell2
+}
+
+function getCachedLineOfSight(cell1, cell2) {
+    var hash = hashTwoCells(cell1, cell2)
+    if (mapContainsKey(__losCache, hash)) {
+        return __losCache[hash]
+    }
+    var result = lineOfSight(cell1, cell2)
+    __losCache[hash] = result
+    return result
+}
+
+function clearCaches() {
+    __reachableCellsCache = [:]
+    __damageCache = [:]
+    __chipCostCache = [:]
+    __weaponCostCache = [:]
+    __pathLengthCache = [:]
+    __losCache = [:]
+    __dangerCellCache = [:]
+    __adversarialThreatCache = [:]
+    __adversarialThreatCacheBuilt = false
+    // Note: __zeroDamageStreak is NOT cleared here; it persists across turns
+    // so it can detect multi-turn no-damage streaks.
+    clearPerformanceInfra()
+}
+
+function buildReachableCellsCache(fromCell, mp) {
+    if (mp <= 0) return [:]
+
+    var reachable = [:]
+    var queue = []
+    var visited = [:]
+    var queueIndex = 0
+
+    push(queue, ['cell': fromCell, 'cost': 0])
+    mapPut(visited, fromCell, true)
+    mapPut(reachable, fromCell, 0)
+
+    while (queueIndex < count(queue)) {
+        if (getOperations() > _ops86) {
+            break
+        }
+
+        var current = queue[queueIndex]
+        queueIndex++
+
+        var currentCell = current['cell']
+        var currentCost = current['cost']
+
+        var neighbors = [
+            currentCell + 1,
+            currentCell - 1,
+            currentCell + 18,
+            currentCell - 18,
+            currentCell + 17,
+            currentCell - 17
+        ]
+
+        for (var neighbor in neighbors) {
+            if (neighbor < 0 || neighbor >= 613) continue
+            if (mapContainsKey(visited, neighbor)) continue
+
+            var pathLen = getPathLength(currentCell, neighbor)
+            if (pathLen == null || pathLen < 0) continue
+
+            var newCost = currentCost + pathLen
+            if (newCost > mp) continue
+
+            mapPut(visited, neighbor, true)
+            mapPut(reachable, neighbor, newCost)
+            push(queue, ['cell': neighbor, 'cost': newCost])
+        }
+    }
+
+    var cacheKey = fromCell * 1000 + mp
+    __reachableCellsCache[cacheKey] = reachable
+    return reachable
+}
+
+function isCachedReachableCell(fromCell, toCell, mp) {
+    return isReachable(fromCell, toCell, mp)
+}
+
+function getCachedMPCost(fromCell, toCell, mp) {
+    return getMPCostToCell(fromCell, toCell, mp)
+}
+
+function getCachedPathLength(fromCell, toCell) {
+    var hash = hashTwoCells(fromCell, toCell)
+
+    if (mapContainsKey(__pathLengthCache, hash)) {
+        return __pathLengthCache[hash]
+    }
+
+    var pathLen = getPathLength(fromCell, toCell)
+    __pathLengthCache[hash] = pathLen
+    return pathLen
+}
+
+function buildDamageCache(arsenal, player, target) {
+    var str = player._strength
+    var mag = player._magic
+    var wis = player._wisdom
+    var sci = player._science
+
+    for (var weaponId in mapKeys(arsenal.playerEquippedWeapons)) {
+        var bd = arsenal.getDamageBreakdown(str, mag, wis, sci, weaponId)
+        var netDmg = 0
+        if (target != null) {
+            netDmg = arsenal.getNetDamageAgainstTarget(str, mag, wis, sci, weaponId, target)
+        }
+        __damageCache[weaponId] = ['breakdown': bd, 'net': netDmg]
+    }
+
+    for (var chipId in mapKeys(arsenal.playerEquippedChips)) {
+        var bd = arsenal.getDamageBreakdown(str, mag, wis, sci, chipId)
+        var netDmg = 0
+        if (target != null) {
+            netDmg = arsenal.getNetDamageAgainstTarget(str, mag, wis, sci, chipId, target)
+        }
+        __damageCache[chipId] = ['breakdown': bd, 'net': netDmg]
+    }
+}
+
+function getCachedDamageBreakdown(itemId) {
+    if (mapContainsKey(__damageCache, itemId)) {
+        return __damageCache[itemId]['breakdown']
+    }
+    return null
+}
+
+function getCachedNetDamage(itemId) {
+    if (mapContainsKey(__damageCache, itemId)) {
+        return __damageCache[itemId]['net']
+    }
+    return null
+}
+
+function buildCostCache(arsenal) {
+
+    for (var chipId in mapKeys(arsenal.playerEquippedChips)) {
+        __chipCostCache[chipId] = getChipCost(chipId)
+    }
+
+    for (var weaponId in mapKeys(arsenal.playerEquippedWeapons)) {
+        var weapon = arsenal.playerEquippedWeapons[weaponId]
+        __weaponCostCache[weaponId] = weapon._cost  
+    }
+}
+
+function getCachedChipCost(chipId) {
+    if (mapContainsKey(__chipCostCache, chipId)) {
+        return __chipCostCache[chipId]
+    }
+
+    var cost = getChipCost(chipId)
+    __chipCostCache[chipId] = cost
+    return cost
+}
+
+function getCachedWeaponCost(weaponId, arsenal) {
+    if (mapContainsKey(__weaponCostCache, weaponId)) {
+        return __weaponCostCache[weaponId]
+    }
+
+    var weapon = null
+    if (mapContainsKey(arsenal.playerEquippedWeapons, weaponId)) {
+        weapon = arsenal.playerEquippedWeapons[weaponId]
+    } else if (mapContainsKey(arsenal.weaponsList, weaponId)) {
+        weapon = arsenal.weaponsList[weaponId]
+    }
+    if (weapon != null) {
+        __weaponCostCache[weaponId] = weapon._cost
+        return weapon._cost
+    }
+    return null
+}
+
+function initializeCaches(player, target, arsenal) {
+    clearCaches()
+
+    initializePerformanceInfra()
+
+    buildDamageCache(arsenal, player, target)
+
+    buildCostCache(arsenal)
+}

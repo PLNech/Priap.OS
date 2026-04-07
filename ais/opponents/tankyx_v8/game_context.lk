@@ -1,0 +1,85 @@
+
+global GameContext = [
+    'player': null,
+    'target': null,
+    'enemies': [],
+    'map': null,
+    'arsenal': null,
+    'turn': 0,
+    'fightType': null,
+    'phase': "EARLY",
+
+    'caches': [
+        'distances': [:],
+        'threats': [:],
+        'los': [:]
+    ]
+]
+
+function initGameContext(playerObj, arsenalObj, fieldMapObj) {
+    GameContext['player'] = playerObj
+    GameContext['arsenal'] = arsenalObj
+    GameContext['map'] = fieldMapObj
+    GameContext['fightType'] = getFightType()
+    GameContext['turn'] = 0
+    invalidateGameContextCaches()
+}
+
+function updateGameContext(playerObj, targetObj, fieldMapObj) {
+    GameContext['player'] = playerObj
+    GameContext['target'] = targetObj
+    GameContext['map'] = fieldMapObj
+    GameContext['turn'] = getTurn()
+
+    var aliveEnemies = getAliveEnemies()
+    var enemyList = []
+    for (var eid in aliveEnemies) {
+        if (!isDead(eid)) {
+            push(enemyList, eid)
+        }
+    }
+    GameContext['enemies'] = enemyList
+
+    var enemyCount = count(enemyList)
+    if (enemyCount > 4) {
+        GameContext['phase'] = "EARLY"
+    } else if (enemyCount >= 3) {
+        GameContext['phase'] = "MID"
+    } else {
+        GameContext['phase'] = "LATE"
+    }
+
+    invalidateGameContextCaches()
+}
+
+function invalidateGameContextCaches() {
+    GameContext['caches'] = [
+        'distances': [:],
+        'threats': [:],
+        'los': [:]
+    ]
+}
+
+function getGameContextPlayer() {
+    return GameContext['player']
+}
+
+function getGameContextTarget() {
+    return GameContext['target']
+}
+
+function getGameContextEnemies() {
+    return GameContext['enemies']
+}
+
+function getGameContextPhase() {
+    return GameContext['phase']
+}
+
+function getGameContextTurn() {
+    return GameContext['turn']
+}
+
+function isGameContextBattleRoyale() {
+    return GameContext['fightType'] == FIGHT_TYPE_BATTLE_ROYALE
+}

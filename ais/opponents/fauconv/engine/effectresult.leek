@@ -1,0 +1,120 @@
+/******************************************************************************
+ * IntegerEffectResult
+ * encapsule les calculs des effets
+ ******************************************************************************/
+class IntegerEffectResult extends Objects {
+
+  integer minEffect;  // valeur minimum
+  integer maxEffect;  // valeur maximum
+  integer midEffect;  // valeur probable
+  
+  /**
+   * constructor
+   * @param minEffect valeur minimum
+   * @param maxEffect valeur maximum
+   * @param midEffect valeur probable
+   **/
+  constructor(integer minEffect = 0, integer maxEffect = 0, integer midEffect = 0) {
+    this.minEffect = minEffect;
+    this.maxEffect = maxEffect;
+    this.midEffect = midEffect;
+  }
+  
+  /**
+   * add
+   * this = this + er
+   * @param er l effectResult a ajouter
+   **/
+  void add(IntegerEffectResult er) {
+    minEffect += er.minEffect;
+    maxEffect += er.maxEffect;
+    midEffect += er.midEffect;
+  }
+    
+  /**
+   * subtract
+   * this = this - er
+   * @param er l effectResult a soustraire
+   **/
+  void subtract(IntegerEffectResult er) {
+    minEffect -= er.minEffect;
+    maxEffect -= er.maxEffect;
+    midEffect -= er.midEffect;
+  }
+  
+  /**
+   * string
+   **/
+  string string(string space = "") {
+    return "{minEffect:"+minEffect+", maxEffect:"+maxEffect+", midEffect:"+midEffect+"}";
+  }
+  string shortString(string space = "") {
+    return string(); 
+  }
+
+}
+
+/******************************************************************************
+ * RealEffectResult
+ * encapsule les calculs des effets
+ ******************************************************************************/
+class RealEffectResult extends Objects {
+
+  real minEffect;  // valeur minimum
+  real maxEffect;  // valeur maximum
+  real midEffect;  // valeur probable
+  
+  /**
+   * constructor
+   * @param minEffect valeur minimum
+   * @param maxEffect valeur maximum
+   * @param midEffect valeur probable
+   **/
+  constructor(real minEffect = 0.0, real maxEffect = 0.0, real midEffect = 0.0) {
+    this.minEffect = minEffect;
+    this.maxEffect = maxEffect;
+    this.midEffect = midEffect;
+  }
+
+  /**
+   * add
+   * this = this + ers
+   * @param er l effectResult a ajouter
+   **/
+  void add(RealEffectResult er) {
+    minEffect += er.minEffect;
+    maxEffect += er.maxEffect;
+    midEffect += er.midEffect;
+  }
+    
+  /**
+   * subtract
+   * this = this - er
+   * @param er l effectResult a soustraire
+   **/
+  void subtract(RealEffectResult er) {
+    minEffect -= er.minEffect;
+    maxEffect -= er.maxEffect;
+    midEffect -= er.midEffect;
+  }
+
+  /**
+   * RoundedDmg
+   * @param targetDmg : {real minEffect, real maxEffect, real midEffect}
+   * @return {integer minEffect, integer maxEffect, integer midEffect}
+   **/
+  IntegerEffectResult round() {
+    return new IntegerEffectResult(round(minEffect),round(maxEffect), round(midEffect));
+  }
+
+  /**
+   * string
+   **/
+  string string(string space = "") {
+    return "{minEffect:"+minEffect+", maxEffect:"+maxEffect+", midEffect:"+midEffect+"}";
+  }
+  string shortString(string space = "") {
+    return string(); 
+  }
+
+}

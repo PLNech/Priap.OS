@@ -1,0 +1,36 @@
+include("/Classes/Leek")
+include("/Brain/simpleActionSequence")
+include("/Brain/PlanActScenario")
+include("/Classes/Context/World")
+include("/Classes/Plannification/ShootingOption")
+include("/Classes/Plannification/ShootingOptions")
+
+
+	global World world = new World()
+	global kassbi = new Leek(getEntity(), planAct)
+
+	// init
+	world.buildObstaclesCoordinatesSet()
+	world.setEnemiesLeeks()
+
+	var turn = getTurn()
+	if (turn > 1)
+	{
+		kassbi.updateData()
+		world.updateData()
+		// doit venir après le monde pour permettre l'update de la danger map'
+		kassbi.updateDataMyLeeks()
+	}
+	else{
+		kassbi.setTarget(getNearestEnemy())
+	}
+
+
+	ShootingOptions options = new ShootingOptions()
+
+	options.exploreOptions(kassbi)//,first, ShootingOption.buildDamagingItemsTable(kassbi))
+
+
+	moveToward(getNearestEnemy())
+
+

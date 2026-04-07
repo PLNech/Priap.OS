@@ -1,0 +1,301 @@
+include("/Toolbox/Constants")
+include("/Classes/Leek")
+include("/Classes/Context/World")
+include("/Classes/Context/DangerInfo")
+include("/Classes/Context/Coordinates")
+
+
+
+/**
+ * Represents a map of danger in the game.
+ */
+class DangerMap {
+    /**
+     * The map containing coordinates as keys and danger info as values.
+     */
+    Map<Coordinates, DangerInfo> map = new Map()// coordinates as key, dangerInfo as value
+	real maxDamage = 0.
+	
+	
+    /**
+    * Initializes the DangerMap by resetting it and populating it with default DangerInfo objects.
+    * @returns {DangerMap} - The initialized DangerMap.
+    */
+    DangerMap initialize() {
+		Operations op = new Operations("Initialize DM " )
+        // Reset the DangerMap.
+        resetMap()
+
+        // Iterate over each cell in the game world and populate the DangerMap with default DangerInfo objects.
+        for (Coordinates cell in world.cellsCoordinatesTable) {
+            // Create a new default DangerInfo object.
+			if (cell.cell >=0 ){
+				DangerInfo dangerInfo = new DangerInfo(cell.cell)
+				dangerInfo.weight = DANGER.INITIAL_DANGER
+				// Associate the Coordinates object with the DangerInfo object in the DangerMap.
+				mapPut(map, cell, dangerInfo)
+			}
+			else {
+				debugC("une cell a un indice erron� dans l'initialization des danger maps' " + cell.cell, COLOR_RED)
+			
+			}
+			
+        }
+		op.debugOperations()
+    }
+
+
+
+    /**
+     * Resets the danger map.
+     */
+    void resetMap() {
+        map = new Map()
+    }
+
+    /**
+    * Remplace les informations de danger pour une certaine cellule.
+    * @param cell - La coordonnée de la cellule.
+    * @param dangerInfo - Les informations de danger à placer dans la cellule.
+    */
+    void replaceDangerInfo(Coordinates cell, DangerInfo dangerInfo) {
+        // Supprime les informations de danger existantes pour la cellule spécifiée.
+        mapRemove(this.map, cell)
+        // Place les nouvelles informations de danger dans la cellule spécifiée.
+        mapPut(this.map, cell, dangerInfo)
+    }
+
+    /**
+    * Removes all obstacles from the current map.
+    *
+    * This function iterates through the `world.obstaclesCoordinatesSet` set and
+    * calls the `mapRemove` function for each obstacle's coordinates, effectively
+    * deleting them from the map.
+    */
+    void removeObstaclesFromMap() {
+    // Iterate through all obstacle coordinates
+        for (Coordinates o in world.obstaclesCoordinatesSet) {
+            // Remove the obstacle from the map
+            mapRemove(this.map, o);
+        }
+    }
+
+
+    /**
+    * Finds the danger with the minimum weight in the DangerMap.
+    * @returns {DangerInfo} - The danger with the minimum weight.
+    */
+    DangerInfo getDangerWithMinWeight() {
+        // Initialize a DangerInfo object with default values.
+        DangerInfo min = new DangerInfo(DANGER.NO_SAFE_PLACE,10000000,0,0,0)
+        // Iterate over each DangerInfo object in the map.
+        for (DangerInfo el in map) {
+            // Check if the weight of the current DangerInfo object is less than or equal to the minimum weight found so far.
+            // If true, update the minimum DangerInfo object.
+            if (min.weight >= el.weight)
+                min = el 
+        }
+        // Return the DangerInfo object with the minimum weight.
+        return min
+    }
+
+    /**
+    * Gets the cell associated with the provided DangerInfo from the DangerMap.
+    * @param {DangerInfo} d - The DangerInfo object.
+    * @returns {Coordinates} - The cell associated with the DangerInfo.
+    */
+    Coordinates getCellFromDangerInfo(DangerInfo d) {
+        // Search the DangerMap for the cell associated with the provided DangerInfo.
+        return mapSearch(map, d)
+    }
+
+    /**
+    * Gets cells from the DangerMap based on a weight comparison.
+    * @param {integer} weight - The weight to compare against.
+    * @param {integer} comparison - The type of comparison to perform.
+    * @returns {Set<Coordinates>} - The set of cells satisfying the comparison.
+    */
+    Set<Coordinates> getCellsFromWeight(integer weight, integer comparison) {
+        // Initialize the set to store cells satisfying the comparison.
+        Set<Coordinates> ret = new Set()
+
+        // Perform different comparisons based on the provided comparison type.
+        if (comparison == CONST_COMPARISON.EQUAL) {
+            // Iterate over each DangerInfo in the DangerMap and add cells with matching weights to the set.
+            for (DangerInfo d in map)
+                if (d.weight == weight)
+                    setPut(ret, d)
+        }
+        else if (comparison == CONST_COMPARISON.MIN_OR_EQUAL) {
+            // Iterate over each DangerInfo in the DangerMap and add cells with weights less than or equal to the provided weight to the set.
+            for (DangerInfo d in map)
+                if (d.weight <= weight)
+                    setPut(ret, d)
+        }
+        else if (comparison == CONST_COMPARISON.MIN) {
+            // Iterate over each DangerInfo in the DangerMap and add cells with weights less than the provided weight to the set.
+            for (DangerInfo d in map)
+                if (d.weight < weight)
+                    setPut(ret, d)
+        }
+        else if (comparison == CONST_COMPARISON.SUP_OR_EQUAL) {
+            // Iterate over each DangerInfo in the DangerMap and add cells with weights greater than or equal to the provided weight to the set.
+            for (DangerInfo d in map)
+                if (d.weight >= weight)
+                    setPut(ret, d)
+        }
+        else if (comparison == CONST_COMPARISON.SUP) {
+            // Iterate over each DangerInfo in the DangerMap and add cells with weights greater than the provided weight to the set.
+            for (DangerInfo d in map)
+                if (d.weight > weight)
+                    setPut(ret, d)
+        }
+
+        // Return the set of cells satisfying the comparison.
+        return ret
+    }
+
+
+
+    /**
+     * Finds the furthest less dangerous cell from a given cell among reachable cells.
+     * @param {Coordinates} fromCell - The starting cell.
+     * @param {Set<Coordinates>} reachableCells - The set of reachable cells.
+     * @returns {Coordinates} - The furthest less dangerous cell.
+     */
+   Coordinates getFurthestLessDangerous(Coordinates fromCell, Set<Coordinates> reachableCells) {
+	   // Initialize variables.
+        DangerMap reachableCellsEvenDangerousOne = new DangerMap()
+	   if(mapSize(this.map)>0){
+		   reachableCellsEvenDangerousOne.map = mapFilter(
+            this.map, 
+			(DangerInfo value, Coordinates key) => boolean {
+                // Filter reachable cells based on whether they are in the reachableCells set.
+                return (setContains(reachableCells, key))
+            })
+        	reachableCellsEvenDangerousOne.removeObstaclesFromMap()
+	   }
+		
+			
+			
+			
+        // Get the minimum danger value among reachable cells.
+        DangerInfo min = reachableCellsEvenDangerousOne.getDangerWithMinWeight()
+
+        // Filter reachable cells based on minimum danger value.
+        DangerMap lessDangerousCells = new DangerMap()
+		lessDangerousCells.map = mapFilter(reachableCellsEvenDangerousOne.map, (DangerInfo value, Coordinates key) => boolean {
+            return (min.weight == value.weight)
+        })
+
+
+        // Find the furthest cell among less dangerous cells.
+        Coordinates ret = Coordinates.getFurthestCellFromSet(fromCell, arrayToSet(mapKeys(lessDangerousCells.map)))
+
+        // Return the furthest less dangerous cell.
+        return ret
+    }
+
+    /**
+     * Finds a place to hide for a leek from an enemy.
+     * @param {Leek} me - The current leek.
+     * @param {Leek} enemy - The enemy leek.
+     * @param {integer} origin - The original cell of the leek.
+     * @param {integer} mp - The movement points of the leek.
+     * @returns {Coordinates} - The cell to hide.
+     */
+    Coordinates getPlaceToHide(Leek me, Leek enemy, Coordinates origin, integer mp) {
+        // Initialize variables.
+        Coordinates? placeToHide = null
+        Set<Coordinates> reachableCellsToHide = me.getReachableCoordinatesFromCell(origin, mp)
+        Set<Coordinates> safePlaces = <>
+
+
+        // Check if reachable cells to hide are empty.
+        if (reachableCellsToHide == <>) {
+            debug("No cells reachable to hide")
+        } else {
+            // Find safe places by subtracting dangerous places from reachable cells.
+            Set<Coordinates> dangerousPlaces =getCellsFromWeight(DANGER.INITIAL_DANGER, CONST_COMPARISON.SUP)
+			safePlaces = setDifference(reachableCellsToHide, dangerousPlaces)
+			if(DEBUGS.SAFE_PLACES){
+				debug("safePlaces " + safePlaces)
+				mark(setToArray(safePlaces), COLORS.LIGHT_GREEN)
+				pause()
+			}
+        
+			if(setSize(safePlaces) >0){
+				Coordinates safe = Coordinates.getFurthestCellFromSet(world.getCoordinatesFromCell(enemy.cell), safePlaces)
+				if (safe.cell > -1){
+					placeToHide = safe
+					if(DEBUGS.SAFE_PLACES){
+						debug("placeToHide safe" + placeToHide)
+						mark(placeToHide.cell, COLORS.YELLOW)
+						pause()
+					}
+				}
+				 pause()
+			}
+			if (placeToHide == null) {
+				// If no safe cell found, find the furthest less dangerous cell.
+			   	placeToHide = getFurthestLessDangerous(world.getCoordinatesFromCell(enemy.cell), reachableCellsToHide)
+				if(DEBUGS.SAFE_PLACES){
+			   		debug("placeToHide less safe" + placeToHide)
+					mark(placeToHide.cell, COLORS.WARNING)
+					pause()
+				}
+			}
+            
+        }
+        // Return the cell to hide.
+        return placeToHide
+    }
+
+    /**
+     * Builds the danger map based on the weapons of an enemy.
+     * @param {Leek} enemy - The enemy leek.
+     * @returns {Map} - The danger map.
+     */
+    Map buildDangerMap(Leek enemy) {
+		Operations op = new Operations("buildDangerMap with enemy " + enemy.name, true )
+
+		
+        // Iterate over each weapon of the enemy.
+        for (Item i in enemy.getDamagingItems()) {
+            // Find cells to shoot to for the weapon.
+            Set<integer> cellsToShootTo = i.whereCanHeUse(enemy.reachableCells)
+
+            // Update danger map with damage caused by the weapon.
+            for (integer c in cellsToShootTo) {
+				if(i.meanDamage > maxDamage)
+					maxDamage = i.meanDamage
+				DangerInfo dangerOnTheCell = mapGet(map, world.getCoordinatesFromCell(c), new DangerInfo())
+				dangerOnTheCell.weight = dangerOnTheCell.weight + i.meanDamage
+                mapPut(map, c,dangerOnTheCell)
+            }
+        }
+		
+		this.markDM()
+	
+		op.debugOperations()
+        // Return the built danger map.
+        return map
+    }
+
+
+
+	void markDM(){
+		
+		if(DEBUGS.CONST_MARK_DANGERMAP){
+			Operations op = new Operations("Mark DM", true)
+			for (any di in map ){
+				//mark(di.key, getColor(COLOR_RED *di.weight/(maxDamage+ DANGER.INITIAL_DANGER), 0, 0))
+				real color = ((di.weight - DANGER.INITIAL_DANGER) / (maxDamage )) * 100
+				mark(di.key, getColor(255, 255 -color, 255 -color))
+				markText(di.key, di.weight)
+			}
+			op.debugOperations()
+			clearMarks()
+		}
+	}
+}

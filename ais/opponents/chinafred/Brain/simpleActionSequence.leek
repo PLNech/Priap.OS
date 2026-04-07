@@ -1,0 +1,24 @@
+include ("/Toolbox/Debug")
+
+function simpleActionSequence(me) {
+	
+	debug_BeginTurn ()
+	if (me.equipedWeapon == null)
+		me.equipWeaponById(WEAPON_PISTOL) // Attention : coûte 1 PT
+
+	// On récupère l'ennemi le plus proche
+	me.setTarget(getNearestEnemy())
+
+	// On avance vers l'ennemi
+	while(me.mp>0 and !me.canShootOnTarget() )
+		if( !me.canShootOnTarget())
+				me.moveTowardTarget()
+
+	while(me.tp> me.equipedWeapon.cost and me.canShootOnTarget())
+		me.shoot()
+	
+	me.fleeTarget()
+	
+	// me.hide()
+	debug_EndTurn ()
+}

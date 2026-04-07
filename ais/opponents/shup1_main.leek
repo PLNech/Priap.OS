@@ -1,0 +1,356 @@
+global DEBUG = false; //Print debug logs
+global dangerMap;
+global safeDistance = 8;
+
+//Get distance between me and the target
+function getMyDistance(target) {
+	var cell = getCell(target);
+	if (cell != null) return getDistance(getCell(), cell);
+	else return 10000;
+}
+
+//Restart turn on kill
+function onKill(kill, turn) {
+	if (kill) {
+		if (DEBUG) debug("kill");
+		turn();
+	}
+}
+
+function haveEffect(leek, type, turn) {
+	var effects = getEffects(leek);
+	for (var effect in effects) {
+		if (effect[0] == type && (turn == null || effect[3] == turn)) return true;
+	}
+	return false;
+}
+
+function haveChipEffect(leek, chip) {
+	var effects = getEffects(leek);
+	for (var effect in effects) {
+		if (effect[5] == chip) return true;
+	}
+	return false;
+}
+
+function getEffectTime(type) {
+	var effects = getEffects();
+	var time = 0;
+	for (var effect in effects) {
+		if (effect[0] == type && time < effect[3]) time = effect[3];
+	}
+	return time;
+}
+
+//useWeapon X times (return true on kill)
+function attack(target, count) {
+	for (var i = 0; i < count; i++) {
+		if (!isAlive(target)) return true;
+
+		useWeapon(target);
+	}
+	return false;
+}
+//useWeapon with all TP (return true on kill)
+function attackAll(target, weapon) {
+	if (DEBUG) debug("attackAll");
+	return attack(target, getTP() / getWeaponCost(weapon));
+}
+
+//useChip X times (return true on kill)
+function chipIt(target, chip, count) {
+	for (var i = 0; i < count; i++) {
+		if (!isAlive(target)) return true;
+
+		useChip(chip, target);
+	}
+	return false;
+}
+//useChip with all TP (return true on kill)
+function chipItAll(target, chip) {
+	if (DEBUG) debug("chipItAll");
+	return chipIt(target, chip, getTP() / getChipCost(chip));
+}
+
+//Heal me if it's usefull
+function autoHeal(target, healer, heal) {
+	if (DEBUG) debug("autoHeal");
+	if (getTotalLife(target) - getLife(target) > heal) useChip(healer, target);
+}
+//Heal allies if it's usefull
+function autoHealer(healer) {
+	if (DEBUG) debug("autoHealer");
+	var allies = getAliveAllies();
+	var target;
+	var targetScore = (getWisdom() / 100 + 1.2) * getChipEffects(healer)[0][2];
+	for (var ally in allies) { //Get ally in range with most lost life
+		var score = getTotalLife(ally) - getLife(ally);
+		if (score > targetScore && canUseChip(healer, ally)) {
+			target = ally;
+			targetScore = score;
+		}
+	}
+	if (target != null) useChip(healer, target);
+}
+
+//Shield me on close-range
+function autoShield(target, shield, distance) {
+	if (DEBUG) debug("autoShield");
+	if (getMyDistance(getNearestEnemy()) < distance) useChip(shield, target);
+}
+
+//Set first useable weapon
+function autoSwitch(target, weapons) {
+	if (DEBUG) debug("autoSwitch");
+	for (var weapon in weapons) {
+		if (canUseWeapon(weapon, target)) {
+			if (weapon != getWeapon()) setWeapon(weapon);
+			break;
+		}
+	}
+}
+
+//Move to a good position for use a weapon
+function moveToRange(target, weapon) {
+	var maxDistance = getWeaponMaxRange(weapon);
+	var minDistance = getWeaponMinRange(weapon);
+	var distance = getMyDistance(target);
+	var inline = isInlineWeapon(weapon);
+	var oldCell = getCell(),
+		olderCell;
+
+	var loop = getMP() * 2;
+	if (distance < minDistance) {
+		if (DEBUG) debug("moveAway");
+		while (minDistance > distance && getMP() > 1 && loop > 0) { //Too close
+			moveAwayFrom(target, 1);
+			distance = getMyDistance(target);
+			loop--;
+		}
+	} else {
+		if (DEBUG) debug("moveToward");
+		while ((distance > maxDistance || (!canUseWeapon(weapon, target) && distance > minDistance)) && getMP() > 0 && distance > 1 && loop > 0) { //Too fare or obstruct
+			var myCell = getCell();
+			if (inline && distance <= maxDistance) { //In range but can't shoot
+				if (DEBUG) debug("moveInline");
+				var targetCell = getCell(target);
+				var x = getCellX(myCell);
+				var y = getCellY(myCell);
+				var tx = getCellX(targetCell);
+				var ty = getCellY(targetCell);
+				var dx = abs(x - tx);
+				var dy = abs(y - ty);
+				if (x == tx || y == ty) { //Line is Obstruct
+					inline = false;
+					moveToward(target, 1);
+				} else {
+					var rangeCell; //Make a line of maxRange from target
+					var tries = 0;
+					while (rangeCell == null && tries < maxDistance) {
+						if (dx > dy) rangeCell = getCellFromXY(tx + (maxDistance - tries) * (x > tx ? 1 : -1), ty);
+						else rangeCell = getCellFromXY(tx, ty + (maxDistance - tries) * (y > ty ? 1 : -1));
+						tries++;
+					}
+					if (DEBUG) debug(targetCell + " : " + rangeCell + " in " + tries + "tries");
+					if (rangeCell == null) moveToward(target, 1);
+					else moveTowardLine(targetCell, rangeCell, 1);
+				}
+			} else moveToward(target, 1);
+			if (myCell == olderCell) //Anti roolback
+			inline = false;
+			else {
+				olderCell = oldCell;
+				oldCell = myCell;
+			}
+			distance = getMyDistance(target);
+			loop--;
+		}
+	}
+}
+
+//Get best target to use tools (weapons or chips in best before order)
+function getRangeCell(target, tools) {
+	var myMP = getMP();
+	var myTP = getTP();
+	var myCell = getCell();
+	var me = getLeek();
+	for (var tool in tools) {
+		var isW = isWeapon(tool);
+		if ((isW ? getWeaponCost(tool) : getChipCost(tool)) <= myTP) {
+			var temp = isW ? getCellsToUseWeapon(tool, target) : getCellsToUseChip(tool, target);
+			var cell = null;
+			var distance = myMP + 1;
+			for (var current in temp) {
+				if (getCellDistance(myCell, current) < distance) {
+					var length = getPathLength(myCell, current);
+					if (length < distance) {
+						distance = length;
+						cell = current;
+					}
+				}
+			}
+			if (cell != null) return cell;
+		}
+	}
+	if (DEBUG) debug("any cell in range");
+}
+
+//MoveAway but in range
+function moveBackRange(target, weapon) { //TODO go to less dangerous cell
+	if (DEBUG) debug("moveBack");
+	var maxDistance = getWeaponMaxRange(weapon);
+	var distance = getMyDistance(target);
+	var loop = getMP() * 2;
+	while (distance < maxDistance && getMP() > 0 && loop > 0) {
+		moveAwayFrom(target, 1);
+		distance = getMyDistance(target);
+		loop--;
+	}
+}
+
+function getToSafestCell() {
+	var myMP = getMP();
+	var myCell = getCell();
+	var temp = getCellsToUseChip(CHIP_SPARK, getLeek());
+	var cell = null;
+	var score = 999;
+	for (var current in temp) {
+		if (getCellDistance(myCell, current) <= myMP) {
+			if (getPathLength(myCell, current) <= myMP && dangerMap[current] < score) {
+				score = dangerMap[current];
+				cell = current;
+			}
+		}
+	}
+	return cell;
+}
+
+function moveToSafestCell() {
+	var me = getLeek();
+	var myMP = getMP();
+	var myCell = getCell();
+	if (myMP > 0 && getAliveEnemiesCount() > 0) {
+		var enMP;
+		var enCell;
+		var myCells = getCellsToUseChip(CHIP_SPARK, getLeek());
+		var enCells;
+		var cells = [];
+		var score = 999;
+		var sum;
+		for (var myCurrent in myCells) {
+			if (getCellDistance(myCell, myCurrent) <= myMP) {
+				if (getPathLength(myCell, myCurrent) <= myMP) {
+					sum = 0;
+					for (var target in getAliveEnemies()) {
+						if (!isSummon(target)) {
+							enMP = getMP(target);
+							enCells = getCellsToUseChip(CHIP_SPARK, target);
+							enCell = getCell(target);
+							for (var en = 0; en < count(enCells) && sum <= score; en++) {
+								if (getCellDistance(enCell, enCells[en]) <= enMP) {
+									if (getPathLength(enCell, enCells[en]) <= enMP) {
+										if (lineOfSight(myCurrent, enCells[en], [me, target])) {
+											if (getDistance(myCurrent, enCells[en]) <= safeDistance) sum++;
+										}
+									}
+								}
+							}
+						}
+					}
+					if (sum <= score) {
+						if (sum < score) {
+							score = sum;
+							cells = [];
+						}
+						push(cells, myCurrent);
+					}
+				}
+			}
+		}
+		if (count(cells) > 1) {
+			score = 999;
+			enCell = null;
+			for (var cell in cells) {
+				if (dangerMap[cell] < score) {
+					score = dangerMap[cell];
+					enCell = cell;
+				}
+			}
+			return enCell;
+		} else return cells[0];
+	}
+	return myCell;
+}
+
+function getSummonCell(bulb) {
+	var range = getChipMaxRange(bulb);
+	var myCell = getCell();
+	var temp = getCellsToUseChip(CHIP_SPARK, getLeek());
+	var cell = null;
+	var score = 999;
+	for (var current in temp) {
+		if (isEmptyCell(current)) {
+			if (getCellDistance(myCell, current) <= range && dangerMap[current] < score) {
+				score = dangerMap[current];
+				cell = current;
+			}
+		}
+	}
+	return cell;
+}
+
+//Usefull on first turn
+function setup(weapon) {
+	var turn = getTurn() - 1;
+	if (turn < 2) {
+		if (turn == 0) dangerMap = [];
+		var count;
+		for (var i = 0; i <= 612; i++) {
+			if (!isObstacle(i)) {
+				count = 0;
+				for (var j = turn; j <= 612; j += 2) {
+					if (!isObstacle(j)) {
+						if (i != j && lineOfSight(i, j)) count++;
+					}
+				}
+				dangerMap[i] = count;
+			}
+		}
+	}
+	var current = getWeapon();
+	if (current == null) {
+		setWeapon(weapon);
+		say("WADZA !!!");
+		return weapon;
+	} else {
+		return current;
+	}
+}
+
+//Find the best target
+function getTarget() {
+	var enemies = getAliveEnemies();
+	var target;
+	if (count(enemies) == 1) target = enemies[0];
+	else {
+		var targetValue = 100000000;
+
+		for (var enemie in enemies) {
+			var currentValue = getLife(enemie) * getMyDistance(enemie) * (getType(enemie) == ENTITY_LEEK && getTurn() % 5 != 0 ? 1 : 7); //with less life and distance
+			if (currentValue > 0 && currentValue < targetValue) {
+				targetValue = currentValue;
+				target = enemie;
+			}
+		}
+	}
+	if (target == null) target = getNearestEnemy(); //bullet proof
+	return target;
+}
+
+//usefull on turn end
+function finish(target) {
+	if (DEBUG) {
+		debug("LP:" + getLife() + " TP:" + getTP() + " MP:" + getMP());
+		debug("Target:" + getName(target) + " Weapon:" + getWeaponName(getWeapon()));
+	}
+}

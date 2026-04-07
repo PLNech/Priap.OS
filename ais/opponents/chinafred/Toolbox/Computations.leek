@@ -1,0 +1,44 @@
+
+
+function  p_getAbsoluteShield(targetId){
+	var ret = 0;
+	if(getLevel()>=38)
+	{
+		ret = getAbsoluteShield(targetId);
+	}
+	return ret;
+}
+
+function p_getRelativeShield(targetId){
+	var ret = 0;
+	if(getLevel()>=38)
+	{
+		ret = getRelativeShield(targetId);
+	}
+	return ret;
+}
+
+function getDamagesFromEffect(effects){
+	for(var e in  effects)
+	{
+		//mean value between min and max
+		if(e[0]==EFFECT_DAMAGE)
+			return e[1]+(e[1]+e[2])/2;
+	}
+}
+
+function computePossibleDealtDamages(actor, target, gear){
+	var targetAbsoluteShield = p_getAbsoluteShield(target.id)*								(1+target.agility/100);
+	var targetRelativeShield  = 
+		min(75, p_getRelativeShield(target.id)*target.agility/50);//level 30 
+	var modifiedDamages  = getDamagesFromEffect(gear.effects) * 
+		(1+ (actor.strength)/100)
+	return  max(0,
+				modifiedDamages * (1-targetRelativeShield/100) - targetAbsoluteShield
+				);
+}
+
+
+	function isInsideWorld(integer x,integer y) => boolean {
+		return abs(x) + abs(y) <= 17
+	}

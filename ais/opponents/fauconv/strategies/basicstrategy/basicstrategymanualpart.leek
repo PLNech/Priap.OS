@@ -1,0 +1,99 @@
+/****************************************************************************
+ * BasicStrategyManualPart
+ * static
+ ****************************************************************************/
+class BasicStrategyManualPart extends Objects {
+
+  /**
+   * defineInitialStrategies
+   * @return la liste des strategies valables au premier tour
+   * TODO: definir mieux quand on peut utiliser STRATEGY_SHORT_RANGE 
+   **/
+  static integer defineInitialStrategies() {
+    integer myAvailableStrategies = 0;
+    if(BasicStrategy.me.maxAOERange > BasicStrategy.enemy.maxAOERange) myAvailableStrategies += BasicStrategy.STRATEGY_LONG_RANGE;
+    if(!BasicStrategy.me.needLos && BasicStrategy.enemy.needLos) myAvailableStrategies += BasicStrategy.STRATEGY_HIDDEN;
+    myAvailableStrategies += BasicStrategy.STRATEGY_SHORT_RANGE;
+    return myAvailableStrategies;
+  }
+
+  /**
+   * defineInitialMyToDoState
+   * @return la list des choses a faire au premier tour
+   **/
+  static integer defineInitialMyToDoState() {
+    return LeekRound.STATE_CENTER;
+  }
+
+  /**
+   * updateMyToDoStates
+   * @return la list des choses a faire pour les tours  > 1 
+   **/
+  static integer updateMyToDoState() {
+    integer myToDoState = 0; 
+    if (BasicStrategy.lowLife && BasicStrategy.badLifeRatio) myToDoState = LeekRound.STATE_ESCAPE + LeekRound.STATE_HEAL + LeekRound.STATE_PROTECT;
+    else if(BasicStrategy.lowLife) myToDoState = LeekRound.STATE_HEAL;
+    else if(BasicStrategy.badLifeRatio) myToDoState = LeekRound.STATE_PROTECT;
+    return myToDoState;
+  }
+
+  /**
+   * setWeaponInit
+   * @return l id du weapon a degainer au premier tour
+   **/
+  static integer setWeaponInit() {
+    if(BasicStrategy.myAvailableStrategies & BasicStrategy.STRATEGY_LONG_RANGE) {
+      if(BasicStrategy.enemy.maxAOERange < 5) return WEAPON_SHOTGUN;
+      if(BasicStrategy.enemy.maxAOERange < 6) return WEAPON_NEUTRINO;
+      return WEAPON_MAGNUM;
+    }
+    if(BasicStrategy.myAvailableStrategies & BasicStrategy.STRATEGY_SHORT_RANGE) return WEAPON_SHOTGUN;
+    return WEAPON_MAGNUM;
+  }
+  
+  /**
+   * myMPCondition
+   * @param myRoundsList doit etre rempli avec les simulations a utiliser pour calculer les itineraires. 
+   *                     l 'index contient le remaningMP auquel il faut s arrete
+   * @return le nombre de MP maximum dont on dispose
+   **/
+  static integer myMPCondition(Map<integer,Round> myRoundsList, MeRound meRound) {
+    integer myMaxMP
+    if(mapContainsKey(meRound.toolsRound, CHIP_LEATHER_BOOTS) && 
+       meRound.toolsRound[CHIP_LEATHER_BOOTS]!.isUsable()) {
+      SimulatedRound simAvecBoots = new SimulatedRound(Board.currentRound)
+      MeRound meBoots = simAvecBoots.meRound
+      meBoots.addToolAction(CHIP_LEATHER_BOOTS, meRound.currentCellId);
+      myMaxMP = meBoots.minMP // on prend le min pour eviter le coup critique, si il y a un critique on le traite plus tard
+      myRoundsList[0] = simAvecBoots
+      myRoundsList[myMaxMP - meRound.minMP] = Board.currentRound
+    } else {
+      myMaxMP = meRound.minMP
+      myRoundsList[0] = Board.currentRound
+    }
+    return myMaxMP
+  }
+
+  /**
+   * enemyMPCondition
+   * @param enemyRoundsList doit etre rempli avec les simulations a utiliser pour calculer les itineraires. 
+   *                        l 'index contient le remaningMP auquel il faut s arrete
+   * @return le nombre de MP maximum dont on dispose
+   **/
+  static integer enemyMPCondition(Map<integer,Round> enemyRoundsList, EnemyRound enemyRound) {
+    integer maxMP
+    if(mapContainsKey(enemyRound.toolsRound, CHIP_LEATHER_BOOTS) && 
+       enemyRound.toolsRound[CHIP_LEATHER_BOOTS]!.isUsable()) {
+      SimulatedRound simAvecBoots = new SimulatedRound(Board.currentRound)
+      EnemyRound enemyBoots = simAvecBoots.enemiesRound[0]
+      enemyBoots.addToolAction(CHIP_LEATHER_BOOTS, enemyRound.currentCellId);
+      maxMP = enemyBoots.midMP // on prend le mid est ce la bonne soluce ?
+      enemyRoundsList[0] = simAvecBoots
+      enemyRoundsList[maxMP - enemyRound.minMP] = Board.currentRound
+    } else {
+      maxMP = enemyRound.minMP
+      enemyRoundsList[0] = Board.currentRound
+    }
+    return maxMP
+  }
+}

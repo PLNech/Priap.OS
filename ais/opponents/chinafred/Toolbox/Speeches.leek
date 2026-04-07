@@ -1,0 +1,95 @@
+//--------------------------------
+//----- Speech taunt talk --------
+//----------LEVEL 1----------------------
+function getRandomMessage(type){
+return getRandomMessageFromArr(speechesArr[type])
+}
+
+function getRandomMessageFromArr(arr){
+	return arr[randInt(0,count(arr))]
+}
+global  speech_TAUNTS =0
+global  speech_GREATINGS =1
+global  speech_BEGIN =2
+global  speech_DAMMAGES =3
+global  speech_NOTSHOOT =4
+global  speech_RIP =5
+
+
+//*********************************définition des textes**************************************/
+
+ global ArrSpeeches_Taunts = [
+ 'Je vais te dégorger',
+ 'Hahaha, tu ne me fais pas peur',
+ 'Tremble devant ma puissance',
+ 'Tu ne fais pas le poids', 
+  "Je te mangerai par les radicelles",
+ "Je vais te hacher menu",
+ "Je vais t'étuver",
+ "Tu aimes le beurre? Car tu baigneras bientôt dedans",
+ "Je vais te manger tout cru", 
+ "Un de nous deux est de trop dans ce potager", 
+ "T'as des vapeurs? T'es tout ramolli"
+ ];
+
+
+
+
+global ArrSpeeches_Greatings = [
+"Salut à vous.",
+"Bien le bonjour.",
+"Hi!"
+];
+
+global ArrSpeeches_Begin = [
+"Chargez!",
+"A l'assaut!",
+"Tayooooo",
+"Pour Kassbi'"
+];
+
+global ArrSpeeches_Dammages = [
+"Ca fait mal, hein! ",
+"Prends ça!",
+"Eat this!", 
+"T'en veux encore? ",
+"les coups et les douleurs cela ne se discute pas! "
+];
+
+global ArrSpeeches_NotShoot = [
+"Tu ne perds rien pour attendre ",
+"Tu peux fuir mais je t'aurai",
+"Saigne déjà, j'arrive...'"
+];
+
+global ArrSpeeches_RIP = [
+"Tu l'as bien méritée!", 
+"Tu ne manqueras à personne.", 
+"Je t'ai renvoyé au paradis des poireaux sans tête!", 
+"Grille en enfer!"
+];
+/* FIN Langage libre */ 
+
+
+
+/*Langage commun aux poireaux ne peut pas etre modifié*/
+global ArrSpeeches_DesignateTarget = [
+"Sus à ", 
+"On défonce ",
+"Tous sur "
+];
+
+global ArrSpeeches_Help = [
+"Help!",
+"S.O.S.",
+"Oufti, ca fait mal.",
+"Arg, je meurs."
+];
+/*FIN Langage commun aux poireaux ne peut pas etre modifié*/
+
+global speechesArr = [ArrSpeeches_Taunts, 
+					  ArrSpeeches_Greatings,
+					  ArrSpeeches_Begin,
+					  ArrSpeeches_Dammages,
+					  ArrSpeeches_NotShoot,
+					  ArrSpeeches_RIP]

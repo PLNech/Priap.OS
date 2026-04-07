@@ -1,0 +1,125 @@
+
+global ROLE_HEALING = [:]
+global ROLE_POISON = [:]
+global ROLE_SHIELD_ABSOLUTE = [:]
+global ROLE_SHIELD_RELATIVE = [:]
+global ROLE_OFFENSIVE_BUFF = [:]
+global ROLE_DAMAGE_RETURN = [:]
+global ROLE_DEBUFF = [:]
+global ROLE_UTILITY = [:]
+global ROLE_RESOURCE = [:]
+global ROLE_POISON_WEAPON = [:]
+
+function initializeItemRoles() {
+    ROLE_HEALING[CHIP_REGENERATION] = true
+    ROLE_HEALING[CHIP_REMISSION] = true
+    ROLE_HEALING[CHIP_CURE] = true
+    ROLE_HEALING[CHIP_DRIP] = true
+    ROLE_HEALING[CHIP_SERUM] = true
+    ROLE_HEALING[CHIP_BANDAGE] = true
+
+    ROLE_POISON[CHIP_VENOM] = true
+    ROLE_POISON[CHIP_TOXIN] = true
+    ROLE_POISON[CHIP_PLAGUE] = true
+    ROLE_POISON[CHIP_COVID] = true
+    ROLE_POISON[CHIP_ARSENIC] = true
+
+    ROLE_POISON_WEAPON[WEAPON_GAZOR] = true
+    ROLE_POISON_WEAPON[WEAPON_DESTROYER] = true
+    ROLE_POISON_WEAPON[WEAPON_FLAME_THROWER] = true
+
+    ROLE_SHIELD_ABSOLUTE[CHIP_HELMET] = true
+    ROLE_SHIELD_ABSOLUTE[CHIP_SHIELD] = true
+
+    ROLE_SHIELD_RELATIVE[CHIP_WALL] = true
+    ROLE_SHIELD_RELATIVE[CHIP_FORTRESS] = true
+    ROLE_SHIELD_RELATIVE[CHIP_PROTEIN] = true
+
+    ROLE_OFFENSIVE_BUFF[CHIP_STEROID] = true
+    ROLE_OFFENSIVE_BUFF[CHIP_WIZARDRY] = true
+    ROLE_OFFENSIVE_BUFF[CHIP_WARM_UP] = true
+    ROLE_OFFENSIVE_BUFF[CHIP_DOPING] = true
+    ROLE_OFFENSIVE_BUFF[CHIP_RAGE] = true
+    ROLE_OFFENSIVE_BUFF[CHIP_TRANQUILIZER] = true
+    ROLE_OFFENSIVE_BUFF[CHIP_FEROCITY] = true
+    ROLE_OFFENSIVE_BUFF[CHIP_KNOWLEDGE] = true
+    ROLE_OFFENSIVE_BUFF[CHIP_ELEVATION] = true
+    ROLE_OFFENSIVE_BUFF[CHIP_ARMORING] = true
+    ROLE_OFFENSIVE_BUFF[CHIP_PRISM] = true
+
+    ROLE_DAMAGE_RETURN[CHIP_MIRROR] = true
+    ROLE_DAMAGE_RETURN[CHIP_THORN] = true
+    ROLE_DAMAGE_RETURN[CHIP_BRAMBLE] = true
+
+    ROLE_DEBUFF[CHIP_LIBERATION] = true
+    ROLE_DEBUFF[CHIP_ARMOR] = true
+    ROLE_DEBUFF[CHIP_SOLIDIFICATION] = true
+    ROLE_DEBUFF[CHIP_SLOW_DOWN] = true
+    ROLE_DEBUFF[CHIP_BALL_AND_CHAIN] = true
+    ROLE_DEBUFF[CHIP_FRACTURE] = true
+
+    ROLE_UTILITY[CHIP_TELEPORTATION] = true
+    ROLE_UTILITY[CHIP_JUMP] = true
+    ROLE_UTILITY[CHIP_INVERSION] = true
+    ROLE_UTILITY[CHIP_GRAPPLE] = true
+    ROLE_UTILITY[CHIP_BOXING_GLOVE] = true
+    ROLE_UTILITY[CHIP_ANTIDOTE] = true
+    ROLE_UTILITY[CHIP_MOTIVATION] = true
+    ROLE_UTILITY[CHIP_MANUMISSION] = true
+
+    ROLE_RESOURCE[CHIP_ADRENALINE] = true
+    ROLE_RESOURCE[CHIP_LEATHER_BOOTS] = true
+}
+
+function isHealingChip(chipId) {
+    return mapContainsKey(ROLE_HEALING, chipId)
+}
+
+function isPoisonChip(chipId) {
+    return mapContainsKey(ROLE_POISON, chipId)
+}
+
+function isPoisonWeapon(weaponId) {
+    return mapContainsKey(ROLE_POISON_WEAPON, weaponId)
+}
+
+function isAbsoluteShieldChip(chipId) {
+    return mapContainsKey(ROLE_SHIELD_ABSOLUTE, chipId)
+}
+
+function isRelativeShieldChip(chipId) {
+    return mapContainsKey(ROLE_SHIELD_RELATIVE, chipId)
+}
+
+function isShieldChip(chipId) {
+    return mapContainsKey(ROLE_SHIELD_ABSOLUTE, chipId) || mapContainsKey(ROLE_SHIELD_RELATIVE, chipId)
+}
+
+function isOffensiveBuff(chipId) {
+    return mapContainsKey(ROLE_OFFENSIVE_BUFF, chipId)
+}
+
+function isDamageReturnChip(chipId) {
+    return mapContainsKey(ROLE_DAMAGE_RETURN, chipId)
+}
+
+function isDebuffChip(chipId) {
+    return mapContainsKey(ROLE_DEBUFF, chipId)
+}
+
+function isUtilityChip(chipId) {
+    return mapContainsKey(ROLE_UTILITY, chipId)
+}
+
+function isResourceChip(chipId) {
+    return mapContainsKey(ROLE_RESOURCE, chipId)
+}
+
+function isBuffChipRole(chipId) {
+    return isHealingChip(chipId) || isShieldChip(chipId) || isOffensiveBuff(chipId) ||
+           isDamageReturnChip(chipId) || isResourceChip(chipId) || isUtilityChip(chipId)
+}
+
+function isDefensiveChip(chipId) {
+    return isShieldChip(chipId) || isDamageReturnChip(chipId) || isHealingChip(chipId)
+}

@@ -1,0 +1,164 @@
+
+global __occupancyMap = [:]
+global __aoePatternMasks = [:]
+global __multiEnemyDamageCache = [:]
+
+function initializeAoEMasks() {
+    if (count(mapKeys(__aoePatternMasks)) > 0) return
+
+    __aoePatternMasks[0] = [0]
+
+    __aoePatternMasks[1] = [
+        0,
+        -18, 18, -17, 17, -19, 19, -1, 1
+    ]
+
+    __aoePatternMasks[2] = [
+        0,
+        -18, 18, -17, 17, -19, 19, -1, 1,
+        -36, 36, -34, 34, -38, 38, -2, 2,
+        -35, 35, -37, 37, -20, 20, -16, 16
+    ]
+
+    __aoePatternMasks[3] = [
+        0,
+        -18, 18, -17, 17, -19, 19, -1, 1,
+        -36, 36, -34, 34, -38, 38, -2, 2,
+        -35, 35, -37, 37, -20, 20, -16, 16,
+        -54, 54, -51, 51, -57, 57, -3, 3,
+        -52, 52, -56, 56, -53, 53, -55, 55,
+        -39, 39, -33, 33, -21, 21, -15, 15
+    ]
+
+    __aoePatternMasks[4] = [0]
+
+}
+
+function buildOccupancyMap() {
+    __occupancyMap = [:]
+
+    var allEntities = getAllies()
+    for (var ally in allEntities) {
+        var cell = getCell(ally)
+        if (cell != null) {
+            __occupancyMap[cell] = ally
+        }
+    }
+
+    var enemies = getAliveEnemies()
+    for (var enemy in enemies) {
+        var cell = getCell(enemy)
+        if (cell != null) {
+            __occupancyMap[cell] = enemy
+        }
+    }
+}
+
+function getEntityAtCell(cellId) {
+    if (mapContainsKey(__occupancyMap, cellId)) {
+        return __occupancyMap[cellId]
+    }
+    return null
+}
+
+function isEnemyAtCell(cellId, enemies) {
+    var entityId = getEntityAtCell(cellId)
+    if (entityId == null) return false
+
+    for (var e in enemies) {
+        if (e._id == entityId) return true
+    }
+    return false
+}
+
+function isReachable(fromCell, toCell, mp) {
+    return isGraphReachableCell(toCell)
+}
+
+function getMPCostToCell(fromCell, toCell, mp) {
+    if (isGraphReachableCell(toCell)) {
+        return getGraphMPCost(toCell)
+    }
+    return null
+}
+
+function getEnemiesInAoE(aimCell, aoeType, enemies) {
+
+    var hitEnemies = []
+
+    if (!mapContainsKey(__aoePatternMasks, aoeType)) {
+        for (var e in enemies) {
+            if (isDead(e._id)) continue
+            push(hitEnemies, e)
+        }
+        return hitEnemies
+    }
+
+    var mask = __aoePatternMasks[aoeType]
+
+    for (var offset in mask) {
+        var checkCell = aimCell + offset
+        if (checkCell < 0 || checkCell >= 613) continue
+
+        var entityId = getEntityAtCell(checkCell)
+        if (entityId == null) continue
+
+        for (var e in enemies) {
+            if (e._id == entityId && !isDead(e._id)) {
+                push(hitEnemies, e)
+                break
+            }
+        }
+    }
+
+    return hitEnemies
+}
+
+function hashEnemyPositions(enemies) {
+    var hash = 0
+    for (var e in enemies) {
+        if (!isDead(e._id)) {
+            hash += e._cellPos * e._id
+        }
+    }
+    return hash
+}
+
+function getCachedMultiEnemyDamage(shooterCell, itemId, aimCell, enemies, arsenal) {
+    var enemyHash = hashEnemyPositions(enemies)
+    var cacheKey = "" + shooterCell + ":" + itemId + ":" + aimCell + ":" + enemyHash
+
+    if (mapContainsKey(__multiEnemyDamageCache, cacheKey)) {
+        return __multiEnemyDamageCache[cacheKey]
+    }
+
+    var enemiesArray = []
+    for (var e in enemies) {
+        push(enemiesArray, e)
+    }
+
+    var result = arsenal.calculateMultiEnemyDamage(
+        shooterCell,
+        aimCell,
+        itemId,
+        enemiesArray
+    )
+
+    __multiEnemyDamageCache[cacheKey] = result
+    return result
+}
+
+function clearMultiEnemyDamageCache() {
+    __multiEnemyDamageCache = [:]
+}
+
+function initializePerformanceInfra() {
+    initializeAoEMasks()
+
+    buildOccupancyMap()
+}
+
+function clearPerformanceInfra() {
+    __occupancyMap = [:]
+    __multiEnemyDamageCache = [:]
+}

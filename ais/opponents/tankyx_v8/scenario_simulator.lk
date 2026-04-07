@@ -1,0 +1,627 @@
+include('game_entity.lk')
+
+class SimulationResult {
+    damageDealt = 0
+    dotDamageQueued = 0
+    novaDamageQueued = 0
+    hpGained = 0
+    lifestealHealing = 0
+    shieldsGained = 0
+    relativeShieldGained = 0
+    tpSpent = 0
+    mpSpent = 0
+    finalPosition = -1
+    buffsApplied = []
+    debuffsApplied = []
+    actionsExecuted = 0
+    vulnerabilityApplied = 0
+
+    totalLobbyDamage = 0
+    enemiesHit = 0
+    killsSecured = 0
+
+    bulbDamage = 0
+    leekDamage = 0
+    bulbsHit = 0
+    bulbKillsSecured = 0
+
+    poisonSourcesUsed = 0
+    poisonTurnsQueued = 0
+
+    denialApplied = 0
+    strShackled = 0
+    magShackled = 0
+
+    erosionDamage = 0
+
+    selfDamageHP = 0
+
+    crystalAxisReduction = 0
+    crystalSolved = false
+
+    constructor() {
+        this.buffsApplied = []
+        this.debuffsApplied = []
+    }
+}
+
+class ScenarioSimulator {
+    _arsenal = null
+    _player = null
+    _target = null
+    _fieldMap = null
+
+    constructor(arsenal, player, target, fieldMap) {
+        this._arsenal = arsenal
+        this._player = player
+        this._target = target
+        this._fieldMap = fieldMap
+    }
+
+    simulate(actions) {
+        var result = new SimulationResult()
+
+        var simPos = this._player._cellPos
+        var simTP = getTP()
+        var simMP = getMP()
+        var simWeapon = getWeapon()
+        var simStrength = this._player._strength
+        var simMagic = this._player._magic
+        var simWisdom = this._player._wisdom
+        var simScience = this._player._science
+        var simAgility = this._player._agility
+        var simWeaponUses = [:]
+
+        var simPlayerHP = this._player._currHealth
+
+        var expectedCritMult = 1.0 + min(0.5, simAgility / 2000.0) * 0.3
+
+        var simEnemyCurrHP = 1
+        var simEnemyMaxHP = 1
+        var simEnemyAbsShield = 0
+        var simEnemyRelShield = 0
+        if (this._target != null) {
+            simEnemyCurrHP = this._target._currHealth
+            simEnemyMaxHP = this._target._maxHealth
+            simEnemyAbsShield = this._target._absShield
+            simEnemyRelShield = this._target._relShield / 100.0
+        }
+
+        var targetIsBulb = (this._target != null) ? isBulb(this._target) : false
+
+        result.finalPosition = simPos
+
+        for (var action in actions) {
+
+            if (!this.canExecuteAction(action, simPos, simTP, simMP, simWeapon)) {
+                continue
+            }
+
+            if (action.type == Action.ACTION_DIRECT || action.type == Action.ACTION_DOT || action.type == Action.ACTION_DEBUFF) {
+                if (action.chip != -1) {
+
+                    if (action.chip == CHIP_INVERSION && !_isBossFight) {
+                        var invCost = getChipCost(CHIP_INVERSION)
+                        result.tpSpent += invCost
+                        simTP -= invCost
+                        if (action.targetEntity != null) {
+                            simPos = action.targetEntity._cellPos
+                            result.finalPosition = simPos
+                        }
+                        result.vulnerabilityApplied += 20
+                        simEnemyRelShield -= 0.20
+                        result.hpGained += 50
+                        push(result.debuffsApplied, action.chip)
+                        result.actionsExecuted++
+                        continue
+                    }
+
+                    if (action.chip == CHIP_LIBERATION) {
+                        var libCost = getChipCost(CHIP_LIBERATION)
+                        result.tpSpent += libCost
+                        simTP -= libCost
+                        simEnemyAbsShield = floor(simEnemyAbsShield * 0.6)
+                        simEnemyRelShield = simEnemyRelShield * 0.6
+                        push(result.debuffsApplied, action.chip)
+                        result.actionsExecuted++
+                        continue
+                    }
+
+                    if (action.chip == CHIP_PUNISHMENT) {
+                        var pCost = getChipCost(action.chip)
+                        var punishDmg = simPlayerHP * 0.25
+                        var punishNet = punishDmg * (1 - simEnemyRelShield) - simEnemyAbsShield
+                        if (punishNet < 0) punishNet = 0
+                        // Hard-block: only allow as fight-finisher on last enemy leek
+                        if (targetIsBulb || (simEnemyCurrHP > 0 && punishNet < simEnemyCurrHP)) {
+                            continue
+                        }
+                        result.damageDealt += punishNet
+                        result.erosionDamage += punishNet * 0.05
+                        simEnemyCurrHP -= punishNet
+                        if (simEnemyCurrHP < 0) simEnemyCurrHP = 0
+                        var selfCost = simPlayerHP * 0.75
+                        result.selfDamageHP += selfCost
+                        simPlayerHP -= selfCost
+                        var pLifesteal = (punishNet * simWisdom) / 1000
+                        result.lifestealHealing += pLifesteal
+                        simPlayerHP += pLifesteal
+                        if (targetIsBulb) {
+                            result.bulbDamage += punishNet
+                        } else {
+                            result.leekDamage += punishNet
+                        }
+                        result.tpSpent += pCost
+                        simTP -= pCost
+                        result.actionsExecuted++
+                        continue
+                    }
+
+                    var chipCost = getChipCost(action.chip)
+                    var chipDmg = (this._target != null) ? this._arsenal.getNetDamageAgainstTarget(simStrength, simMagic, simWisdom, simScience, action.chip, this._target) : 0
+                    var breakdown = this._arsenal.getDamageBreakdown(simStrength, simMagic, simWisdom, simScience, action.chip)
+
+                    var rawDirect = breakdown['direct'] * expectedCritMult
+
+                    // PLASMA: multiply by enemies in PLUS_2 AoE
+                    if (action.chip == CHIP_PLASMA && this._fieldMap != null) {
+                        var plasmaAimCell = (action.targetCell != null && action.targetCell != -1) ? action.targetCell : this._target._cellPos
+                        var plasmaHits = 1
+                        var enemies = this._fieldMap.getEnemySubMap()
+                        for (var eid in mapKeys(enemies)) {
+                            if (eid == this._target._id) continue
+                            if (isDead(eid)) continue
+                            var eCell = enemies[eid]._cellPos
+                            if (eCell != null) {
+                                var eDist = getCellDistance(plasmaAimCell, eCell)
+                                if (eDist != null && eDist <= 2) plasmaHits++
+                            }
+                        }
+                        if (plasmaHits > 1) rawDirect *= plasmaHits
+                    }
+
+                    var directDmg = rawDirect * (1 - simEnemyRelShield) - simEnemyAbsShield
+                    if (directDmg < 0) directDmg = 0
+                    result.damageDealt += directDmg
+                    result.erosionDamage += directDmg * 0.05
+                    simEnemyCurrHP -= directDmg
+                    if (simEnemyCurrHP < 0) simEnemyCurrHP = 0
+
+                    var lifesteal = (directDmg * simWisdom) / 1000
+                    result.lifestealHealing += lifesteal
+                    simPlayerHP += lifesteal
+
+                    if (targetIsBulb) {
+                        result.bulbDamage += directDmg
+                    } else {
+                        result.leekDamage += directDmg
+                    }
+
+                    var chipDot = breakdown['dot'] * expectedCritMult
+                    result.dotDamageQueued += chipDot
+                    result.erosionDamage += chipDot * 0.10
+                    if (chipDot > 0) {
+                        result.poisonSourcesUsed++
+                        if (mapContainsKey(this._arsenal.playerEquippedChips, action.chip)) {
+                            var pChipItem = this._arsenal.playerEquippedChips[action.chip]
+                            if (mapContainsKey(pChipItem._effects, EFFECT_POISON)) {
+                                result.poisonTurnsQueued += pChipItem._effects[EFFECT_POISON]._effectDuration
+                            }
+                        }
+                    }
+
+                    var hpDeficit = simEnemyMaxHP - simEnemyCurrHP
+                    var uncappedNova = breakdown['nova']
+                    var cappedNova = uncappedNova
+                    if (hpDeficit < uncappedNova) {
+                        cappedNova = hpDeficit
+                    }
+                    var currentNova = result.novaDamageQueued != null ? result.novaDamageQueued : 0
+                    result.novaDamageQueued = currentNova + cappedNova
+
+                    simEnemyMaxHP -= cappedNova
+                    if (simEnemyMaxHP < simEnemyCurrHP) simEnemyMaxHP = simEnemyCurrHP
+
+                    result.tpSpent += chipCost
+                    simTP -= chipCost
+
+                    if (action.type == Action.ACTION_DEBUFF) {
+                        push(result.debuffsApplied, action.chip)
+                    }
+
+                    var chipItemObj = null
+                    if (mapContainsKey(this._arsenal.playerEquippedChips, action.chip)) {
+                        chipItemObj = this._arsenal.playerEquippedChips[action.chip]
+                    } else if (mapContainsKey(this._arsenal.chipsList, action.chip)) {
+                        chipItemObj = this._arsenal.chipsList[action.chip]
+                    }
+                    if (chipItemObj != null) {
+                        for (var eff in mapKeys(chipItemObj._effects)) {
+                            var effInfo = chipItemObj._effects[eff]
+                            var effAvg = (effInfo._minEffectAmount + effInfo._maxEffectAmount) / 2
+                            var effScaled = effAvg * (1 + simMagic / 100.0) * effInfo._effectDuration
+                            if (eff == EFFECT_SHACKLE_TP || eff == EFFECT_SHACKLE_MP) {
+                                result.denialApplied += effScaled
+                            } else if (eff == EFFECT_SHACKLE_STRENGTH) {
+                                result.strShackled += effScaled
+                            } else if (eff == EFFECT_SHACKLE_MAGIC) {
+                                result.magShackled += effScaled
+                            }
+                        }
+                    }
+
+                    result.actionsExecuted++
+                } else if (action.weaponId != -1) {
+
+                    var weaponObj = null
+                    if (mapContainsKey(this._arsenal.playerEquippedWeapons, action.weaponId)) {
+                        weaponObj = this._arsenal.playerEquippedWeapons[action.weaponId]
+                    }
+
+                    if (weaponObj != null) {
+
+                        var currentUses = simWeaponUses[action.weaponId]
+                        if (currentUses == null) currentUses = 0
+
+                        if (currentUses >= weaponObj._maxUse) {
+                            continue
+                        }
+
+                        var swapCost = (simWeapon != action.weaponId) ? 1 : 0
+                        var weaponCost = weaponObj._cost
+                        var weaponDmg = (this._target != null) ? this._arsenal.getNetDamageAgainstTarget(simStrength, simMagic, simWisdom, simScience, action.weaponId, this._target) : 0
+                        var weaponBreakdown = this._arsenal.getDamageBreakdown(simStrength, simMagic, simWisdom, simScience, action.weaponId)
+
+                        var rawDirect = weaponBreakdown['direct'] * expectedCritMult
+                        var directDmg = rawDirect * (1 - simEnemyRelShield) - simEnemyAbsShield
+                        if (directDmg < 0) directDmg = 0
+                        result.damageDealt += directDmg
+                        result.erosionDamage += directDmg * 0.05
+                        simEnemyCurrHP -= directDmg
+                        if (simEnemyCurrHP < 0) simEnemyCurrHP = 0
+
+                        var lifesteal = (directDmg * simWisdom) / 1000
+                        result.lifestealHealing += lifesteal
+                        simPlayerHP += lifesteal
+
+                        if (action.weaponId == WEAPON_ENHANCED_LIGHTNINGER) {
+                            result.lifestealHealing += 100
+                        }
+
+                        if (action.weaponId == WEAPON_UNSTABLE_DESTROYER) {
+                            var agi = simAgility
+                            var critChance = min(0.5, agi / 2000.0)
+                            var avgCritHeal = 100
+                            result.lifestealHealing += critChance * avgCritHeal
+                        }
+
+                        if (targetIsBulb) {
+                            result.bulbDamage += directDmg
+                        } else {
+                            result.leekDamage += directDmg
+                        }
+
+                        var weaponDot = weaponBreakdown['dot'] * expectedCritMult
+                        result.dotDamageQueued += weaponDot
+                        result.erosionDamage += weaponDot * 0.10
+                        if (weaponDot > 0) {
+                            result.poisonSourcesUsed++
+                            if (mapContainsKey(weaponObj._effects, EFFECT_POISON)) {
+                                result.poisonTurnsQueued += weaponObj._effects[EFFECT_POISON]._effectDuration
+                            }
+                        }
+
+                        var hpDeficit = simEnemyMaxHP - simEnemyCurrHP
+                        var uncappedNova = weaponBreakdown['nova']
+                        var cappedNova = uncappedNova
+                        if (hpDeficit < uncappedNova) {
+                            cappedNova = hpDeficit
+                        }
+                        var currentNova = result.novaDamageQueued != null ? result.novaDamageQueued : 0
+                        result.novaDamageQueued = currentNova + cappedNova
+
+                        simEnemyMaxHP -= cappedNova
+                        if (simEnemyMaxHP < simEnemyCurrHP) simEnemyMaxHP = simEnemyCurrHP
+
+                        result.tpSpent += swapCost + weaponCost
+                        simTP -= swapCost + weaponCost
+                        simWeapon = action.weaponId
+                        simWeaponUses[action.weaponId] = currentUses + 1
+
+                        if (action.weaponId == WEAPON_NEUTRINO) {
+                            result.vulnerabilityApplied += 8
+                            simEnemyRelShield -= 0.08
+                        } else if (action.weaponId == WEAPON_HEAVY_SWORD) {
+                            result.vulnerabilityApplied += 60
+                            simEnemyRelShield -= 0.60
+                        }
+
+                        for (var wEff in mapKeys(weaponObj._effects)) {
+                            var wEffInfo = weaponObj._effects[wEff]
+                            var wEffAvg = (wEffInfo._minEffectAmount + wEffInfo._maxEffectAmount) / 2
+                            var wEffScaled = wEffAvg * (1 + simMagic / 100.0) * wEffInfo._effectDuration
+                            if (wEff == EFFECT_SHACKLE_TP || wEff == EFFECT_SHACKLE_MP) {
+                                result.denialApplied += wEffScaled
+                            } else if (wEff == EFFECT_SHACKLE_STRENGTH) {
+                                result.strShackled += wEffScaled
+                            } else if (wEff == EFFECT_SHACKLE_MAGIC) {
+                                result.magShackled += wEffScaled
+                            }
+                        }
+
+                        result.actionsExecuted++
+                    }
+                }
+            }
+            else if (action.type == Action.ACTION_BUFF) {
+
+                var buffCost = getChipCost(action.chip)
+                result.tpSpent += buffCost
+                simTP -= buffCost
+                push(result.buffsApplied, action.chip)
+
+                if (action.chip == CHIP_HELMET || action.chip == CHIP_SHIELD) {
+                    var shieldAmount = this.estimateShieldAmount(action.chip, simWisdom)
+                    result.shieldsGained += shieldAmount
+                } else if (action.chip == CHIP_WALL || action.chip == CHIP_FORTRESS) {
+                    var relShieldPercent = this.estimateRelativeShield(action.chip)
+                    result.relativeShieldGained += relShieldPercent
+                } else if (action.chip == CHIP_PROTEIN) {
+                    result.relativeShieldGained += this.estimateRelativeShield(action.chip)
+                } else if (action.chip == CHIP_LEATHER_BOOTS) {
+                    simMP += 2
+                } else if (action.chip == CHIP_SEVEN_LEAGUE_BOOTS) {
+                    var mpBuff = floor(0.45 * (1 + simScience / 100))
+                    simMP += mpBuff
+                } else if (action.chip == CHIP_RAGE) {
+                    var tpBuff = floor(0.55 * (1 + simScience / 100))
+                    simTP += tpBuff
+                } else if (action.chip == CHIP_REGENERATION || action.chip == CHIP_REMISSION || action.chip == CHIP_CURE || action.chip == CHIP_DRIP) {
+                    result.hpGained += this.estimateHealing(action.chip, simWisdom)
+                } else if (action.chip == CHIP_STEROID || action.chip == CHIP_DOPING) {
+
+                    simStrength += this.estimateStrengthBuff(action.chip)
+                } else if (action.chip == CHIP_PRISM) {
+                    simStrength += 60
+                    simMagic += 60
+                    simWisdom += 60
+                    simScience += 60
+                    simAgility += 60
+                    expectedCritMult = 1.0 + min(0.5, simAgility / 2000.0) * 0.3
+                } else if (action.chip == CHIP_WIZARDRY) {
+                    simMagic += 160
+                } else if (action.chip == CHIP_KNOWLEDGE) {
+                    simWisdom += 260
+                } else if (action.chip == CHIP_ELEVATION) {
+                    result.hpGained += 80
+                } else if (action.chip == CHIP_WARM_UP) {
+                    simAgility += 180
+                    expectedCritMult = 1.0 + min(0.5, simAgility / 2000.0) * 0.3
+                } else if (action.chip == CHIP_ADRENALINE) {
+
+                    simTP += 5
+                } else if (action.chip == CHIP_ANTIDOTE) {
+                    var antidoteHeal = 30 * (1 + simWisdom / 500.0)
+                    result.hpGained += antidoteHeal
+                } else if (action.chip == CHIP_MANUMISSION) {
+                    simTP += 2
+                }
+
+                result.actionsExecuted++
+            }
+            else if (action.type == Action.ACTION_WEAPON_SWAP) {
+                if (mapContainsKey(this._arsenal.playerEquippedWeapons, action.weaponId)) {
+                    var swapCost = 1
+                    result.tpSpent += swapCost
+                    simTP -= swapCost
+                    simWeapon = action.weaponId
+                    result.actionsExecuted++
+                }
+            }
+            else if (action.type == Action.MOVEMENT_APPROACH || action.type == Action.MOVEMENT_OFFENSIVE ||
+                     action.type == Action.MOVEMENT_DEFENSIVE || action.type == Action.MOVEMENT_OTKO ||
+                     action.type == Action.MOVEMENT_DOT_OFFENSIVE || action.type == Action.MOVEMENT_DEBUFF ||
+                     action.type == Action.MOVEMENT_HNS || action.type == Action.MOVEMENT_PAB) {
+
+                var pathLength = getCachedPathLength(simPos, action.targetCell)
+                if (pathLength != null && pathLength <= simMP) {
+                    result.mpSpent += pathLength
+                    simMP -= pathLength
+                    simPos = action.targetCell
+                    result.finalPosition = simPos
+                    result.actionsExecuted++
+                }
+            }
+            else if (action.type == Action.MOVEMENT_FLEE) {
+
+                var estimatedMP = min(simMP, 3)  
+                result.mpSpent += estimatedMP
+                simMP -= estimatedMP
+                result.actionsExecuted++
+            }
+            else if (action.type == Action.ACTION_TELEPORT) {
+                var teleChip = action.chip != null && action.chip != -1 ? action.chip : CHIP_TELEPORTATION
+                var tpCost = getChipCost(teleChip)
+                var maxRange = getTeleportMaxRange(teleChip)
+                var dist = getCellDistance(simPos, action.targetCell)
+                if (dist != null && dist >= 1 && dist <= maxRange && simTP >= tpCost) {
+                    result.tpSpent += tpCost
+                    simTP -= tpCost
+                    simPos = action.targetCell
+                    result.finalPosition = simPos
+                    result.actionsExecuted++
+                }
+            }
+            else if (action.type == Action.ACTION_SUMMON) {
+                if (action.chip != -1) {
+                    var summonCost = getChipCost(action.chip)
+                    result.tpSpent += summonCost
+                    simTP -= summonCost
+                    result.actionsExecuted++
+                }
+            }
+            else if (action.type == Action.ACTION_CHECKPOINT) {
+
+                result.actionsExecuted++
+
+            }
+        }
+
+        if (targetIsBulb && result.bulbDamage > 0) {
+            result.bulbsHit = 1
+
+            var totalDamageToTarget = result.damageDealt + result.dotDamageQueued + (result.novaDamageQueued != null ? result.novaDamageQueued : 0)
+            if (totalDamageToTarget >= simEnemyCurrHP) {
+                result.bulbKillsSecured = 1
+            }
+        }
+
+        if (_isBossFight && _bossPhase == "PUZZLE" && _bossTargetEID != null) {
+            var simCX = _myCrystalX
+            var simCY = _myCrystalY
+            var gX = _graalX
+            var gY = _graalY
+            var initialDist = getDistanceToAxis(null)
+
+            for (var action in actions) {
+                if (action.chip == CHIP_GRAPPLE && action.targetCell == _myCrystalCell) {
+                    var pullDir = computePullDirection(simCX, simCY, simPos)
+                    simCX += pullDir[0]
+                    simCY += pullDir[1]
+                }
+                if (action.chip == CHIP_BOXING_GLOVE && action.targetCell == _myCrystalCell) {
+                    var pushDir = computePushDirection(simCX, simCY, simPos)
+                    simCX += pushDir[0]
+                    simCY += pushDir[1]
+                }
+            }
+
+            var finalDist = computeAxisDist(simCX, simCY, gX, gY, _myCrystalGoalAxis)
+            result.crystalAxisReduction = initialDist - finalDist
+            result.crystalSolved = checkOnAxis(simCX, simCY, gX, gY, _myCrystalGoalAxis)
+
+            result.damageDealt = 0
+            result.dotDamageQueued = 0
+            result.novaDamageQueued = 0
+        }
+
+        return result
+    }
+
+    canExecuteAction(action, simPos, simTP, simMP, simWeapon) {
+        if (action.type == Action.ACTION_DIRECT || action.type == Action.ACTION_DOT ||
+            action.type == Action.ACTION_DEBUFF || action.type == Action.ACTION_BUFF) {
+            if (action.chip != -1) {
+                var cost = getChipCost(action.chip)
+                if (simTP < cost) return false
+                if (mapContainsKey(this._arsenal.playerEquippedChips, action.chip)) {
+                    var chipObj = this._arsenal.playerEquippedChips[action.chip]
+                    var tCell = action.targetCell
+                    if (tCell == -1 && action.targetEntity != null && action.targetEntity != -1) {
+                        tCell = action.targetEntity._cellPos
+                    }
+                    if (tCell != -1 && tCell != simPos) {
+                        var dist = getCellDistance(simPos, tCell)
+                        if (dist == null || dist < chipObj._minRange || dist > chipObj._maxRange) {
+                            return false
+                        }
+                    }
+                }
+                return true
+            } else if (action.weaponId != -1) {
+                    var weaponCost = null
+                    var weaponObj = null
+                    if (mapContainsKey(this._arsenal.playerEquippedWeapons, action.weaponId)) {
+                        weaponObj = this._arsenal.playerEquippedWeapons[action.weaponId]
+                        weaponCost = weaponObj._cost
+                    }
+                if (weaponCost == null) return false
+                var swapCost = (simWeapon != action.weaponId) ? 1 : 0
+                if (simTP < swapCost + weaponCost) return false
+                var tCell = action.targetCell
+                if (tCell == -1 && action.targetEntity != null && action.targetEntity != -1) {
+                    tCell = action.targetEntity._cellPos
+                }
+                if (tCell != -1 && tCell != simPos) {
+                    var dist = getCellDistance(simPos, tCell)
+                    if (dist == null || dist < weaponObj._minRange || dist > weaponObj._maxRange) {
+                        return false
+                    }
+                    if (!lineOfSight(simPos, tCell)) {
+                        return false
+                    }
+                }
+                return true
+            }
+        }
+        else if (action.type == Action.ACTION_WEAPON_SWAP) {
+            if (!mapContainsKey(this._arsenal.playerEquippedWeapons, action.weaponId)) {
+                return false
+            }
+            return simTP >= 1
+        }
+        else if (action.type == Action.MOVEMENT_APPROACH || action.type == Action.MOVEMENT_OFFENSIVE ||
+                 action.type == Action.MOVEMENT_DEFENSIVE || action.type == Action.MOVEMENT_OTKO ||
+                 action.type == Action.MOVEMENT_DOT_OFFENSIVE || action.type == Action.MOVEMENT_DEBUFF ||
+                 action.type == Action.MOVEMENT_HNS || action.type == Action.MOVEMENT_PAB) {
+            var pathLength = getCachedPathLength(simPos, action.targetCell)
+            return pathLength != null && pathLength <= simMP
+        }
+        else if (action.type == Action.MOVEMENT_FLEE) {
+            return simMP >= 1  
+        }
+        else if (action.type == Action.ACTION_SUMMON) {
+            if (action.chip == -1) return false
+            var summonCost = getChipCost(action.chip)
+            return simTP >= summonCost
+        }
+        else if (action.type == Action.ACTION_TELEPORT) {
+            var teleChip = action.chip != null && action.chip != -1 ? action.chip : CHIP_TELEPORTATION
+            var tpCost = getChipCost(teleChip)
+            return simTP >= tpCost
+        }
+
+        return true
+    }
+
+    estimateShieldAmount(chip, wisdom) {
+        if (!isAbsoluteShieldChip(chip)) return 0
+        if (chip == CHIP_HELMET) return 50 + wisdom * 0.5
+        if (chip == CHIP_SHIELD) return 100 + wisdom * 1.0
+        return 0
+    }
+
+    estimateRelativeShield(chip) {
+        if (!isRelativeShieldChip(chip)) return 0
+
+        var resistance = this._player._resistance
+        var scalingMultiplier = 1 + (resistance / 100.0)
+
+        if (chip == CHIP_WALL) {
+            var basePercent = 4.5
+            return basePercent * scalingMultiplier
+        }
+        if (chip == CHIP_FORTRESS) {
+            var basePercent = 7.5
+            return basePercent * scalingMultiplier
+        }
+        if (chip == CHIP_PROTEIN) {
+            return 10
+        }
+        return 0
+    }
+
+    estimateHealing(chip, wisdom) {
+        if (isHealingChip(chip)) {
+            return arsenal.getExpectedHeal(chip, wisdom)
+        }
+        return 0
+    }
+
+    estimateStrengthBuff(chip) {
+        if (!isOffensiveBuff(chip)) return 0
+        if (chip == CHIP_STEROID) return 100
+        if (chip == CHIP_DOPING) return 50
+        return 0
+    }
+}

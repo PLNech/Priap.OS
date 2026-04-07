@@ -1,0 +1,544 @@
+/******************************************************************************
+ * LeekRound
+ * information d un leek, qui change a chaque tour
+ ******************************************************************************/
+class LeekRound extends Objects {
+  
+  public static integer STATE_UNKNOWN  = 0;
+
+  // move state
+  public static integer STATE_NO_MOVE  = 0b00001; // le poireau n a pas bouger entre les 2 tour
+  public static integer STATE_APPROACH = 0b00010; // le poireau c est approche de nous
+  public static integer STATE_ESCAPE   = 0b00100; // le poireau c est eloigne de nous
+  public static integer STATE_CENTER   = 0b01000; // le poireau c est approche du centre
+  public static integer STATE_DECENTER = 0b10000; // le poireau c est eloigne du centre
+  
+  // combat state
+  public static integer STATE_HEAL     = 0b000001 // le poireau c est soigne
+  public static integer STATE_PROTECT  = 0b000010 // le poireau se protege
+  public static integer STATE_BUFF     = 0b000100 // le poireau a un buff
+  public static integer STATE_DEBUFF   = 0b001000 // le poireau a un debuff
+  public static integer STATE_ATTAKED  = 0b010000 // le poireau a ete attaqué par un autre poireau
+  public static integer STATE_DAMAGED  = 0b100000 // le poireau a des domage sur la duree (poison)
+
+  public Leek leek;
+  public CellRound currentCell;
+  public integer currentCellId;
+  
+  public integer minTP;
+  public integer maxTP;
+  public integer midTP;
+  public integer maxTotalLife;
+  public integer minTotalLife;
+  public integer midTotalLife;
+  public integer maxLife;
+  public integer midLife;
+  public integer minLife;
+  public integer minResistance;
+  public integer maxResistance;
+  public integer midResistance;
+  public integer minAgility;
+  public integer maxAgility;
+  public integer midAgility;
+  public integer minStrength;
+  public integer maxStrength;
+  public integer midStrength;
+  public integer minMagic;
+  public integer maxMagic;
+  public integer midMagic;
+  public integer minScience;
+  public integer maxScience;
+  public integer midScience;
+  public integer minWisdom;
+  public integer maxWisdom;
+  public integer midWisdom;
+  public integer minAbsoluteShield;
+  public integer maxAbsoluteShield;
+  public integer midAbsoluteShield;
+  public integer minRelativeShield;
+  public integer maxRelativeShield;
+  public integer midRelativeShield;
+  public integer minDmgReturn;
+  public integer maxDmgReturn;
+  public integer midDmgReturn;
+  public integer minMP;
+  public integer maxMP;
+  public integer midMP;
+  public integer minPower;
+  public integer maxPower;
+  public integer midPower;
+
+  public integer maxInjury;
+  public integer midInjury;
+  public integer minInjury;
+  
+  public integer maxAOERange;
+  public ToolRound|null weapon;
+  public integer|null weaponId;
+  public Round roundObj;
+
+  public Map<string,Map<integer,Array<Array<integer|boolean>>>> appliedEffectCategories = [:];
+  
+  public Map<integer, ToolRound> toolsRound = [:];
+  public Array<WeaponRound> weaponsRound = [];
+  public Array<ChipRound|null> chipsRound = [];
+  
+  public Map<string,Array<ToolRound>> toolCategories = [:];
+
+  public Array<Action> actions = [];
+
+  public integer moveState = LeekRound.STATE_UNKNOWN; // qu a fait l'enemi pendant son tour en terme de deplacement ou comment ai je bouger au tour precedant
+  public integer combatState = LeekRound.STATE_UNKNOWN; // qu a fait l'enemi pendant son tour en terme de combat ou ai je ete blaisse ou affecte pendant le tour de l ennemi
+  
+  /**
+   * constructor
+   * @param roundObj : le round auquel appartient le leekRound
+   * @param leek :
+   *   - si c est un leek : cree le leekround correspondant
+   *   - si c est un leekround : clone le leekround
+   **/
+  constructor(Round roundObj, Leek|LeekRound leek) {
+  
+    id = leek.id;
+    this.roundObj = roundObj;
+
+    if(leek.class.super.name == "LeekRound") {
+      
+      //
+      // clonage
+      //
+      for(string category in CATEGORIES) {
+        toolCategories[category] = [];
+        appliedEffectCategories[category] = [:];
+      }
+
+      this.leek = (leek as LeekRound).leek;
+      
+      minTP = (leek as LeekRound).minTP
+      maxTP = (leek as LeekRound).maxTP
+      midTP = (leek as LeekRound).midTP;
+      maxTotalLife = (leek as LeekRound).maxTotalLife
+      minTotalLife = (leek as LeekRound).minTotalLife
+      midTotalLife = (leek as LeekRound).midTotalLife
+      maxLife = (leek as LeekRound).maxLife
+      midLife = (leek as LeekRound).midLife
+      minLife = (leek as LeekRound).minLife
+      minResistance = (leek as LeekRound).minResistance
+      maxResistance = (leek as LeekRound).maxResistance
+      midResistance = (leek as LeekRound).midResistance
+      minAgility = (leek as LeekRound).minAgility
+      maxAgility = (leek as LeekRound).maxAgility
+      midAgility = (leek as LeekRound).midAgility
+      minStrength = (leek as LeekRound).minStrength
+      maxStrength = (leek as LeekRound).maxStrength
+      midStrength = (leek as LeekRound).midStrength
+      minMagic = (leek as LeekRound).minMagic
+      maxMagic = (leek as LeekRound).maxMagic
+      midMagic = (leek as LeekRound).midMagic
+      minScience = (leek as LeekRound).minScience
+      maxScience = (leek as LeekRound).maxScience
+      midScience = (leek as LeekRound).midScience
+      minWisdom = (leek as LeekRound).minWisdom
+      maxWisdom = (leek as LeekRound).maxWisdom
+      midWisdom = (leek as LeekRound).midWisdom
+      minAbsoluteShield = (leek as LeekRound).minAbsoluteShield
+      maxAbsoluteShield = (leek as LeekRound).maxAbsoluteShield
+      midAbsoluteShield = (leek as LeekRound).midAbsoluteShield
+      minRelativeShield = (leek as LeekRound).minRelativeShield
+      maxRelativeShield = (leek as LeekRound).maxRelativeShield
+      midRelativeShield = (leek as LeekRound).midRelativeShield
+      minDmgReturn = (leek as LeekRound).minDmgReturn
+      maxDmgReturn = (leek as LeekRound).maxDmgReturn
+      midDmgReturn = (leek as LeekRound).midDmgReturn
+      minMP = (leek as LeekRound).minMP
+      maxMP = (leek as LeekRound).maxMP
+      midMP = (leek as LeekRound).midMP
+      minPower = (leek as LeekRound).minPower
+      maxPower = (leek as LeekRound).maxPower
+      midPower = (leek as LeekRound).midPower
+      maxInjury = (leek as LeekRound).maxInjury
+      midInjury = (leek as LeekRound).midInjury
+      minInjury = (leek as LeekRound).minInjury
+      
+      maxAOERange = leek.maxAOERange
+      weaponId = (leek as LeekRound).weaponId
+      
+      currentCellId = (leek as LeekRound).currentCellId
+      currentCell = roundObj.cellsRound[currentCellId];
+      currentCell.leekOnCell = this;
+
+      moveState = (leek as LeekRound).moveState;
+      combatState = (leek as LeekRound).combatState;
+      
+      appliedEffectCategories = clone((leek as LeekRound).appliedEffectCategories,4) as Map<string,Map<integer,Array<Array<integer|boolean>>>>
+      
+      for(ChipRound toolRound in (leek as LeekRound).chipsRound) {
+        if(getCooldown(toolRound.id) == 0) {
+          ChipRound c = new ChipRound(toolRound, this);
+          categoriseTool(c);
+          push(chipsRound, c);
+        }
+      }
+      for(WeaponRound toolRound in (leek as LeekRound).weaponsRound) {
+        WeaponRound w = new WeaponRound(toolRound, this);
+        categoriseTool(w);
+        push(weaponsRound, w);
+      }
+      if(weaponId != null) weapon = toolsRound[weaponId!];
+
+      for(Action a in (leek as LeekRound).actions) {
+        push(actions, a);
+      }
+        
+    } else {
+      
+      //
+      // cas normal
+      //
+      this.leek = leek as Leek;
+
+      init()
+      
+    }
+    
+  }
+
+  /**
+   * update
+   * mets a jour le leekround par rapport aux actions qui viennent d etre executer :
+   * - met a jour la liste des chip dispo
+   * - met a jour les valeurs caracteristique du leek
+   * - met a jour le leekOnCell
+   * - met a jour le setWeapon
+   * - clear les actions
+   * ne mets pas a jour le moveState et combatState
+   **/
+  public void update() {
+    
+    currentCell.leekOnCell = null;
+    toolsRound = [:];
+    weaponsRound = [];
+    chipsRound = [];
+    actions = [];
+   
+    init();
+
+  }
+  
+  /**
+   * init
+   **/
+  private void init() {
+    
+    maxAOERange = 0;
+    for(string category in CATEGORIES) {
+      toolCategories[category] = [];
+      appliedEffectCategories[category] = [:];
+    }
+
+    minTP = maxTP = midTP = getTP(id)!;
+    maxTotalLife = minTotalLife = midTotalLife = getTotalLife(id)!;
+    maxLife = midLife = minLife = getLife(id)!;
+    minResistance = maxResistance = midResistance = getResistance(id)!;
+    minAgility = maxAgility = midAgility = getAgility(id)!;
+    minStrength = maxStrength = midStrength = getStrength(id)!;
+    minMagic = maxMagic = midMagic = getMagic(id)!;
+    minScience = maxScience = midScience = getScience(id)!;
+    minWisdom = maxWisdom = midWisdom = getWisdom(id)!;
+    minAbsoluteShield = maxAbsoluteShield = midAbsoluteShield = getAbsoluteShield(id)!;
+    minRelativeShield = maxRelativeShield = midRelativeShield = getRelativeShield(id)!;
+    minDmgReturn = maxDmgReturn = midDmgReturn = getDamageReturn(id)!;
+    minMP = maxMP = midMP = getMP(id)!;
+    minPower = maxPower = midPower = getPower(id)!;
+
+    maxInjury = midInjury = minInjury = 0;
+
+    currentCellId = getCell(id)!;
+    currentCell = roundObj.cellsRound[currentCellId];
+    currentCell.leekOnCell = this;
+
+    Array<Array<integer | boolean>> effects = getEffects(id)!;
+    for(Array<integer | boolean> effectArray in effects) {
+      integer type = effectArray[0] as integer;
+      string category = getEffectsInfo(type)[1] as string;
+      if(mapContainsKey(appliedEffectCategories[category]!,type)) {
+        push(appliedEffectCategories[category]![type]!, effectArray);
+      } else {
+        appliedEffectCategories[category]![type] = [effectArray];
+      }
+    }
+    
+    for(Chip tool in leek.chips) {
+      if(getCooldown(tool.id) == 0) {
+        ChipRound c = new ChipRound(tool, this);
+        categoriseTool(c);
+        push(chipsRound, c);
+      }
+    }
+    for(Weapon tool in leek.weapons) {
+      WeaponRound w = new WeaponRound(tool, this);
+      categoriseTool(w);
+      push(weaponsRound, w);
+    }
+
+    if(weaponId = getWeapon(id)) weapon = toolsRound[weaponId!];
+    else weapon = null;
+
+  }
+
+  /**
+   * categoriseTool
+   * @param toolRound le toolround a ranger dans les categories
+   **/
+  private void categoriseTool(ToolRound toolRound) {
+    toolsRound[toolRound.id] = toolRound;
+    Tool tool = toolRound.tool;
+    for(string category in tool.categories) push(toolCategories[category]!, toolRound);
+    (tool.categories[CATEGORY_DAMAGE]) and
+      (tool.maxAOERange > maxAOERange) and (maxAOERange = tool.maxAOERange);
+  }
+
+  /**
+   * route
+   * parcour tous les chemins possible en partant de la position courante avec remainingMP.
+   * @param remaingMP : nombre de MP qui peuvent etre utilise
+   * @return Map[cellId] = remainingMP
+   **/
+  public Map<integer,integer> route(integer remainingMP) {
+    Cell voisin;
+    Array<CellRound> referenceBoard = roundObj.cellsRound;
+    Map<integer,Array<Cell>> reachableCells = [remainingMP:[currentCell.cell]] //reachableCells[remainingMP][] = cell
+    Map<integer,integer> flatReachableCells = [currentCellId:remainingMP];
+    for(integer i = remainingMP; i > 0; i--) {
+      integer futurMP = i-1
+      reachableCells[futurMP] = [];
+      for(Cell cell in reachableCells[i]!) {
+        for(string direction in LINE_DIRECTION) {
+          if(!(voisin = cell[direction] as Cell) || voisin.isWall) continue
+          integer voisinId = voisin.id;
+          LeekRound|null leekvoisin = referenceBoard[voisinId].leekOnCell;
+          if(!mapContainsKey(flatReachableCells, voisinId) && (!leekvoisin)) { 
+            push(reachableCells[futurMP]!, voisin);
+            flatReachableCells[voisinId] = futurMP;
+          }
+        }
+      }
+    }
+    return flatReachableCells
+  }
+
+  /**
+   * ajoute une action de type ToolAction et la simule dans le round
+   * @param toolId l id du tool a utiliser
+   * @param targetCellId l id de la cell cible du tool
+   * @return les effets simuler de l action du tool
+   **/
+  public void addToolAction(integer toolId, integer targetCellId) {
+    push(actions, new ToolAction(toolId, targetCellId));
+    toolsRound[toolId]!.simulateUseOnCell(targetCellId);
+  }
+  
+  /**
+   * addMoveAction
+   * @param cellId l id de la cell de destination
+   * @param usedMP le nombre de MP utiliser pour aller a cellId, attention aucune verification n est faite
+   **/
+  public void addMoveAction(integer cellId, integer usedMP) {
+    push(actions, new MoveAction(cellId));
+    minMP -= usedMP;
+    maxMP -= usedMP;
+    midMP -= usedMP;
+    currentCell.leekOnCell = null;
+    currentCellId = cellId;
+    currentCell = roundObj.cellsRound[cellId];
+    currentCell.leekOnCell = this;
+  }
+
+  /**
+   * addSetWeaponAction
+   * ajoute une action setWeapon au leek et la simule
+   * @param weaponId l id du weapon a set
+   **/
+  public void addSetWeaponAction(integer weaponId) {
+    push(actions, new SetWeaponAction(weaponId));
+    minTP -= SET_WEAPON_COST;
+    maxTP -= SET_WEAPON_COST;
+    midTP -= SET_WEAPON_COST;
+    this.weaponId = weaponId;
+    this.weapon = toolsRound[weaponId];
+  }
+
+}
+
+/******************************************************************************
+ * AllieRound
+ ******************************************************************************/
+class AllieRound extends LeekRound {
+  
+  /**
+   * constructor
+   * @param roundObj : le round auquel appartient le leekRound
+   * @param leek :
+   *   - si c est un leek : cree le AllieRound correspondant
+   *   - si c est un AllieRound : clone le AllieRound
+   **/
+  public constructor(Round roundObj, Leek|AllieRound leek) {
+    super(roundObj, leek);
+  }
+  
+}
+
+/******************************************************************************
+ * EnemyRound
+ ******************************************************************************/
+class EnemyRound extends LeekRound {
+
+  /**
+   * constructor
+   * @param roundObj : le round auquel appartient le leekRound
+   * @param leek :
+   *   - si c est un leek : cree le EnemyRound correspondant
+   *   - si c est un EnemyRound : clone le EnemyRound
+   * @param myInter : le tableau d intercell qui correspond a la currentCell de Me
+   * @param previousEnemyRound : le enemyRound precedant si il existe
+   **/
+  public constructor(Round roundObj, EnemyRound|Leek leek, Array<InterCellInfo> myInter = null, 
+                     EnemyRound|null previousEnemyRound = null) {
+    super(roundObj, leek);
+    if(leek.class.name == "EnemyRound") {
+      // clonage
+    } else if(previousEnemyRound != null) {
+
+      //
+      // met a jour le comportement de l enemy a partir de son etat precedant
+      //
+      if(previousEnemyRound!.currentCellId == currentCellId) {
+        moveState = LeekRound.STATE_NO_MOVE;
+      } else {
+        integer d1 = myInter[currentCellId].range;
+        integer d2 = myInter[previousEnemyRound!.currentCellId].range;
+        if(d1 > d2) {
+          moveState = LeekRound.STATE_ESCAPE;
+        } else if(d1 < d2) {
+          moveState = LeekRound.STATE_APPROACH;
+        }
+        d1 = Board.centerCell.interCellInfo[currentCellId].range;
+        d2 = Board.centerCell.interCellInfo[previousEnemyRound!.currentCellId].range;
+        if(d1 > d2) {
+          moveState += LeekRound.STATE_DECENTER;
+        } else if(d1 < d2) {
+          moveState += LeekRound.STATE_CENTER;
+        }
+      }
+
+      if(previousEnemyRound!.midLife < midLife) combatState += STATE_HEAL;
+      else if(previousEnemyRound!.midLife > midLife) combatState += STATE_ATTAKED;
+      if(!mapIsEmpty(appliedEffectCategories[CATEGORY_PROTECTION]!)) combatState += STATE_PROTECT;
+      if(!mapIsEmpty(appliedEffectCategories[CATEGORY_BUFF]!)) combatState += STATE_BUFF;
+      if(!mapIsEmpty(appliedEffectCategories[CATEGORY_DAMAGE]!)) combatState += STATE_DAMAGED;
+      if(!mapIsEmpty(appliedEffectCategories[CATEGORY_DEBUFF]!) || 
+         !mapIsEmpty(appliedEffectCategories[CATEGORY_DEBUFF_DEFAULT]!)) combatState += STATE_DEBUFF;
+    }
+  }
+
+}
+
+/******************************************************************************
+ * MeRound
+ ******************************************************************************/
+class MeRound extends LeekRound {
+  
+  public integer relativeCenterCellId = -1;
+  public Array<integer>|null pathToCenter;
+
+  /**
+   * constructor
+   * @param roundObj : le round auquel appartient le leekRound
+   * @param clone : clone le MeRound
+   **/
+  public constructor(Round roundObj, MeRound|Leek leek, MeRound|null previousMeRound = null) {
+    super(roundObj, leek)
+    if(leek.class.name == "MeRound") {
+      relativeCenterCellId = (leek as MeRound).relativeCenterCellId
+      pathToCenter = (leek as MeRound).pathToCenter
+    } else if(previousMeRound != null) {
+      if(previousMeRound!.midLife < midLife) combatState += STATE_HEAL
+      else if(previousMeRound!.midLife > midLife) combatState += STATE_ATTAKED
+      if(!mapIsEmpty(appliedEffectCategories[CATEGORY_PROTECTION]!)) combatState += STATE_PROTECT
+      if(!mapIsEmpty(appliedEffectCategories[CATEGORY_BUFF]!)) combatState += STATE_BUFF
+      if(!mapIsEmpty(appliedEffectCategories[CATEGORY_DAMAGE]!)) combatState += STATE_DAMAGED
+      if(!mapIsEmpty(appliedEffectCategories[CATEGORY_DEBUFF]!) || 
+         !mapIsEmpty(appliedEffectCategories[CATEGORY_DEBUFF_DEFAULT]!)) combatState += STATE_DEBUFF
+      
+      integer turn = roundObj.id
+      MeRound previousMeRoundStart = Board.previousRounds[turn-2].meRound // [turn] : n existe pas c est le tour actuel, 
+                                                                          // [turn-1] = previousMeRound (cad: la fin du tour precedent)
+                                                                          // [turn-2] = le debut du tour precedent
+                                                                          // si turn < 2 on ne passe pas par ici
+      if(previousMeRoundStart.currentCellId == currentCellId) {
+        moveState = LeekRound.STATE_NO_MOVE
+      } else {
+        integer d1 = Board.centerCell.interCellInfo[currentCellId].range
+        integer d2 = Board.centerCell.interCellInfo[previousMeRoundStart.currentCellId].range
+        if(d1 > d2) {
+          moveState = LeekRound.STATE_DECENTER
+        } else if(d1 < d2) {
+          moveState = LeekRound.STATE_CENTER
+        }
+      }
+    }
+  }
+  
+  /**
+   * getRelativeCenter
+   * calcul le chemin le plus court pour aller au centre de la map
+   * peuple relativeCenterCellId et pathToCenter
+   * @return la position du centre relatif (la case ateignable la plus au centre)
+   **/
+  public integer getRelativeCenter() {
+    if(relativeCenterCellId > -1) return relativeCenterCellId;
+    (!Board.centerCell.isDeadEnd) and (pathToCenter = getPath(currentCellId, CENTER_CELL_ID));
+    if (pathToCenter) {
+      relativeCenterCellId    = CENTER_CELL_ID;
+      return relativeCenterCellId;
+    }
+    Array<integer> trajectoryToCenter = currentCell.cell.getTrajectory(Board.centerCell)
+    boolean ok = false;
+    Cell finalCell;
+    while(!isEmpty(trajectoryToCenter)) {
+      finalCell = Board.cells[pop(trajectoryToCenter) as integer];
+      if(!finalCell.isDeadEnd) {
+        if (pathToCenter = getPath(currentCellId, finalCell.id)) {
+          ok = true;
+          break;
+        }
+      }
+    }
+    if(ok) {
+      relativeCenterCellId    = finalCell.id;
+    } // else relativeCenterCell = null
+    return relativeCenterCellId;
+  }
+
+  /**
+   * execute
+   * execute toutes les actions du leek et mets a jour le currentround
+   **/
+  public void execute() {
+    for(Action a in actions) a.execute();
+    Board.currentRound.update()
+  }
+
+  /**
+   * setWeapon
+   * racourcis pour setWeapon + update round
+   **/
+  public void setWeaponUpdate(integer weaponId) {
+    setWeapon(weaponId);
+    minTP -= SET_WEAPON_COST;
+    maxTP -= SET_WEAPON_COST;
+    midTP -= SET_WEAPON_COST;
+    this.weaponId = weaponId;
+    this.weapon = toolsRound[weaponId];
+  }
+}

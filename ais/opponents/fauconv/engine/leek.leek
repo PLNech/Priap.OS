@@ -1,0 +1,139 @@
+/******************************************************************************
+ * Leek
+ ******************************************************************************/
+class Leek extends Objects {
+  
+  public string name;
+  public string farmer;
+  public boolean isMe;
+  public boolean isAllie;
+  public boolean isEnemy;
+  public boolean isSummon;
+  public boolean needLos = true;
+  public integer maxAOERange;
+  
+  public Array<Weapon> weapons = [];
+  public Array<Chip> chips = [];
+  public Map<integer,Tool> tools = [:];
+  
+  public Map<string,Array<Tool>> categories = [:];
+
+  /**
+   * constructor
+   * @param id identifiant du leek
+   **/
+  protected constructor(integer id) {
+    this.id  = id
+    name     = getName(id)!;
+    farmer   = getFarmerName(id)!;
+
+    for(string category in CATEGORIES) categories[category] = [];
+    
+    Array<integer>|null weapons = getWeapons(id);
+    if(weapons != null) for(integer weaponId in weapons!) {
+      Weapon weapon = new Weapon(weaponId, this);
+      categoriseTool(weapon);
+      push(this.weapons, weapon);
+      needLos = weapon.needLos && needLos;
+    }
+
+    Array<integer>|null chips = getChips(id);
+    if(chips != null) for(integer chipId in chips!) {
+      Chip chip = new Chip(chipId, this);
+      categoriseTool(chip);
+      push(this.chips, chip);
+      needLos = chip.needLos && needLos;
+    }
+    
+  }
+  
+  /**
+   * categoriseTool
+   **/
+  private void categoriseTool(Tool tool) {
+    tools[tool.id] = tool;
+    for(string category in tool.categories) push(categories[category]!, tool);
+    ((tool.categories[CATEGORY_DAMAGE]) && (tool.maxAOERange > maxAOERange)) and (maxAOERange = tool.maxAOERange);
+  }
+    
+  /**
+   * toString
+   *
+   * @return string
+   **/
+  string shortString(string space = "") {
+    return this.class.name+"("+name+")";
+  }
+  string string(string space = "") {
+    string ret = this.class.name+"("+name+") maxAOE:"+maxAOERange+"\n";
+    for(string category in CATEGORIES) {
+      ret += space+category+":\n"
+      for(Tool tool in categories[category]!) {
+        ret += space+tool.shortString() + "\n";
+      }
+    }
+    return ret;  
+  }
+  
+}
+
+/******************************************************************************
+ * Allie
+ ******************************************************************************/
+class Allie extends Leek {
+  
+  /**
+   * constructor
+   * @param id identifiant du leek
+   **/
+  public constructor(integer id) {
+    isMe     = false;
+    isAllie  = true;
+    isEnemy  = false;
+    isSummon = false;
+    this.id  = id
+    name     = getName(id)!;
+    farmer   = getFarmerName(id)!;
+  }
+  
+}
+
+/******************************************************************************
+ * Enemy
+ ******************************************************************************/
+class Enemy extends Leek {
+  
+  /**
+   * constructor
+   * @param id identifiant du leek
+   **/
+  public constructor(integer id) {
+    isMe     = false;
+    isAllie  = false;
+    isEnemy  = true;
+    isSummon = false;
+    super(id);
+  }
+  
+}
+
+/******************************************************************************
+ * Me
+ ******************************************************************************/
+class Me extends Leek {
+  
+  /**
+   * constructor
+   **/
+  constructor() {
+    isMe     = true;
+    isAllie  = true;
+    isEnemy  = false;
+    isSummon = false;
+    super(getEntity());
+  }
+  
+}
+
+
+

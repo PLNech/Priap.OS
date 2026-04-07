@@ -1,0 +1,252 @@
+/******************************************************************************
+ * MoveCell
+ ******************************************************************************/
+class MoveCell extends Objects {
+
+  static integer BAD_SCORE = -100000;
+  static integer INSTA_KILL = 100000;
+  static Map<integer,Map<string,RelativeCell>> relativeCellsCache = [:];
+	
+  Cell cell;
+  Map<integer,Simulation> moveSim = [:]; // liste des simulation qui aboutisse a cette moveCell
+                                         // l index correspond au numero de la sim
+  integer maxRemainingMP; // = max(moveSim[x].roundObj.leeksRound[ownerId].min/maxMP)
+  Map<integer,Simulation> attackSim = [:]; // pour chaque sim je determine la meilleure relativeCell
+	                                       // et la simulation correspondante
+  Map<integer,integer> attackScores = [:]; // score de chaque attackSim
+  Array<RelativeCell> targetCells = []; // liste de cell que l on peut viser pour atteindre l ennemie a partir de 
+                                        // cette moveCell
+  Map<real,Map<integer,Tool>> enemyTools = [:]; // liste des tools enemy qui peuvent nous atteindre sur cette 
+                                                // moveCell classe par AOE
+  Map<integer,Array<MoveCell>> escapes = [:]; // pour chaque sim on calcul les moveCell vers ou on peut aller
+	                                          // et qui sont pas good
+	                                          // l index correspond au numero de la sim
+  Map<integer,Array<MoveCell>> goodEscapes = [:];  // pour chaque sim on calcul les moveCell vers ou on peut aller
+                                                   // et qui me permette de pas etre touche
+	                                               // l index correspond au numero de la sim
+  integer defenceScore = 0;  // degat infliger lorsque le poireau enemy m attack sur cette moveCell
+  string minMaxMP;
+
+  /**
+   * constructor
+   **/
+  constructor(integer cell, Map<integer,Simulation> simulations, integer usedMP, integer maxRemainingMP,string minMaxMP){
+    id = cell;
+    this.cell = Board.cells[id];
+	moveSim = simulations;
+    for(integer id : Simulation sim in simulations) {
+	  this.escapes[id] = [];
+	  this.goodEscapes[id] = [];
+    }
+	this.maxRemainingMP = maxRemainingMP;
+	this.minMaxMP = minMaxMP;
+  }  
+
+  /**
+   * pour chaque simulation determine la liste des moveCell qui peuvent lui servir d echapatoire (escapes et goodEscapes)
+   **/
+  void computeEscape(Map<integer, MoveCell> moveCellList) {
+	// on prend le leekround de la premiere simulation vu que toute les sim on la meme position 
+    Map<integer,integer> cellList = (mapFirst(moveSim) as Simulation).owner.route(cell, maxRemainingMP);
+	for(integer index : Simulation sim in moveSim) {
+	  for(integer cellId : integer remainingMP in cellList) {
+	    integer usedMP = maxRemainingMP-remainingMP;
+		if(usedMP <= sim.owner[minMaxMP]) {
+		  MoveCell mc = moveCellList[cellId]!;
+		  if(mapSize(mc.enemyTools) == 0) push(goodEscapes[index]!, mc);
+          else push(escapes[index]!, mc);
+		}
+	  }
+	}
+  }
+
+  /**
+   * canIUseWeapons
+   * on regarde si on peut atteindre une relativecell pour chaque arme de la relativecell
+   * canUseWeaponOnCell ne convient pas car il ne prend pas en compte la source du tire qui est toujours la currentCell
+   **/
+  void canIUseWeapons(Map<integer, RelativeCell> enemyRelativeCells) {
+    for(RelativeCell enemyRelativeCell in enemyRelativeCells) {
+      InterCellInfo interCellInfo = cell.interCellInfo[enemyRelativeCell.id];
+      integer range = interCellInfo.range;
+      if(range > Board.maxAOERange) continue;
+      boolean isInsight = lineOfSight(id, enemyRelativeCell.id)!;
+      boolean isDiag = interCellInfo.isDiag;
+      boolean isInLine = interCellInfo.isInline;        
+      Map<integer,Tool> toolsList = [:];
+      string hash = "";
+      for(Tool tool in enemyRelativeCell.toolsList) {
+        if(tool.canUseTool(range, isInsight, isInLine, isDiag)) {
+		  toolsList[tool.id] = tool;
+		  hash += tool.id+".";
+		}
+      }
+	  if(hash != "") {
+        integer id = enemyRelativeCell.id;
+	    if(!mapContainsKey(relativeCellsCache, id)) {
+	      relativeCellsCache[id] = 
+			  [hash:new RelativeCell(enemyRelativeCell.id,enemyRelativeCell.AOE,enemyRelativeCell.targetCell,toolsList)]
+	    } else if(!mapContainsKey(relativeCellsCache[id]!, hash)) {
+			relativeCellsCache[id]![hash] = 
+				new RelativeCell(enemyRelativeCell.id,enemyRelativeCell.AOE,enemyRelativeCell.targetCell,toolsList)
+		}
+        push(targetCells,relativeCellsCache[id]![hash]);
+      }
+    }
+  }
+  
+  /**
+   * canEnemyUseWeapons
+   * 
+   * pour chaqu une de mes moveCell je regarde si il peut me tirer dessus depuis au moins une de ces moveCell
+   * je dois calculer les relativecell de chaqu une de mes moveCells 
+   * comment je determine quel est sa meilleure moveCell pour ma movecell ? je cumule ses armes dans ma moveCell ?
+   */
+  void canEnemyUseWeapons(EnemyRound enemyRound, Map<integer,MoveCell> enemyMoveCells, Array<Tool> tools) {
+    Map<integer, RelativeCell> myRelativeCells = cell.getRelativeCells(tools);
+    for(MoveCell enemyMoveCell in enemyMoveCells) {
+      for(RelativeCell myRelativeCell in myRelativeCells) {
+        InterCellInfo interCellInfo = enemyMoveCell.cell.interCellInfo[myRelativeCell.id];
+        integer range = interCellInfo.range;
+        if(range > Board.maxAOERange) continue;
+        boolean isInsight = lineOfSight(enemyMoveCell.id, myRelativeCell.id)!;
+        boolean isDiag = interCellInfo.isDiag;
+        boolean isInLine = interCellInfo.isInline;        
+        for(Tool tool in myRelativeCell.toolsList) {
+          if(tool.canUseTool(range, isInsight, isInLine, isDiag)) {
+            if(!mapContainsKey(enemyTools, myRelativeCell.AOE)) enemyTools[myRelativeCell.AOE] = [tool.id:tool];
+            else enemyTools[myRelativeCell.AOE]![tool.id] = tool; // si il existe deja on l ecrase c est pas grave
+          }
+        }
+      }
+    }
+  }
+    
+  /**
+   * computeAttack
+   **/
+  void computeAttack() {
+	for(integer index : Simulation sim in moveSim) {
+      integer minTP = sim.roundObj.meRound.minTP;
+      integer ret = MoveCell.BAD_SCORE;
+      for(RelativeCell rel in targetCells) {
+		if(!mapContainsKey(rel.data, index)) rel.data[index] = BasicStrategy.computeAttack(sim, rel);
+		Object obj = rel.data[index] as Object;
+        if(obj.score > ret) { // on prend la premiere sim qui match
+		  attackSim[index] = obj.simulation as Simulation;
+          ret = obj.score as integer;
+        }
+      }
+	  attackScores[index] = ret;
+	}
+  }
+
+  /**
+   * computeDefence()
+   **/
+  integer computeDefence(integer attackLeek) {
+    return (defenceScore = BasicStrategy.computeDefence(enemyTools, attackLeek));
+  }
+  
+  /**
+   * selectBestEscape
+   * donne dans obj la liste des moveCell avec le defenceScore le plus faible 
+   * puis la distance a cellId la plus grande ou la plus faible selon farestEscape
+   * @param obj {dist: integer, escapes: Array<MoveCell>, defenceScore: integer}
+   **/
+  static void selectBestEscape(Object obj, integer cellId, boolean farestEscape, 
+							     Map<integer,MoveCell>|Array<MoveCell>list) {
+    for(MoveCell mc in list) {
+	  integer dist = mc.cell.interCellInfo[cellId].range;
+	  if(mc.defenceScore<obj.defenceScore || mc.defenceScore == obj.defenceScore &&
+		 (dist>obj.dist && farestEscape || !farestEscape && dist<obj.dist)) {
+	    obj.dist = dist;
+		obj.escapes = [mc];
+        obj.defenceScore = mc.defenceScore;
+	  } else if(mc.defenceScore == obj.defenceScore && dist == obj.dist) push(obj.escapes as Array, mc);
+	}
+  }
+	
+  /**
+   * selectBestEscapeOfOneSim
+   * @return {dist: integer, escapes: Array<MoveCell>, defenceScore: integer}
+   **/
+  Object selectBestEscapeOfOneSim(integer cellId, boolean farestEscape, integer simIndex, boolean onlyGood = false) {
+	Object obj = {
+	  dist: cell.interCellInfo[cellId].range,
+	  escapes: [this],
+      defenceScore: defenceScore
+	}
+	MoveCell.selectBestEscape(obj, cellId, farestEscape, goodEscapes[simIndex]!);
+	if(!onlyGood) MoveCell.selectBestEscape(obj, cellId, farestEscape, escapes[simIndex]!);
+	return obj;
+  }
+	
+  /**
+   * selectBestEscapeBySim
+   * @return Map<simId integer, {dist: integer, escapes: Array<MoveCell>, defenceScore: integer}>
+   **/
+   Map<integer,Object> selectBestEscapeBySim(integer cellId, boolean farestEscape, boolean onlyGood = false) {
+	 Map<integer, Object> ret;
+     for(integer simIndex : Simulation sim in moveSim) {
+	   ret[simIndex] = selectBestEscapeOfOneSim(cellId, farestEscape, simIndex, onlyGood);
+	 }
+	 return ret;
+   }
+
+  /**
+   * selectBestSimAttackEscape
+   * @return {dist: integer, escapes: Array<MoveCell>, defenceScore: integer, simIndex: integer, score: integer}
+   **/
+  Object selectBestSimAttackEscape(integer cellId, boolean farestEscape, boolean onlyGood = false) {
+    Object ret = {score:MoveCell.BAD_SCORE}
+	for(integer simIndex : integer attackScore in attackScores) {
+	  Object escape = selectBestEscapeOfOneSim(cellId, farestEscape, simIndex, onlyGood);
+	  integer score = attackScore - escape.defenceScore as integer;
+      if(score > ret.score) {
+	    ret = escape;
+		ret.score = score;
+		ret.simIndex = simIndex;
+	  }
+	}
+	return ret;
+  }
+
+  /**
+   * selectBestAttackEscape
+   * @return {score: integer, dist: integer, result:Array<{moveCell: MoveCell, dist: integer, escapes: Array<MoveCell>, defenceScore: integer, simIndex: integer, score: integer}>}
+   **/
+  static Object selectBestAttackEscape(Map<integer,MoveCell>|Array<MoveCell>list, integer cellId, boolean farestEscape,
+									   boolean onlyGood = false) {
+    integer dist;
+	if(farestEscape) dist = 0;
+	else dist = MAX_DISTANCE+1;
+	Object ret = {score:MoveCell.BAD_SCORE,dist:dist}
+	for(MoveCell mc in list) {
+	  Object result = mc.selectBestSimAttackEscape(cellId, farestEscape, onlyGood);
+	  if(result.score > ret.score || result.score == ret.score &&
+		 (result.dist > ret.dist && farestEscape || result.dist < ret.dist && !farestEscape)) {
+	    ret.score = result.score;
+		ret.dist = result.dist;
+		result.moveCell = mc;
+		ret.result = [result];
+	  } else if(result.score == ret.score && result.dist == ret.dist) {
+		result.moveCell = mc;
+		push(ret.result as Array,result);
+	  }
+	}
+	return ret;
+  }
+
+  /**
+   * execute
+   **/
+  void execute(integer simIndex, integer escapeId = -1) {
+    moveSim[simIndex]!.execute();
+	// TODO: si au final on a plus de MP que prevu il faut recommencer la phase de selection de la MC
+	Board.currentRound.meRound.moveToCell(id);
+    if(mapContainsKey(attackSim, simIndex)) attackSim[simIndex]!.execute();
+	if(escapeId != -1 && escapeId != id) Board.currentRound.meRound.moveToCell(id);
+  }
+
+}

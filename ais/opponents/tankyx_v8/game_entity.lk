@@ -1,0 +1,211 @@
+class Entity {
+    _cellPos = 0
+    _maxHealth = 0
+    _currHealth = 0
+    _weapons = []
+    _inUseWeapon = -1
+    _chips = []
+    _id = -1
+    _strength = 0
+    _resistance = 0
+    _agility = 0
+    _wisdom = 0
+    _science = 0
+    _magic = 0
+    _relShield = 0
+    _absShield = 0
+    _cores = 0
+    _ram = 0
+    _frequency = 0
+    _currMp = 0
+    _maxMp = 0
+    _currTp = 0
+    _maxTp = 0
+    _statuses = []
+    _effectsActive = [] 
+    _isAlive = true
+
+    constructor(cellPos) {
+        this._cellPos = cellPos
+
+        this._id = getEntityOnCell(cellPos)
+        this._maxHealth = getTotalLife(this._id)
+        this._currHealth = getLife(this._id)
+        this._weapons = getWeapons(this._id)
+        this._inUseWeapon = getWeapon(this._id)
+        this._chips = getChips(this._id)
+        this._strength = getStrength(this._id)
+        this._resistance = getResistance(this._id)
+        this._agility = getAgility(this._id)
+        this._wisdom = getWisdom(this._id)
+        this._science = getScience(this._id)
+        this._magic = getMagic(this._id)
+        this._relShield = getRelativeShield(this._id)
+        this._absShield = getAbsoluteShield(this._id)
+        this._cores = getCores(this._id)
+        this._ram = getRAM(this._id)
+        this._frequency = getFrequency(this._id)
+        this._currMp = getMP(this._id)
+        this._maxMp = getTotalMP(this._id)
+        this._currTp = getTP(this._id)
+        this._maxTp = getTotalTP(this._id)
+        this._statuses = getStates(this._id)
+        this._isAlive = isAlive(this._id)
+    }
+
+    updateEntity() {
+        this._cellPos = getCell(this._id)
+        this._currHealth = getLife(this._id)
+        this._maxHealth = getTotalLife(this._id)
+        this._inUseWeapon = getWeapon(this._id)
+        this._currMp = getMP(this._id)
+        this._currTp = getTP(this._id)
+        this._statuses = getStates(this._id)
+        this._isAlive = isAlive(this._id)
+        this._relShield = getRelativeShield(this._id)
+        this._absShield = getAbsoluteShield(this._id)
+
+        this._effectsActive = getEffects(this._id)
+    }
+
+    getEffect(effectId) {
+        if (this._effectsActive == null) return null
+        for (var e in this._effectsActive) {
+            if (e[0] == effectId) return e
+        }
+        return null
+    }
+
+    hasEffect(effectId) {
+        return this.getEffect(effectId) != null
+    }
+
+    getEffectRemaining(effectId) {
+        var effect = this.getEffect(effectId)
+        if (effect == null) return 0
+
+        if (count(effect) >= 4) return effect[3]  
+
+        return 1
+    }
+
+    hasDamageReturn() {
+        return this.hasEffect(EFFECT_DAMAGE_RETURN)
+    }
+
+    getDamageReturnRemaining() {
+        return this.getEffectRemaining(EFFECT_DAMAGE_RETURN)
+    }
+
+    hasVulnerability() {
+        return this.hasEffect(EFFECT_VULNERABILITY)
+    }
+
+    getVulnerabilityRemaining() {
+        return this.getEffectRemaining(EFFECT_VULNERABILITY)
+    }
+
+    isInvulnerable() {
+
+        if (this._absShield >= 9999) return true
+
+        if (this.hasEffect(EFFECT_ABSOLUTE_SHIELD)) {
+            var shieldValue = this.getEffectValue(EFFECT_ABSOLUTE_SHIELD)
+            if (shieldValue >= 9999) return true
+        }
+
+        return false
+    }
+
+    getEffectValue(effectId) {
+        var effect = this.getEffect(effectId)
+        if (effect == null) return 0
+
+        if (count(effect) >= 2) return effect[1]
+        return 0
+    }
+}
+
+class Player extends Entity {
+    constructor(cellPos) {
+        super(cellPos);
+    }
+}
+
+class Enemy extends Entity {
+    constructor(cellPos) {
+        super(cellPos);
+    }
+}
+
+class Chest extends Entity {
+    constructor(cellPos) {
+        super(cellPos);
+    }
+}
+
+global BULB_TYPE_HEALER = 1
+global BULB_TYPE_BUFFER = 2
+global BULB_TYPE_ATTACKER = 3
+global BULB_TYPE_UNKNOWN = 0
+
+function isBulb(entity) {
+    if (entity == null) return false
+    var entityType = getType(entity._id)
+
+    return (entityType == ENTITY_BULB)
+}
+
+function getBulbType(entity) {
+    if (entity == null || !isBulb(entity)) return BULB_TYPE_UNKNOWN
+
+    var chips = entity._chips
+    if (chips == null || count(chips) == 0) return BULB_TYPE_UNKNOWN
+
+    for (var chipId in chips) {
+        if (isHealingChip(chipId)) {
+            return BULB_TYPE_HEALER
+        }
+    }
+
+    for (var chipId in chips) {
+        if (isOffensiveBuff(chipId) || isShieldChip(chipId)) {
+            return BULB_TYPE_BUFFER
+        }
+    }
+
+    return BULB_TYPE_ATTACKER
+}
+
+function estimateBulbStat(minStat, maxStat, summonerLevel) {
+    var level = min(300, summonerLevel)
+    return floor(minStat + (maxStat - minStat) * level / 300)
+}
+
+function getSummonerLevel(entityId) {
+    var level = getLevel(entityId)
+    if (level != null && level > 0) return level
+
+    return 150
+}
+
+function estimateBulbHP(entity) {
+    if (entity == null) return 0
+
+    if (entity._maxHealth > 0) return entity._maxHealth
+
+    var summonerLevel = getSummonerLevel(entity._id)
+
+    return estimateBulbStat(50, 300, summonerLevel)
+}
+
+function canKillBulbThisTurn(bulb, availableDamage) {
+    if (bulb == null) return false
+
+    var estimatedHP = estimateBulbHP(bulb)
+    var currentHP = bulb._currHealth
+
+    var targetHP = currentHP > 0 ? currentHP : estimatedHP
+
+    return availableDamage >= targetHP
+}

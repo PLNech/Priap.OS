@@ -1,0 +1,217 @@
+/******************************************************************************
+ * Tool
+ * class abstraite generique pour les weapons et les chips
+ ******************************************************************************/
+class Tool extends Objects {
+  
+  public boolean needLos;
+  public integer areaType; // Enumeration
+  public integer cost;
+  public integer maxUse;
+  public integer launchType;    // Enumeration
+  public integer minRange;
+  public integer maxRange;
+  public integer minAOERange;
+  public integer maxAOERange;
+  public integer AOERange;
+  public integer AOELaunchType; // Enumeration
+  public integer cooldown;
+  public boolean isChip;
+  public boolean isAOE;
+  public boolean isLaser;
+  public boolean targetAllie     = false;
+  public boolean targetSummon    = false;
+  public boolean targetNonSummon = false;
+  public boolean targetEnemy     = false;
+  public boolean targetCaster    = false;
+  
+  public Leek owner;
+  public Array<Effect> effects = [];
+  public Map<string,string> categories = [:];
+  
+  /**
+   * constructor
+   * @param id id du tool
+   * @param owner le leek qui possede  ce tool
+   * @param effects la liste des effets de ce tool [[0:type, 1:min, 2:max, 3:turns, 4:targets, 5:modifiers]]
+   **/
+  protected constructor(integer id, Leek owner, Array<Array<integer|real>>effects) {
+    
+    this.id = id;
+    this.owner = owner;
+    
+    Effect eff;
+    for(Array<real|integer> effect in effects) {
+      eff = new Effect(effect, this);
+      push(this.effects, eff);
+      categories[eff.category] = eff.category;
+      targetAllie     = targetAllie     || eff.targetAllie;
+      targetCaster    = targetCaster    || eff.targetCaster;
+      targetEnemy     = targetEnemy     || eff.targetEnemy;
+      targetSummon    = targetSummon    || eff.targetSummon;
+      targetNonSummon = targetNonSummon || eff.targetNonSummon;
+    }
+    
+    if(areaType == AREA_POINT || areaType == AREA_LASER_LINE || areaType == AREA_ALLIES || areaType == AREA_ENEMIES) {
+      isAOE = false;
+      maxAOERange = maxRange;
+      minAOERange = minRange;
+      if(areaType == AREA_LASER_LINE) {
+        isLaser = true;
+        AOELaunchType = LAUNCH_TYPE_LINE;
+      }
+    } else {
+      isAOE = true;
+      if(areaType == AREA_X_3) {
+        AOERange = 6;
+        AOELaunchType = LAUNCH_TYPE_DIAGONAL;
+      } else if(areaType == AREA_X_2) {
+        AOERange = 4;
+        AOELaunchType = LAUNCH_TYPE_DIAGONAL;
+      } else if(areaType == AREA_SQUARE_2) {
+        AOERange = 4;
+        AOELaunchType = LAUNCH_TYPE_SQUARE;
+      } else if(areaType == AREA_CIRCLE_3) {
+        AOERange = 3;
+        AOELaunchType = LAUNCH_TYPE_CIRCLE;
+      } else if(areaType == AREA_CIRCLE_2) {
+        AOERange = 2;
+        AOELaunchType = LAUNCH_TYPE_CIRCLE;
+      } else if(areaType == AREA_PLUS_2) {
+        AOERange = 2;
+        AOELaunchType = LAUNCH_TYPE_LINE;
+      } else if(areaType == AREA_X_1) {
+        AOERange = 2;
+        AOELaunchType = LAUNCH_TYPE_DIAGONAL;
+      } else if(areaType == AREA_SQUARE_1) {
+        AOERange = 2;
+        AOELaunchType = LAUNCH_TYPE_SQUARE;
+      } else if(areaType == AREA_PLUS_3) {
+        AOERange = 3;
+        AOELaunchType = LAUNCH_TYPE_LINE;
+      } else { // AREA_CIRCLE_1 || AREA_PLUS_1 || AREA_FIRST_INLINE || 
+        AOERange = 1;
+        AOELaunchType = LAUNCH_TYPE_LINE;
+      }
+      maxAOERange = maxRange+AOERange;
+      minAOERange = max(minRange-AOERange,1);
+
+    }
+  
+  }
+  
+  /**
+   * canUseTool
+   * verifie si les conditions sont rempli pour utiliser ce tool (ligne, diagonal, distance, en vue)
+   * @param range la distance a laquelle on veut tirer
+   * @param isInsight la target est en vue ?
+   * @param isInline la target  est en ligne ?
+   * @param isDiag la target est en diagonal ?
+   * @return true si les conditions de tir sont rempli pour ce tool
+   **/
+  public boolean canUseTool(integer range, boolean isInsight, boolean isInLine, boolean isDiag) {
+    return (range <= maxRange && range >= minRange && (!needLos || isInsight) && 
+            (launchType != LAUNCH_TYPE_LINE || isInLine) && (launchType != LAUNCH_TYPE_DIAGONAL || isDiag) && 
+            (launchType != LAUNCH_TYPE_STAR || isDiag || isInLine) && 
+            (launchType != LAUNCH_TYPE_STAR_INVERTED || isDiag && isInLine));
+  }
+  
+  /**
+   * getToolEffectiveArea
+   * encapsulation de getWeaponEffectiveArea et getChipEffectiveArea
+   **/
+  Array<integer>|null getToolEffectiveArea(integer cellToId, integer | null cellFromId = null) {
+    return null;
+  }
+
+  /**
+   * toString
+   *
+   * @return string
+   **/
+  string string(string space = "") {
+    return this.class.name+"("+TOOL_NAME_TRANSLATOR[id]+"):\n"+
+		                       space+"  areaType:"+areaType+"\n"+
+		                       space+"  needLos:"+needLos+"\n"+
+		                       space+"  cost:"+cost+"\n"+
+		                       space+"  launchType:"+TOOL_LAUNCHTYPE_TRANSLATOR[launchType]+"\n"+
+		                       space+"  minRange:"+minRange+"\n"+
+		                       space+"  maxRange:"+maxRange+"\n"+
+		                       space+"  cooldown:"+cooldown;
+  }
+  string shortString(string space = "") {
+    return this.class.name+"("+TOOL_NAME_TRANSLATOR[id]!+")("+maxRange+")";
+  }
+  
+}
+
+/******************************************************************************
+ * Weapon
+ * represente un weapon
+ ******************************************************************************/
+class Weapon extends Tool {
+    
+  /**
+   * constructor
+   * @param weaponId ide de l arme
+   * @param ownet leek a qui appartient l arme
+   **/
+  public constructor(integer weaponId, Leek owner) {
+    isChip     = false;
+    areaType   = getWeaponArea(weaponId)!;
+    needLos    = weaponNeedLos(weaponId);
+    cost       = getWeaponCost(weaponId);
+    maxUse     = getWeaponMaxUses(weaponId)
+    launchType = getWeaponLaunchType(weaponId)!;
+    minRange   = getWeaponMinRange(weaponId);
+    maxRange   = getWeaponMaxRange(weaponId);
+    cooldown   = 0;
+
+    super(weaponId, owner, getWeaponEffects(weaponId)!);
+  }
+
+  /**
+   * getToolEffectiveArea
+   * encapsulation de getWeaponEffectiveArea et getChipEffectiveArea
+   **/
+  Array<integer>|null getToolEffectiveArea(integer cellToId, integer | null cellFromId = null) {
+    return getWeaponEffectiveArea(id, cellToId, cellFromId);
+  }
+  
+}
+
+/******************************************************************************
+ * Chip
+ * represente une chip
+ ******************************************************************************/
+class Chip extends Tool {
+  
+  /**
+   * constructor
+   * @param weaponId ide de l arme
+   * @param ownet leek a qui appartient de la chip
+   **/
+  constructor(integer chipId, Leek owner) {
+    isChip   = true;
+    areaType = getChipArea(chipId)!;
+    needLos  = chipNeedLos(chipId);
+    cost     = getChipCost(chipId)!;
+    maxUse   = getChipMaxUses(chipId)
+    launchType = getChipLaunchType(chipId)!;
+    minRange = getChipMinRange(chipId)!;
+    maxRange = getChipMaxRange(chipId)!;
+    cooldown = getChipCooldown(chipId);
+    
+    super(chipId, owner, getChipEffects(chipId)!);
+  }
+
+  /**
+   * getToolEffectiveArea
+   * encapsulation de getWeaponEffectiveArea et getChipEffectiveArea
+   **/
+  Array<integer>|null getToolEffectiveArea(integer cellToId, integer | null cellFromId = null) {
+    return getChipEffectiveArea(id, cellToId, cellFromId);
+  }
+  
+}
+

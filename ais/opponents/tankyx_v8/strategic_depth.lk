@@ -1,0 +1,356 @@
+
+include('weight_profiles.lk')
+
+global COUNTER_MULTS = [
+    'vs_kiter_burst': 80,
+    'vs_kiter_heal': 135,
+    'vs_kiter_kite': 70,
+    'vs_kiter_dist': 150,
+    'vs_kiter_dot': 130,
+    'vs_burst_shield': 140,
+    'vs_burst_heal': 120,
+    'vs_burst_threat': 120,
+    'vs_burst_burst': 120,
+    'vs_tank_nova': 164,
+    'vs_tank_denial': 130,
+    'vs_tank_dot': 120,
+    'vs_reflect_on_burst': 47,
+    'vs_reflect_on_shield': 130,
+    'vs_reflect_on_heal': 168,
+    'vs_reflect_off_burst': 130,
+    'cd_shield_burst': 121,
+    'cd_shield_otko': 101,
+    'cd_heal_burst': 115,
+]
+
+global __enemyChipUsage = [:]
+global __currentTurn = -1
+
+class ChipCooldownInfo {
+    chipId = -1
+    lastUsedTurn = -1
+    cooldownDuration = 0
+    availableOnTurn = -1
+    isAvailable = false
+    confidence = 1.0
+}
+
+function initializeCooldownTracker() {
+    __currentTurn = getTurn()
+
+    var enemies = getAliveEnemies()
+    for (var enemyId in enemies) {
+        if (!mapContainsKey(__enemyChipUsage, enemyId)) {
+            __enemyChipUsage[enemyId] = [:]
+        }
+    }
+}
+
+function trackEnemyChipUsage(enemyId, chipId) {
+    var currentTurn = getTurn()
+
+    if (!mapContainsKey(__enemyChipUsage, enemyId)) {
+        __enemyChipUsage[enemyId] = [:]
+    }
+
+    __enemyChipUsage[enemyId][chipId] = currentTurn
+
+    var chipName = "chip_" + chipId
+}
+
+function predictChipAvailability(enemyId, chipId) {
+    var info = new ChipCooldownInfo()
+    info.chipId = chipId
+
+    var currentTurn = getTurn()
+
+    if (!mapContainsKey(__enemyChipUsage, enemyId)) {
+        info.isAvailable = true
+        info.confidence = 0.3
+        return info
+    }
+
+    var chipHistory = __enemyChipUsage[enemyId]
+    if (!mapContainsKey(chipHistory, chipId)) {
+        info.isAvailable = true
+        info.confidence = 0.5
+        return info
+    }
+
+    var lastUsed = chipHistory[chipId]
+    info.lastUsedTurn = lastUsed
+
+    var cooldown = estimateChipCooldown(chipId)
+    info.cooldownDuration = cooldown
+    info.availableOnTurn = lastUsed + cooldown + 1
+
+    var turnsSinceUse = currentTurn - lastUsed
+    info.isAvailable = (turnsSinceUse > cooldown)
+    info.confidence = 0.9
+
+    return info
+}
+
+function estimateChipCooldown(chipId) {
+
+    if (chipId == 58 || chipId == 59 || chipId == 60) return 3
+    if (chipId == 66 || chipId == 67) return 3
+    if (chipId == 49) return 3
+
+    if (chipId == 70) return 1
+
+    if (chipId == 76) return 2
+
+    return 2
+}
+
+function getKeyChipPredictions(enemyId) {
+    var predictions = [:]
+
+    var keyChips = [
+        58,
+        59,
+        49,
+        66,
+        67,
+        70,
+        76
+    ]
+
+    for (var chipId in keyChips) {
+        var pred = predictChipAvailability(enemyId, chipId)
+        predictions[chipId] = pred
+    }
+
+    return predictions
+}
+
+function isEnemyShieldAvailable(enemyId) {
+    var fortress = predictChipAvailability(enemyId, 58)
+    var wall = predictChipAvailability(enemyId, 59)
+
+    return fortress.isAvailable || wall.isAvailable
+}
+
+function isEnemyAntidoteAvailable(enemyId) {
+    var antidote = predictChipAvailability(enemyId, 49)
+    return antidote.isAvailable
+}
+
+function adaptWeightsToSituation(baseWeights, player, enemies, fieldMap) {
+    var adapted = [:]
+
+    for (var key in mapKeys(baseWeights)) {
+        adapted[key] = baseWeights[key]
+    }
+
+    var currentTurn = getTurn()
+    var enemyCount = count(mapKeys(enemies))
+
+    if (enemyCount >= 3) {
+        adapted['threatReduction'] = floor(adapted['threatReduction'] * 1.5)
+
+        adapted['otkoBonus'] = floor(adapted['otkoBonus'] * 0.9)
+
+    }
+    else if (enemyCount == 2) {
+        adapted['threatReduction'] = floor(adapted['threatReduction'] * 1.2)
+
+    }
+
+    if (currentTurn <= 3) {
+        adapted['tpEfficiency'] = floor(adapted['tpEfficiency'] * 1.5)
+
+    }
+
+    var enemies3 = mapKeys(enemies)
+    for (var eid3 in enemies3) {
+        if (isDead(eid3)) continue
+        var obs = getEnemyObservation(eid3)
+        if (obs == null) continue
+        var turnsObs = obs['turnsObserved']
+        if (turnsObs < 5) continue
+
+        if (obs['hpTrend'] > 20) {
+            adapted['burstDamage'] = floor(adapted['burstDamage'] * 1.3)
+            if (mapContainsKey(adapted, 'denialValue')) {
+                adapted['denialValue'] = floor(adapted['denialValue'] * 1.5)
+            }
+        }
+
+        if (obs['timesShielded'] == 0) {
+            adapted['burstDamage'] = floor(adapted['burstDamage'] * 1.2)
+            adapted['shieldValue'] = floor(adapted['shieldValue'] * 0.8)
+        }
+        break
+    }
+
+    var primaryEnemy = null
+    var primaryProfile = null
+    var enemies4 = mapKeys(enemies)
+    for (var eid in enemies4) {
+        if (!isDead(eid)) {
+            primaryProfile = getEnemyProfile(eid)
+            primaryEnemy = enemies[eid]
+            break
+        }
+    }
+
+    if (primaryProfile != null) {
+        if (primaryProfile['isKiter'] && primaryProfile['hasPoison']) {
+            adapted['burstDamage'] = floor(adapted['burstDamage'] * COUNTER_MULTS['vs_kiter_burst'] / 100)
+            adapted['healValue'] = floor(adapted['healValue'] * COUNTER_MULTS['vs_kiter_heal'] / 100)
+            if (mapContainsKey(adapted, 'kiteDistance')) {
+                adapted['kiteDistance'] = floor(adapted['kiteDistance'] * COUNTER_MULTS['vs_kiter_kite'] / 100)
+            }
+            adapted['distanceToTarget'] = floor(adapted['distanceToTarget'] * COUNTER_MULTS['vs_kiter_dist'] / 100)
+            if (!primaryProfile['hasAntidote'] && mapContainsKey(adapted, 'dotEffects')) {
+                adapted['dotEffects'] = floor(adapted['dotEffects'] * COUNTER_MULTS['vs_kiter_dot'] / 100)
+            }
+        }
+
+        if (primaryProfile['isBurstBuild']) {
+            adapted['shieldValue'] = floor(adapted['shieldValue'] * COUNTER_MULTS['vs_burst_shield'] / 100)
+            adapted['healValue'] = floor(adapted['healValue'] * COUNTER_MULTS['vs_burst_heal'] / 100)
+            adapted['threatReduction'] = floor(adapted['threatReduction'] * COUNTER_MULTS['vs_burst_threat'] / 100)
+            if (!primaryProfile['hasShield']) {
+                adapted['burstDamage'] = floor(adapted['burstDamage'] * COUNTER_MULTS['vs_burst_burst'] / 100)
+            }
+        }
+
+        if (primaryProfile['isTank']) {
+            if (mapContainsKey(adapted, 'novaEffects')) {
+                adapted['novaEffects'] = floor(adapted['novaEffects'] * COUNTER_MULTS['vs_tank_nova'] / 100)
+            }
+            if (mapContainsKey(adapted, 'denialValue')) {
+                adapted['denialValue'] = floor(adapted['denialValue'] * COUNTER_MULTS['vs_tank_denial'] / 100)
+            }
+            if (mapContainsKey(adapted, 'dotEffects') && adapted['dotEffects'] > 0) {
+                adapted['dotEffects'] = floor(adapted['dotEffects'] * COUNTER_MULTS['vs_tank_dot'] / 100)
+            }
+        }
+
+        if (primaryProfile['hasReflect'] && primaryEnemy != null) {
+            var reflectActive = primaryEnemy.hasDamageReturn()
+            if (reflectActive) {
+                var reflectRemaining = primaryEnemy.getDamageReturnRemaining()
+                // Less cautious if reflect expires soon
+                var reflectMult = (reflectRemaining <= 1) ? 85 : COUNTER_MULTS['vs_reflect_on_burst']
+                adapted['burstDamage'] = floor(adapted['burstDamage'] * reflectMult / 100)
+                adapted['shieldValue'] = floor(adapted['shieldValue'] * COUNTER_MULTS['vs_reflect_on_shield'] / 100)
+                adapted['healValue'] = floor(adapted['healValue'] * COUNTER_MULTS['vs_reflect_on_heal'] / 100)
+            } else {
+                adapted['burstDamage'] = floor(adapted['burstDamage'] * COUNTER_MULTS['vs_reflect_off_burst'] / 100)
+            }
+        }
+
+        if (primaryEnemy != null) {
+            var enemyId = primaryEnemy._id
+            if (primaryProfile['hasShield'] && !isEnemyShieldAvailable(enemyId)) {
+                adapted['burstDamage'] = floor(adapted['burstDamage'] * COUNTER_MULTS['cd_shield_burst'] / 100)
+                adapted['otkoBonus'] = floor(adapted['otkoBonus'] * COUNTER_MULTS['cd_shield_otko'] / 100)
+            }
+            if (primaryProfile['hasHeal']) {
+                var healAvail = predictChipAvailability(enemyId, 67)
+                if (!healAvail.isAvailable) {
+                    adapted['burstDamage'] = floor(adapted['burstDamage'] * COUNTER_MULTS['cd_heal_burst'] / 100)
+                }
+            }
+        }
+    }
+
+    // Mirror doctrine: break symmetry when facing same build type
+    if (primaryProfile != null) {
+        var enemyBuildType = primaryProfile['buildType']
+        if (enemyBuildType == __playerBuildType && enemyCount <= 1) {
+            var entityId = getEntity()
+            if (entityId % 2 == 0) {
+                // First-mover: compound advantage with defense
+                adapted['shieldValue'] = floor(adapted['shieldValue'] * 1.25)
+                adapted['healValue'] = floor(adapted['healValue'] * 1.20)
+                adapted['threatReduction'] = floor(adapted['threatReduction'] * 1.20)
+                if (mapContainsKey(adapted, 'kiteDistance')) {
+                    adapted['kiteDistance'] = floor(adapted['kiteDistance'] * 1.30)
+                }
+            } else {
+                // Second-mover: compensate with aggression
+                adapted['burstDamage'] = floor(adapted['burstDamage'] * 1.15)
+                adapted['distanceToTarget'] = floor(adapted['distanceToTarget'] * 1.3)
+                if (mapContainsKey(adapted, 'kiteDistance')) {
+                    adapted['kiteDistance'] = floor(adapted['kiteDistance'] * 0.7)
+                }
+            }
+        }
+    }
+
+    return adapted
+}
+
+function calculateAverageThreat(playerCell, enemies, fieldMap) {
+    var totalThreat = 0
+    var threatCount = 0
+
+    for (var enemyId in mapKeys(enemies)) {
+        var enemy = enemies[enemyId]
+        if (isDead(enemyId)) continue
+
+        var enemyPos = enemy._cellPos
+        var dist = getCellDistance(playerCell, enemyPos)
+
+        if (dist != null && dist <= 15) {
+            var threat = estimateEnemyThreat(enemy)
+            totalThreat += threat
+            threatCount++
+        }
+    }
+
+    if (threatCount == 0) return 0
+    return totalThreat / threatCount
+}
+
+function estimateEnemyThreat(enemy) {
+    var weapons = getWeapons(enemy._id)
+    var maxThreat = 0
+
+    for (var weaponId in weapons) {
+        var effects = getWeaponEffects(weaponId)
+        for (var eff in effects) {
+            if (eff[0] == EFFECT_DAMAGE) {
+                var avgDmg = (eff[1] + eff[2]) / 2
+                var scaledDmg = avgDmg * (1 + enemy._strength / 100)
+                if (scaledDmg > maxThreat) {
+                    maxThreat = scaledDmg
+                }
+            }
+        }
+    }
+
+    return maxThreat * 3
+}
+
+function getAdaptedWeights(buildType, player, enemies, fieldMap) {
+    var baseWeights = getWeightsForBuild(buildType)
+    var adapted = adaptWeightsToSituation(baseWeights, player, enemies, fieldMap)
+    return adapted
+}
+
+function shouldPrioritizeDefense(player, enemies) {
+    var hpPercent = (player._currHealth * 100) / player._maxHealth
+    var enemyCount = count(mapKeys(enemies))
+
+    if (hpPercent < 30) return true
+    if (hpPercent < 50 && enemyCount >= 2) return true
+
+    return false
+}
+
+function shouldPrioritizeAggression(player, target) {
+    var targetHPPercent = (target._currHealth * 100) / target._maxHealth
+    var playerHPPercent = (player._currHealth * 100) / player._maxHealth
+
+    if (targetHPPercent < 40 && playerHPPercent > 50) return true
+
+    if (playerHPPercent > targetHPPercent + 30) return true
+
+    return false
+}

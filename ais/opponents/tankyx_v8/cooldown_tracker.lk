@@ -1,0 +1,161 @@
+
+
+global COOLDOWN_STATE = [:]
+global POISON_PHASE = "BAIT"
+global ANTIDOTE_USED_THIS_FIGHT = false
+global LAST_POISON_DUMP_TURN = -999
+global PREV_ENEMY_POISON = 0
+global BAIT_START_TURN = 1
+
+class CooldownTracker {
+    _target = null
+
+    static CHIP_ANTIDOTE_ID = CHIP_ANTIDOTE
+    static CHIP_CURE_ID = CHIP_CURE
+    static CHIP_REMISSION_ID = CHIP_REMISSION
+    static CHIP_WALL_ID = CHIP_WALL
+    static CHIP_FORTRESS_ID = CHIP_FORTRESS
+    static CHIP_MIRROR_ID = CHIP_MIRROR
+    static CHIP_SHIELD_ID = CHIP_SHIELD
+
+    constructor(target) {
+        this._target = target
+    }
+
+    detectChipUsage(enemyId, previousEffects, currentEffects) {
+        var newEffects = []
+
+        for (var effect in currentEffects) {
+            var effectType = effect['type']
+            var isNew = true
+
+            for (var prevEffect in previousEffects) {
+                if (prevEffect['type'] == effectType) {
+                    isNew = false
+                    break
+                }
+            }
+
+            if (isNew) {
+                push(newEffects, effect)
+            }
+        }
+
+        return newEffects
+    }
+
+    updateCooldowns(enemyId) {
+        if (!mapContainsKey(COOLDOWN_STATE, enemyId)) {
+            COOLDOWN_STATE[enemyId] = [:]
+        }
+
+        var entityCooldowns = COOLDOWN_STATE[enemyId]
+
+        for (var chipId in mapKeys(entityCooldowns)) {
+            var cooldownInfo = entityCooldowns[chipId]
+            if (mapContainsKey(cooldownInfo, 'turnsRemaining')) {
+                var remaining = cooldownInfo['turnsRemaining']
+                if (remaining > 0) {
+                    entityCooldowns[chipId]['turnsRemaining'] = remaining - 1
+                }
+            }
+        }
+    }
+
+    recordChipUse(enemyId, chipId) {
+        if (!mapContainsKey(COOLDOWN_STATE, enemyId)) {
+            COOLDOWN_STATE[enemyId] = [:]
+        }
+
+        var cooldown = this.getChipCooldown(chipId)
+        if (cooldown > 0) {
+            COOLDOWN_STATE[enemyId][chipId] = [
+                'turnsRemaining': cooldown,
+                'lastUsedTurn': getTurn()
+            ]
+
+        }
+    }
+
+    getChipCooldown(chipId) {
+        if (chipId == CooldownTracker.CHIP_ANTIDOTE_ID) return 4
+        if (chipId == CooldownTracker.CHIP_CURE_ID) return 3
+        if (chipId == CooldownTracker.CHIP_REMISSION_ID) return 6
+
+        if (chipId == CooldownTracker.CHIP_WALL_ID) return 3
+        if (chipId == CooldownTracker.CHIP_FORTRESS_ID) return 4
+        if (chipId == CooldownTracker.CHIP_SHIELD_ID) return 4
+        if (chipId == CooldownTracker.CHIP_MIRROR_ID) return 4
+
+        return 0
+    }
+
+    isChipOnCooldown(enemyId, chipId) {
+        if (!mapContainsKey(COOLDOWN_STATE, enemyId)) return false
+
+        var entityCooldowns = COOLDOWN_STATE[enemyId]
+        if (!mapContainsKey(entityCooldowns, chipId)) return false
+
+        var cooldownInfo = entityCooldowns[chipId]
+        if (!mapContainsKey(cooldownInfo, 'turnsRemaining')) return false
+
+        return cooldownInfo['turnsRemaining'] > 0
+    }
+
+    getCooldownRemaining(enemyId, chipId) {
+        if (!mapContainsKey(COOLDOWN_STATE, enemyId)) return 0
+
+        var entityCooldowns = COOLDOWN_STATE[enemyId]
+        if (!mapContainsKey(entityCooldowns, chipId)) return 0
+
+        var cooldownInfo = entityCooldowns[chipId]
+        if (!mapContainsKey(cooldownInfo, 'turnsRemaining')) return 0
+
+        return cooldownInfo['turnsRemaining']
+    }
+
+    detectAntidoteUse(enemyId, prevPoison, currPoison) {
+
+        if (prevPoison <= 1) {
+            return false
+        }
+
+        if (prevPoison > 1 && currPoison == 0) {
+            this.recordChipUse(enemyId, CooldownTracker.CHIP_ANTIDOTE_ID)
+
+            ANTIDOTE_USED_THIS_FIGHT = true
+            POISON_PHASE = "DUMP"
+
+            return true
+        }
+
+        if (prevPoison > currPoison + 1) {
+            this.recordChipUse(enemyId, CooldownTracker.CHIP_ANTIDOTE_ID)
+            return true
+        }
+
+        return false
+    }
+
+    isAntidoteAvailable(enemyId) {
+        return !this.isChipOnCooldown(enemyId, CooldownTracker.CHIP_ANTIDOTE_ID)
+    }
+
+    getPoisonWindow(enemyId) {
+        var remaining = this.getCooldownRemaining(enemyId, CooldownTracker.CHIP_ANTIDOTE_ID)
+        if (remaining > 0) {
+            return remaining
+        }
+        return 0
+    }
+}
+
+function isEnemyAntidoteOnCooldown(enemyId) {
+    var tracker = new CooldownTracker(null)
+    return !tracker.isAntidoteAvailable(enemyId)
+}
+
+function getEnemyPoisonWindow(enemyId) {
+    var tracker = new CooldownTracker(null)
+    return tracker.getPoisonWindow(enemyId)
+}

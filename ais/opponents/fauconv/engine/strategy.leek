@@ -1,0 +1,38 @@
+include("effectresult")
+include("const");
+include("intercellinfo")
+include("cell")
+include("board");
+include("leek");
+include("tool");
+include("talk")
+include("effect");
+include("relativecell")
+include("round/round");
+include("round/cellround")
+include("round/leekround");
+include("round/toolround");
+include("round/action");
+include("effectfunctions")
+/****************************************************************************
+ * Strategy
+ ****************************************************************************/
+class Strategy extends Objects {
+  
+  /**
+   * isValide
+   * @return true si cette strategy peut etre utiliser ce tour
+   **/
+  public static boolean isValide() {
+    return true;
+  }
+
+  /**
+   * apply
+   * execute la strategy
+   **/
+  public boolean apply() {
+    (gFirstRound) and (Talk.text = "Je n'ai pas été codé pour ce format de combat, donc je bouge pas et toc !");
+  }
+}
+    

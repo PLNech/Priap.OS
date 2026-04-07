@@ -1,0 +1,181 @@
+
+global __enemyProfile = [:]
+global __enemyObservations = [:]
+
+function profileEnemy(enemy) {
+    if (enemy == null) return null
+    var eid = enemy._id
+    if (mapContainsKey(__enemyProfile, eid)) return null
+
+    var chips = enemy._chips
+    var weapons = enemy._weapons
+    var str = enemy._strength
+    var mag = enemy._magic
+    var agi = enemy._agility
+    var sci = enemy._science
+    var res = enemy._resistance
+    var wis = enemy._wisdom
+
+    var profile = [:]
+
+    profile['buildType'] = detectEnemyBuildType(str, mag, agi, sci, res)
+
+    var maxBurst = 0
+    var bestRange = 0
+    var bestRangeDmg = 0
+    for (var weaponId in weapons) {
+        var effects = getWeaponEffects(weaponId)
+        var weaponDmg = 0
+        for (var eff in effects) {
+            if (eff[0] == EFFECT_DAMAGE) {
+                var avgDmg = (eff[1] + eff[2]) / 2
+                weaponDmg += avgDmg * (1 + str / 100)
+            }
+        }
+        var cost = getWeaponCost(weaponId)
+        if (cost != null && cost > 0) {
+            var uses = floor(12 / cost)
+            var totalDmg = weaponDmg * uses
+            if (totalDmg > maxBurst) {
+                maxBurst = totalDmg
+            }
+        }
+        if (weaponDmg > bestRangeDmg) {
+            bestRangeDmg = weaponDmg
+            bestRange = getWeaponMaxRange(weaponId)
+        }
+    }
+    for (var chipId in chips) {
+        var effects = getChipEffects(chipId)
+        if (effects == null) continue
+        for (var eff in effects) {
+            if (eff[0] == EFFECT_DAMAGE) {
+                var avgDmg = (eff[1] + eff[2]) / 2
+                maxBurst += avgDmg * (1 + mag / 100)
+            }
+        }
+    }
+    profile['maxBurstDamage'] = floor(maxBurst)
+    profile['preferredRange'] = bestRange
+
+    var hasShield = false
+    var hasHeal = false
+    var hasPoison = false
+    var hasReflect = false
+    var hasAntidote = false
+    for (var cid in chips) {
+        if (mapContainsKey(ROLE_SHIELD_RELATIVE, cid) || mapContainsKey(ROLE_SHIELD_ABSOLUTE, cid)) hasShield = true
+        if (mapContainsKey(ROLE_HEALING, cid)) hasHeal = true
+        if (mapContainsKey(ROLE_POISON, cid)) hasPoison = true
+        if (mapContainsKey(ROLE_DAMAGE_RETURN, cid)) hasReflect = true
+        if (cid == CHIP_ANTIDOTE) hasAntidote = true
+    }
+    if (!hasPoison) {
+        for (var wid in weapons) {
+            if (mapContainsKey(ROLE_POISON_WEAPON, wid)) { hasPoison = true; break }
+        }
+    }
+    profile['hasShield'] = hasShield
+    profile['hasHeal'] = hasHeal
+    profile['hasPoison'] = hasPoison
+    profile['hasReflect'] = hasReflect
+    profile['hasAntidote'] = hasAntidote
+    profile['isTank'] = (profile['buildType'] == BUILD_TANK_SCI || res >= 300)
+    profile['isBurstBuild'] = (str >= 400 && !profile['isTank'])
+    profile['isKiter'] = (profile['buildType'] == BUILD_AGILITY || agi >= 400)
+
+    __enemyProfile[eid] = profile
+
+}
+
+function detectEnemyBuildType(str, mag, agi, sci, res) {
+    if (res >= 300 && sci >= 300) return BUILD_TANK_SCI
+    if (str > 400 && agi > 400) return BUILD_BRUISER_REFLECT
+    if (str >= mag && str >= agi && sci >= 200) return BUILD_STRENGTH_SCIENCE
+    if (mag > str + 100) return BUILD_MAGIC
+    if (abs(str - mag) < 100 && mag >= 100 && str >= 100) return BUILD_HYBRID
+    if (agi >= str && agi >= mag) return BUILD_AGILITY
+    if (mag >= str) return BUILD_MAGIC
+    return BUILD_STRENGTH
+}
+
+function getEnemyProfile(enemyId) {
+    if (mapContainsKey(__enemyProfile, enemyId)) {
+        return __enemyProfile[enemyId]
+    }
+    return null
+}
+
+function profileAllEnemies(fieldMap) {
+    var enemies = fieldMap.getEnemySubMap()
+    for (var eid in mapKeys(enemies)) {
+        if (!isDead(eid)) {
+            profileEnemy(enemies[eid])
+        }
+    }
+}
+
+function predictEnemyCanAttackWithin(playerPos, enemy, turnsWindow) {
+    if (enemy == null) return true
+    var dist = getCellDistance(playerPos, enemy._cellPos)
+    if (dist == null) return true
+
+    var maxRange = 8
+    var profile = getEnemyProfile(enemy._id)
+    if (profile != null && profile['preferredRange'] != null && profile['preferredRange'] > 0) {
+        maxRange = profile['preferredRange']
+    } else {
+        var weapons = getWeapons(enemy._id)
+        if (weapons != null) {
+            for (var wid in weapons) {
+                var wr = getWeaponMaxRange(wid)
+                if (wr != null && wr > maxRange) maxRange = wr
+            }
+        }
+    }
+
+    var enemyMP = enemy._currMp
+    if (enemyMP == null || enemyMP <= 0) enemyMP = 7
+
+    var gapToClose = max(0, dist - maxRange)
+    return gapToClose <= (enemyMP * turnsWindow)
+}
+
+function observeEnemyBehavior(fieldMap) {
+    var currentTurn = getTurn()
+    var enemies = fieldMap.getEnemySubMap()
+
+    for (var eid in mapKeys(enemies)) {
+        if (isDead(eid)) continue
+        var enemy = enemies[eid]
+
+        if (!mapContainsKey(__enemyObservations, eid)) {
+            __enemyObservations[eid] = [
+                'turnsObserved': 0,
+                'timesShielded': 0,
+                'lastHP': enemy._currHealth,
+                'hpTrend': 0
+            ]
+        }
+
+        var obs = __enemyObservations[eid]
+        obs['turnsObserved'] = obs['turnsObserved'] + 1
+
+        var hpChange = enemy._currHealth - obs['lastHP']
+        obs['hpTrend'] = obs['hpTrend'] * 0.7 + hpChange * 0.3
+        obs['lastHP'] = enemy._currHealth
+
+        if (enemy.hasEffect(EFFECT_RELATIVE_SHIELD) || enemy.hasEffect(EFFECT_ABSOLUTE_SHIELD)) {
+            obs['timesShielded'] = obs['timesShielded'] + 1
+        }
+
+        __enemyObservations[eid] = obs
+    }
+}
+
+function getEnemyObservation(enemyId) {
+    if (mapContainsKey(__enemyObservations, enemyId)) {
+        return __enemyObservations[enemyId]
+    }
+    return null
+}

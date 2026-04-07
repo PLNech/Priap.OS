@@ -1,0 +1,52 @@
+/******************************************************************************
+ * InterCellInfo
+ * information entre 2 cellules
+ ******************************************************************************/
+class InterCellInfo extends Objects {
+  public integer range;    // distance entre 2 cellule
+  public boolean isInline; // les 2 cellule sont sur la meme ligne
+  public boolean isDiag;   // les 2 cellule sont sur la meme diagonale
+  public integer to;
+
+  /**
+   * constructor
+   * constructeur pour l intercell par defaut
+   **/
+  public constructor() {
+    range = MAX_DISTANCE;
+    isInline = false;
+    isDiag = false;
+    to = 0;
+  }
+
+  /**
+   * constructor
+   * @param cellFron premiere cellule
+   * @param cellTo deuxieme cellule
+   **/
+  public constructor(Cell cellFrom, Cell cellTo) {                                                                
+    range = getCellDistance(cellFrom.id, cellTo.id);
+    id = cellFrom.id
+    to = cellTo.id
+    if(range <= Board.maxAOERange) {
+      this.isInline = (cellFrom.x == cellTo.x || cellFrom.y == cellTo.y);
+      this.isDiag = (abs(cellFrom.x-cellTo.x) == abs(cellFrom.y-cellTo.y));
+    } else {
+      isInline = false;
+      isDiag = false;
+    }
+  }
+  
+  /**
+   * toString
+   *
+   * @return string
+   **/
+  string string(string space = "") {
+    return this.class.name+":("+id+"<->"+to+":"+range+")";
+  }
+  string shortString(string space = "") {
+    return this.class.name+":("+id+"<->"+to+":"+range+")";
+  }
+
+}

@@ -1,0 +1,254 @@
+include("/Classes/Context/World")
+include("/Classes/Leek")
+include("/Classes/Items/Chip")
+include("/Classes/Items/Item")
+include("/Classes/Items/Weapon")
+include("/Classes/Context/DangerMap")
+include("/Classes/Plannification/ShootingOption")
+include("/Classes/Plannification/Action")
+include("/Classes/Context/Coordinates")
+include("/Toolbox/Constants")
+include("/Toolbox/Debug")
+include("/Toolbox/Helpers")
+
+
+
+
+class ShootingOptions {
+	Array < ShootingOption > options = []
+
+
+	// euristic based logic
+	void exploreOptions(Leek leek) {
+		Operations op = new Operations("Explore shooting options ", true)
+		// d'abord on choisit la meilleure arme : celle qui peut tirer et fait le plus de dégats
+		// on choisit ensuite un complément 
+		// Les chips ont un comportement intermittent donc ils passent premiers 
+
+		// prendre toutes les armes utilisables dans mp cases
+		// Array<Item> damagingItems = leek.getDamagingItems()
+		Array < Item > damagingItems = leek.getUsableDamagingItems(getCellDistance(leek.cell, leek.target.cell),
+			true, // la los peut changer après mouvement 
+			leek.tp,
+			leek.mp)
+		if(count(damagingItems)>0){
+			Array < Item > orderedItems = OrderDamagingItems(damagingItems)
+			buildOptions(leek, orderedItems)
+
+		}
+		else {
+			// se préparer au tour suivant donc équiper la meilleure arme
+			damagingItems = leek.getUsableDamagingItems(getCellDistance(leek.cell, leek.target.cell),
+			true, // la los peut changer après mouvement 
+			leek.tp,
+			leek.mp * 2) // a deux tours de marche
+
+			if (count(damagingItems)>0){
+				Array < Item > orderedItems = OrderDamagingItems(damagingItems)
+				boolean notChoosen = true
+				integer i = 0
+				while(notChoosen and i < count(orderedItems)){
+					if(orderedItems[i].isWeapon())
+					{
+						
+						ShootingOption equipOnly = new ShootingOption()
+						equipOnly = equipIfNeeded(orderedItems[i], leek, equipOnly)
+						push(options, equipOnly)
+						
+						Set<integer> reachable = orderedItems[i].fromWhereToUseOnCell(leek.target.cell, leek.reachableCells)
+						notChoosen = false
+						
+					}
+					i = i+1
+					
+				}
+			}
+			
+		}
+		
+
+
+		op.debugOperations()
+
+
+	}
+
+	Array < ShootingOption > buildOptions(Leek leek, Array < Item > items) {
+	
+		for (Item currentItem in items){
+		
+			if(currentItem.isWeapon()){
+				Set<integer> reachable = currentItem.fromWhereToUseOnCell(leek.target.cell, leek.reachableCells)
+				if(setSize(reachable)>0){
+					// si on peut tirer 
+					
+					// d'abord tirer plusieurs fois avec la même arme'
+					ShootingOption onlyOne = new ShootingOption()
+					getSameWeaponShootMultipleTimes(currentItem, leek, onlyOne)
+					push(options, onlyOne)
+					
+					// Ensuite essayer de combiner
+					ShootingOption combination = new ShootingOption()
+					combination = getSameWeaponShootOnce(currentItem, leek, combination)
+					combineItems(items, currentItem,  leek, combination)
+				}
+			}
+			else{
+				ShootingOption combination = new ShootingOption()
+				combination = getSameWeaponShootOnce(currentItem, leek, combination)
+				combineItems(items, currentItem,  leek, combination)
+						
+
+			
+			}
+			
+		}
+		debugShootingOptions()
+		return options
+	}
+	
+	private ShootingOption equipIfNeeded(Item currentItem, Leek leek, ShootingOption option){
+		if(currentItem.isWeapon()){
+			boolean needToEquip = true
+			if (option.equipedWeapon != null)
+				needToEquip = option.equipedWeapon.id != currentItem.id 
+			else 
+				needToEquip = true
+			if( needToEquip){
+				push(option.actions, currentItem.getActionEquip(leek))
+				option.tpLeft = option.tpLeft -1 
+				option.equipedWeapon = currentItem
+			}
+		}
+		return option
+	}
+	
+	
+	private ShootingOption getSameWeaponShootMultipleTimes( Item currentItem, Leek leek, ShootingOption option){
+		if(currentItem.isWeapon()){
+			//option.tpLeft = leek.tp
+			// equiper si ce n'est pas la bonne arme qui est équipée'
+			option = equipIfNeeded(currentItem, leek, option)
+			while  ( option.tpLeft >= currentItem.cost){
+				push(option.actions, currentItem.getActionUse(leek, leek.target)) 
+				option.tpLeft = option.tpLeft - currentItem.cost
+				option.willShoot =true 
+				option.totalMeanDamages =option.totalMeanDamages + currentItem.meanDamage
+			}
+			push(option.usedItems, currentItem)
+		}	
+		else{
+			getSameWeaponShootMultipleTimes(currentItem, leek, option)
+		}
+
+		
+		
+		
+		return option
+	}
+	
+	ShootingOption  getSameWeaponShootOnce( Item currentItem, Leek leek, ShootingOption option){
+
+		option.tpLeft = leek.tp
+		// equiper si ce n'est pas la bonne arme qui est équipée'
+		option = equipIfNeeded(currentItem, leek, option)
+
+		push(option.actions, currentItem.getActionUse(leek, leek.target)) 
+		option.tpLeft = option.tpLeft - currentItem.cost
+		option.willShoot =true 
+		push(option.usedItems, currentItem)
+		return option 
+	}
+		
+	private  void combineItems(Array<Item> items,Item currentItem,  Leek leek, ShootingOption combination){
+		Array<Item> tempItems = copyArray(items)
+		removeElement(tempItems, currentItem)
+
+		for(Item e in tempItems) {
+			ShootingOption combinationCopy = new ShootingOption(combination)
+		
+			if (e.isWeapon()){ 
+				getSameWeaponShootMultipleTimes(e,leek, combinationCopy)
+			}
+			else {
+				getSameWeaponShootOnce(e,leek, combinationCopy)
+			}
+			push(combinationCopy.usedItems, e)
+			push(options, combinationCopy)
+
+			if (count(tempItems)>1){
+				debug("count(options) " + count(options) )
+				debug("combinationCopy tp left " + combinationCopy.tpLeft )
+			//	combineItems(tempItems, currentItem, leek, combinationCopy
+
+			}
+		}
+		
+		
+
+	}
+	
+	
+	
+	
+	
+	
+	
+
+
+	static Array < Item > OrderDamagingItems(Array < Item > damagingItems) {
+		Operations op = new Operations("Order damagin items ", true)
+		Array < Item > temp = []
+		Array < Item > ordered = []
+		for (Item di in damagingItems) {
+			if (count(ordered) > 0) {
+				temp = []
+				boolean hasBeenAdded = false
+				for (Item w in ordered) {
+					if (w.meanDamage < di.meanDamage and!hasBeenAdded) {
+						push(temp, di)
+						hasBeenAdded = true
+						push(temp, w)
+					} else {
+						push(temp, w)
+					}
+				}
+				if (!hasBeenAdded) {
+					push(temp, di)
+				}
+
+
+			} else {
+				push(temp, di)
+			}
+			ordered = temp
+		}
+
+		op.debugOperations
+		return ordered
+	}
+
+
+	static void debugDamagingItems(Array < Item > di, string text = "damaging items") {
+		debug("------------------------------" + text)
+		for (Item i in di) {
+			debug("damaging item " + i.name + "  - mean damage : " + i.meanDamage)
+
+		}
+		debug("--------------------------FIN-" + text)
+		pause()
+	}
+	
+	void debugShootingOptions(){
+		for( ShootingOption so in options)
+		{
+			debug("debut actions ----")
+			for (Action a in  so.actions)
+				debug(" action " + a.desc)
+			debug("fin actions ----")
+		}
+	
+	}
+
+
+}

@@ -1,0 +1,201 @@
+/****************************************************************************
+ * BasicStrategyTools
+ ****************************************************************************/
+class BasicStrategyToolsOld extends Objects {
+
+  /**
+   * colorize
+   * on decompose en different cas (couleur) et on calcul les degat
+   **/
+  static void colorize(Map<integer,MoveCell> myMoveCells, Map<integer,MoveCell> myMoveCellsNeutral,
+                       Map<integer,MoveCell> myMoveCellsBad, Map<integer,MoveCell> myMoveCellsGood, 
+                       Map<integer,MoveCell> myMoveCellsAnnihilation, integer enemyRound) { 
+    for(MoveCell mc in myMoveCells) {
+      if(count(mc.targetCells) == 0) {
+        if(mapSize(mc.enemyTools) == 0) {
+          myMoveCellsNeutral[mc.id] = mc;
+        } else {
+          myMoveCellsBad[mc.id] = mc;
+		  mc.computeDefence(enemyRound);
+        }
+      } else {
+		mc.computeEscape(myMoveCells);
+        mc.computeAttack();
+        if(mapSize(mc.enemyTools) == 0) {
+          myMoveCellsGood[mc.id] = mc;     
+        } else {
+		  mc.computeDefence(enemyRound);
+		  boolean found = false;
+		  for(Array<MoveCell> escapeList in mc.goodEscapes) {
+			if(count(escapeList) > 0) {
+		      myMoveCellsGood[mc.id] = mc;
+			  found = true;
+			  break;
+			}
+		  }
+          if(!found) {
+            myMoveCellsAnnihilation[mc.id] = mc;
+          }
+        }
+      }
+    }
+  }
+      
+  /**
+   * moveToCellPassBy
+   * s approche de cellId en s arretant uniquement sur une des cases de cellList
+   * @param extended : si true cherche aussi les MoveCell qui on des sim extended si il n a pas trouve dans les normals
+   * @param forceExtended : cherche la meilleure qu elle soit extended ou pas
+   * @return {cellId:<integer>, simId:<integer>} used sim et destination cell
+   **/
+  static Object moveToCellPassBy(integer cellId, Map<integer,MoveCell> cellList, boolean extended = false, 
+								  boolean forceExtended = false) {
+    if(mapContainsKey(cellList, cellId)) {
+	  for(integer index : Simulation sim in cellList[cellId]!.moveSim) {
+	    if(!sim.extended || forceExtended) return moveToCellPassByMacro(sim, cellId, index);
+	  }
+	}
+    Array<integer> path = getPath(cellId,Board.currentRound.meRound.currentCellId)!;
+    for(integer cell in path) {
+	  if(mapContainsKey(cellList, cell)) {
+        for(integer index : Simulation sim in cellList[cell]!.moveSim) {
+	      if(!sim.extended || forceExtended) return moveToCellPassByMacro(sim, cell, index);
+	    }
+	  }
+    }
+	if(extended && !forceExtended) {
+	  if(mapContainsKey(cellList, cellId)) {
+	    for(integer index : Simulation sim in cellList[cellId]!.moveSim) {
+	      if(sim.extended) return moveToCellPassByMacro(sim, cellId, index);
+	    }
+	  }
+      for(integer cell in path) {
+		if(mapContainsKey(cellList, cellId)) {
+          for(integer index : Simulation sim in cellList[cell]!.moveSim) {
+	        if(sim.extended) return moveToCellPassByMacro(sim, cell, index);
+	      }
+		}
+      }
+	}
+	return {cellId:Board.currentRound.meRound.currentCellId, simId:0};
+  }
+
+  /**
+   * moveToCellPassByMacro
+   **/
+  private static Object moveToCellPassByMacro(Simulation sim, integer cellId, integer index) {
+    sim.execute();
+    if(sim.roundObj.meRound.moveToCell(cellId) != cellId) 
+	  debugC("BasicStrategyTools=>moveToCellPassBy=>pas la bonne destination", COLOR_RED);
+	return {cellId:cellId, simId:index};
+  }
+	
+  /**
+   * moveAwayFromCellPassBy
+   * s eloigne de cellId en s arretant uniquement sur une des cases de cellList
+   * @param extended : si true cherche aussi les MoveCell qui on des sim extended
+   * @param forceExtended : cherche la meilleure qu elle soit extended ou pas
+   * @return {cellId:<integer>, simId:<integer>} used sim et destination cell
+   **/
+  static Object moveAwayFromCellPassBy(integer cellId, Map<any,MoveCell>cellList, boolean extended = false, 
+								       boolean forceExtended = false){
+    integer distance = 0;
+	integer distanceExtended = 0;
+    Integer|null cell2 = null;
+	Integer|null cell2Extended = null;
+	Simulation|null sim2 = null;
+	Simulation|null sim2Extended = null;
+    for(MoveCell cell in cellList) {
+	  integer dist = cell.cell.interCellInfo[cellId].range;
+	  for(integer index : Simulation sim in cell.moveSim) {
+	    if(sim.extended) {
+		  if(dist > distanceExtended) {
+			distanceExtended = dist;
+			cell2Extended = cell.id;
+			sim2Extended = sim;
+		  }
+		} else {
+		  if(dist > distance) {
+			distance = dist;
+			cell2 = cell.id;
+			sim2 = sim;
+		  }
+		}
+	  }
+    }
+	if(forceExtended && distance < distanceExtended) 
+      return moveToCellPassByMacro(sim2Extended!, cell2Extended!, sim2Extended!.id);
+	if(distance > 0) return moveToCellPassByMacro(sim2!, cell2!, sim2!.id);
+	if(extended && distanceExtended > 0) return moveToCellPassByMacro(sim2Extended!, cell2Extended!, sim2Extended!.id);
+    return {cellId:Board.currentRound.meRound.currentCellId, simId:0};
+  }
+
+  /**
+   * addTool
+   **/
+  static integer addTool(integer weaponId, Map<integer,Tool> toolsInfo, Map<integer, any> toolsList, 
+                           integer targetCell, integer minTP, EffectResult result, Simulation sim, 
+                           LeekRound shooter, boolean keepWeapon = true) {
+    if(mapContainsKey(toolsList, weaponId)) {
+      debug(TOOL_NAME_TRANSLATOR[weaponId]+"-"+shooter.leek.name);
+      if(!toolsInfo[weaponId]!.isChip && shooter.weaponId != weaponId) { // si il faut faire un setWeapon
+        if(keepWeapon) return minTP;
+        if(minTP >= (toolsInfo[weaponId]!.cost + SET_WEAPON_COST)) {
+          sim.addSetWeaponAction(weaponId);
+        } else return minTP;
+      }
+      if(minTP >= toolsInfo[weaponId]!.cost) {
+        do {
+          EffectResult ret = sim.addToolAction(weaponId, targetCell);
+          result.add(ret);
+          minTP = shooter.minTP;
+        } while(minTP >= toolsInfo[weaponId]!.cost && toolsInfo[weaponId]!.cooldown == 0);
+      } else {
+        sim.addToolAction(weaponId, targetCell, true);
+      }
+    }
+    return minTP;
+  }
+   
+  /**
+   * addEnemyTool
+   **/
+  static integer addEnemyTool(integer weaponId, Map<integer,Tool> toolsInfo, Map<integer, any> toolsList,
+							  integer minTP, EffectResult result, Round roundObj, 
+                              LeekRound shooter, Array<integer> targetId, Array<real> AOE, boolean keepWeapon = true) {
+    if(mapContainsKey(toolsList, weaponId)) {
+      if(!toolsInfo[weaponId]!.isChip && shooter.weaponId != weaponId) { // si il faut faire un setWeapon
+        if(keepWeapon) return minTP;
+        if(minTP >= (toolsInfo[weaponId]!.cost + SET_WEAPON_COST)) {
+		  shooter.simulateSetWeapon(weaponId);
+        } else return minTP;
+      }
+      if(minTP >= toolsInfo[weaponId]!.cost) {
+        do {
+          EffectResult ret = shooter.toolsRound[weaponId]!.simulateUse(targetId, AOE);
+          result.add(ret);
+          minTP = shooter.minTP;
+        } while(minTP >= toolsInfo[weaponId]!.cost && toolsInfo[weaponId]!.cooldown == 0);
+      }
+    }
+    return minTP;  
+  }
+	
+  /**
+   * instaKill
+   * je regarde si il y a des insta kill
+   **/
+  static boolean instaKill(Map<integer,MoveCell> myAnnihilations) {
+	for(MoveCell mc in myAnnihilations) {
+	  for(integer index : integer score in mc.attackScores) {
+	    if(score >= MoveCell.INSTA_KILL) {
+		  mc.execute(index);
+		  return true;
+		}
+	  }
+	}
+	return false;
+  }
+
+}
+

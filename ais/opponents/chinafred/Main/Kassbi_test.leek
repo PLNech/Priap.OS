@@ -1,0 +1,23 @@
+include("/Classes/Leek")
+include("/Brain/simpleActionSequence")
+include("/Brain/PlanActScenario")
+include("/Classes/Context/World")
+	global World world = new World()
+	global kassbi = new Leek(getEntity(), planAct)
+
+	// init
+	world.buildObstaclesCoordinatesSet()
+	world.setEnemiesLeeks()
+
+	var turn = getTurn()
+	if (turn > 1)
+	{
+		kassbi.updateData()
+		world.updateData()
+		// doit venir après le monde pour permettre l'update de la danger map'
+		kassbi.updateDataMyLeeks()
+	}
+	
+	// call AI 
+	kassbi.play()
+

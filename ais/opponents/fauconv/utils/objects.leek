@@ -1,0 +1,23 @@
+/******************************************************************************
+ * Objects
+ *
+ * Les classes de leekscript n'herite pas de la classe "Object" de leekscript. 
+ * Il faut donc creer une classe "Objects" generique dont on va faire heriter toute nos classes pour
+ * permettre leur traitement generique dans gamedebug
+ ******************************************************************************/
+class Objects {
+  
+  public integer id = 0;
+  
+  /**
+   * toString
+   *
+   * @return string
+   **/
+  string string(string space = "") {
+    return this.class.name+":(#"+id+")";
+  }
+  string shortString(string space = "") {
+    return this.class.name+":(#"+id+")";
+  }
+}

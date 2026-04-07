@@ -1,0 +1,88 @@
+include("/Classes/Leek")
+include("/Classes/Context/Coordinates")
+
+class World{
+
+	public Array<Leek> enemies = []
+	public Map<integer, Coordinates> cellsCoordinatesTable  = new Map ()
+	public Set cellsSet = <>
+	public Set<integer> obstaclesSet  = <>
+	public Set<Coordinates> obstaclesCoordinatesSet  = <>
+	public Set cellsWithoutObstacles = <>
+
+
+
+	constructor()
+	{
+		Operations op = new Operations("world constructor ")
+		buildCellsCoordinatesAndCellsSet()
+		buildObstaclesSet()
+		cellsWithoutObstacles = setDifference(cellsSet, obstaclesSet)
+
+		op.debugOperations()
+	}
+
+
+	public null setEnemiesLeeks(){
+	 	Array<integer> enemiesId = getEnemies()
+	 	debug("world update enemiesId " + enemiesId)
+		enemies = []
+		for (var i in enemiesId){
+			push(enemies, new Leek(i))
+		}
+	}
+
+
+	public void buildCellsCoordinatesAndCellsSet(){
+		for (integer x in [-17..17])
+			for (integer y in [-17..17])
+			{
+				if (abs(x) + abs(y) <= 17){
+					var cell = getCellFromXY (x,y)
+					if( cell >= 0 ){
+						mapPut(cellsCoordinatesTable, cell, new Coordinates(x,y))
+						setPut(cellsSet, cell)
+					}
+					
+				}
+			}
+	}
+
+
+	public void buildObstaclesSet(){
+		obstaclesSet = arrayToSet(getObstacles())
+		
+	}
+
+
+	public void buildObstaclesCoordinatesSet(){
+		for (integer o in obstaclesSet)
+		{
+			setPut(this.obstaclesCoordinatesSet, world.getCoordinatesFromCell(o))
+		}
+	}
+
+
+	public void updateData(){
+		debug("update world data")
+	}
+
+	public Leek getEnemyLeek(id){
+		var ret = arrayFilter(enemies, function(v) {
+    		return v.id == id
+		})
+		return ret[0]
+	}
+
+	public Coordinates getCoordinatesFromCell(key){
+		Coordinates ret =  mapGet(cellsCoordinatesTable, key)
+	
+	
+						  
+		return ret
+	}
+
+}
+
+
+

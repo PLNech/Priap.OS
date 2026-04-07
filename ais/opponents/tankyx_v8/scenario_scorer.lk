@@ -1,0 +1,1174 @@
+include('game_entity.lk')
+include('cooldown_tracker.lk')
+
+class ScenarioScorer {
+    _player = null
+    _target = null
+    _fieldMap = null
+    _weights = null
+
+    constructor(player, target, fieldMap, weights) {
+        this._player = player
+        this._target = target
+        this._fieldMap = fieldMap
+        this._weights = weights != null ? weights : [:]
+    }
+
+    getWeight(key, defaultValue) {
+        if (mapContainsKey(this._weights, key)) {
+            return this._weights[key]
+        }
+        return defaultValue
+    }
+
+    score(simResult, scenario) {
+        if (_isBossFight && _bossPhase == "PUZZLE") {
+            return this.scorePuzzle(simResult, scenario)
+        }
+
+        var score = 0
+
+        var enemyHP = this._target._currHealth
+        var dotDmg = simResult.dotDamageQueued != null ? simResult.dotDamageQueued : 0
+        var novaDmg = simResult.novaDamageQueued != null ? simResult.novaDamageQueued : 0
+        var totalDamage = simResult.damageDealt + dotDmg + novaDmg
+        var killProbability = totalDamage / enemyHP
+
+        var targetIsBulb = isBulb(this._target)
+        var bulbType = targetIsBulb ? getBulbType(this._target) : BULB_TYPE_UNKNOWN
+
+        var isBattleRoyale = (getFightType() == FIGHT_TYPE_BATTLE_ROYALE)
+        var effectiveDamage = totalDamage
+        if (isBattleRoyale && simResult.totalLobbyDamage > 0) {
+            effectiveDamage = simResult.totalLobbyDamage
+        }
+
+        var bulbRaceState = "BULB_CLEAR"
+        if (targetIsBulb) {
+            var enemies = this._fieldMap.getEnemySubMap()
+            var summonerHP = 0
+            for (var eid in mapKeys(enemies)) {
+                if (!isDead(eid) && !isBulb(enemies[eid])) {
+                    summonerHP = enemies[eid]._currHealth
+                    break
+                }
+            }
+
+            if (summonerHP > 0) {
+                var playerDPS = max(1, this._player._strength + this._player._magic)
+                var turnsToKill = summonerHP / playerDPS
+
+                var playerPos = this._player._cellPos
+                var enemyDPS = max(1, this._fieldMap.getThreatAtCell(playerPos))
+                var bulbDamagePerTurn = 50
+                var turnsTodie = this._player._currHealth / (enemyDPS + bulbDamagePerTurn)
+
+                if (turnsToKill < turnsTodie) {
+                    bulbRaceState = "RACE"
+                }
+            }
+        }
+
+        var bulbDamageMultiplier = 1.0
+        if (targetIsBulb) {
+            if (bulbRaceState == "RACE") {
+                bulbDamageMultiplier = 0.3
+            } else {
+                bulbDamageMultiplier = this.getWeight('bulbDamageMultiplier', 1.2)
+            }
+        }
+
+        var damageWeight = this.getWeight('burstDamage', this.calculateDamageWeight())
+
+        var enemyHasActiveReflect = this._target.hasDamageReturn()
+        var enemyReflectTurns = this._target.getDamageReturnRemaining()
+
+        if (enemyHasActiveReflect && scenario != null && count(scenario) > 0) {
+            var attackActions = 0
+            for (var action in scenario) {
+                if (action.type == Action.ACTION_DIRECT) attackActions++
+            }
+            if (attackActions > 0) {
+                var reflectPenalty = attackActions * damageWeight * 0.8
+                score -= reflectPenalty
+                if (enemyReflectTurns <= 1) {
+                    score += reflectPenalty * 0.5
+                }
+            }
+        }
+
+        if (killProbability >= 0.70) {
+            damageWeight *= 5.0
+        } else if (killProbability >= 0.50) {
+            damageWeight *= 2.5
+        }
+
+        if (killProbability >= 0.85 && killProbability < 1.1 && scenario != null && count(scenario) > 0) {
+            var buffCount = 0
+            var attackCount = 0
+            for (var action in scenario) {
+                if (action.type == Action.ACTION_BUFF) buffCount++
+                if (action.type == Action.ACTION_DIRECT || action.type == Action.ACTION_DOT) attackCount++
+            }
+            if (buffCount > 1 && attackCount < 2) {
+                score -= 800 * buffCount
+            }
+        }
+
+        var damageScore = effectiveDamage * damageWeight * bulbDamageMultiplier
+        score += damageScore
+
+        var lifestealHealing = simResult.lifestealHealing
+        if (lifestealHealing > 0) {
+            var hpPercent = (this._player._currHealth * 100) / this._player._maxHealth
+            var lifestealMultiplier = 1.0
+            if (hpPercent < 50) {
+                lifestealMultiplier = 2.0
+            } else if (hpPercent < 70) {
+                lifestealMultiplier = 1.5
+            }
+            var lifestealScore = lifestealHealing * lifestealMultiplier * 2.0
+            score += lifestealScore
+        }
+
+        if (simResult.selfDamageHP > 0) {
+            var hpAfterSelf = this._player._currHealth - simResult.selfDamageHP + simResult.lifestealHealing
+            var selfDmgPenalty = simResult.selfDamageHP * 3.0
+            if (killProbability >= 0.95) {
+                selfDmgPenalty = 0
+            } else if (killProbability >= 0.85) {
+                selfDmgPenalty *= 0.3
+            } else {
+                // Not a kill-finisher: massive penalty to prevent suicidal Punishment
+                selfDmgPenalty = simResult.selfDamageHP * 10.0
+            }
+            if (hpAfterSelf <= 0) {
+                selfDmgPenalty += 50000
+            } else if (hpAfterSelf < this._player._maxHealth * 0.30) {
+                selfDmgPenalty += 5000
+            }
+            score -= selfDmgPenalty
+        }
+
+        var bulbKillBonus = 0
+        if (targetIsBulb && killProbability >= 0.70) {
+            if (bulbType == BULB_TYPE_HEALER) {
+                bulbKillBonus = this.getWeight('bulbKillBonusHealer', 2500)
+            } else if (bulbType == BULB_TYPE_BUFFER) {
+                bulbKillBonus = this.getWeight('bulbKillBonusBuffer', 1500)
+            } else if (bulbType == BULB_TYPE_ATTACKER) {
+                bulbKillBonus = this.getWeight('bulbKillBonusAttacker', 800)
+            }
+        }
+        score += bulbKillBonus
+
+        if (isBattleRoyale && simResult.killsSecured > 0) {
+            var lobbySizeBonus = simResult.killsSecured * 5000
+            score += lobbySizeBonus
+        }
+
+        if (isBattleRoyale && simResult.enemiesHit >= 2) {
+            var aoeBonus = (simResult.enemiesHit - 1) * 1000
+            score += aoeBonus
+        }
+
+        var playerHPPercent = (this._player._currHealth * 100) / this._player._maxHealth
+        if (totalDamage == 0 && playerHPPercent > 30) {
+            var currentTurn = getTurn()
+            var noDamagePenalty = this.getWeight('noDamagePenalty', -2000)
+
+            if (currentTurn <= 3) {
+                if (this._player._magic >= 200) {
+                    noDamagePenalty = noDamagePenalty
+                } else {
+                    noDamagePenalty = noDamagePenalty / 4
+                }
+            } else if (currentTurn >= 5) {
+                // Quadratic ramp (was linear plateau at 7 by turn 15).
+                // turn 5 → 1.4, turn 15 → 3.4, turn 25 → 5.6, turn 40 → 9.4, capped 12.
+                var t = currentTurn - 5
+                var turnScale = 1.0 + (t / 8.0) * 1.5
+                if (turnScale > 12.0) turnScale = 12.0
+                noDamagePenalty = noDamagePenalty * turnScale
+            }
+
+            // Streak detector: 3+ consecutive zero-damage turns means we're stuck.
+            // Add an extra flat penalty so the scorer aggressively shuffles toward damage.
+            if (__zeroDamageStreak >= 2) {
+                noDamagePenalty -= 5000
+            }
+
+            score += noDamagePenalty
+        }
+
+        var dotWeight = this.getWeight('dotEffects', this.calculateDotWeight())
+
+        var antidoteMultiplier = this.calculateAntidoteMultiplier()
+        var adjustedDotWeight = dotWeight * antidoteMultiplier
+
+        var dotScore = simResult.dotDamageQueued * adjustedDotWeight
+        score += dotScore
+
+        if (simResult.poisonTurnsQueued > 0 && simResult.poisonSourcesUsed > 0) {
+            var avgDuration = simResult.poisonTurnsQueued / simResult.poisonSourcesUsed
+            var durationFactor = min(3.0, avgDuration / 2.0)
+            var lifetimeBonus = simResult.dotDamageQueued * adjustedDotWeight * 0.15 * durationFactor
+            score += lifetimeBonus
+        }
+
+        var poisonStackWeight = this.getWeight('poisonStacks', 0)
+        if (poisonStackWeight > 0 && simResult.poisonSourcesUsed > 1) {
+            var stackBonus = (simResult.poisonSourcesUsed - 1) * poisonStackWeight * 0.5
+            score += stackBonus
+        }
+
+        var novaWeight = this.getWeight('novaEffects', (dotWeight + damageWeight) / 2.0)
+        var novaDamageQueued = simResult.novaDamageQueued != null ? simResult.novaDamageQueued : 0
+        var novaScore = novaDamageQueued * novaWeight
+        score += novaScore
+
+        if (simResult.erosionDamage > 0) {
+            var erosionWeight = 2.0
+            if (__timePressure) {
+                erosionWeight = 4.0
+            }
+            // Erosion is the primary anti-tank tool — permanent HP reduction
+            // is the only counter to high-HP/heal opponents. Make it dominant
+            // when the target is actually a tank, regardless of time pressure.
+            var targetProfile = getEnemyProfile(this._target._id)
+            if (targetProfile != null && targetProfile['isTank']) {
+                erosionWeight = 5.0
+                if (__timePressure) erosionWeight = 7.0
+            }
+            score += simResult.erosionDamage * erosionWeight
+        }
+
+        if (__timePressure && simResult.dotDamageQueued > 0) {
+            score += simResult.dotDamageQueued * 0.5
+        }
+
+        var ehpWeight = this.calculateEhpWeight()
+        var shieldValueWeight = this.getWeight('shieldValue', 0)
+        if (shieldValueWeight > 100) {
+            ehpWeight *= (1.0 + (shieldValueWeight - 100) / 400.0)
+        }
+        var shieldScore = simResult.shieldsGained * ehpWeight
+        var relShieldScore = this.calculateRelativeShieldValue(simResult.relativeShieldGained) * ehpWeight
+
+        var wisdom = this._player._wisdom
+        var wisdomMultiplier = 1.0
+        if (wisdom < 200) {
+            wisdomMultiplier = 0.5
+        } else if (wisdom < 400) {
+            wisdomMultiplier = 0.75
+        }
+
+        var healScore = simResult.hpGained * ehpWeight * wisdomMultiplier
+
+        var currentHP = this._player._currHealth
+        var maxHP = this._player._maxHealth
+        var hpRatio = currentHP / maxHP
+        var healingUrgencyBonus = 0
+        if (simResult.hpGained > 0) {
+            if (hpRatio < 0.3) healingUrgencyBonus = simResult.hpGained * 3.0 * wisdomMultiplier
+            else if (hpRatio < 0.5) healingUrgencyBonus = simResult.hpGained * 1.5 * wisdomMultiplier
+            else if (hpRatio < 0.8) healingUrgencyBonus = simResult.hpGained * 0.5 * wisdomMultiplier
+        }
+
+        score += shieldScore + relShieldScore + healScore + healingUrgencyBonus
+
+        var positionWeight = this.calculatePositionWeight()
+        var positionScore = this.evaluatePosition(simResult.finalPosition) * positionWeight
+        score += positionScore
+
+        var adversarialThreat = 0
+        if (__adversarialThreatCacheBuilt) {
+            var evalCell = simResult.finalPosition
+            if (evalCell == -1) evalCell = this._player._cellPos
+            adversarialThreat = getAdversarialThreat(evalCell)
+        }
+        if (adversarialThreat > 0) {
+            var effectiveHP = this._player._currHealth + simResult.hpGained + simResult.shieldsGained
+            var relShieldReduction = simResult.relativeShieldGained / 100.0
+            var effectiveEnemyDmg = adversarialThreat * (1.0 - relShieldReduction)
+            var survivalAfterEnemy = effectiveHP - effectiveEnemyDmg
+
+            if (survivalAfterEnemy <= 0) score -= 8000
+            else if (survivalAfterEnemy < this._player._maxHealth * 0.25) score -= 3000
+
+            var threatWeight = this.getWeight('threatReduction', 40) / 100.0
+            score -= adversarialThreat * threatWeight
+
+            if (adversarialThreat > 300) {
+                score += (simResult.hpGained + simResult.shieldsGained) * (adversarialThreat / 1000.0)
+            }
+        }
+
+        var efficiencyWeight = this.getWeight('tpEfficiency', this.calculateEfficiencyWeight())
+        var efficiencyScore = this.calculateEfficiency(simResult) * efficiencyWeight
+        score += efficiencyScore
+
+        var buffWeight = this.getWeight('buffs', this.calculateBuffWeight())
+        var buffScore = this.evaluateBuffs(simResult.buffsApplied, simResult) * buffWeight
+        var debuffScore = this.evaluateDebuffs(simResult.debuffsApplied) * buffWeight
+        score += buffScore + debuffScore
+
+        if (simResult.denialApplied > 0) {
+            var enemyTP = max(1, this._target._currTp)
+            var denialRatio = min(1.0, simResult.denialApplied / enemyTP)
+            var enemyBestDPT = max(1, this._target._strength + this._target._magic) * 1.5
+            var denialValue = denialRatio * enemyBestDPT * 3.0
+            if (denialRatio > 0.5) denialValue *= 1.5
+            score += denialValue
+        }
+
+        if (simResult.strShackled > 0) {
+            var enemyStr = max(1, this._target._strength)
+            var reductionRatio = min(1.0, simResult.strShackled / enemyStr)
+            var enemyDPT = enemyStr * 1.5
+            var statReduceValue = reductionRatio * enemyDPT * 2.0
+            score += statReduceValue
+        }
+        if (simResult.magShackled > 0) {
+            var enemyMag = max(1, this._target._magic)
+            var reductionRatio = min(1.0, simResult.magShackled / enemyMag)
+            var enemyMagDPT = enemyMag * 1.5
+            var statReduceValue = reductionRatio * enemyMagDPT * 2.0
+            score += statReduceValue
+        }
+
+        if (simResult.vulnerabilityApplied > 0) {
+            var vulnPercent = simResult.vulnerabilityApplied / 100.0
+            var remainingTP = max(0, getTP() - simResult.tpSpent)
+            var estimatedFutureDamage = remainingTP * 100
+            var vulnValue = estimatedFutureDamage * vulnPercent * 2.0
+            var targetProfile2 = getEnemyProfile(this._target._id)
+            if (targetProfile2 != null && targetProfile2['isTank']) {
+                vulnValue *= 2.0
+            }
+            score += vulnValue * (this.getWeight('burstDamage', 200) / 200.0)
+        }
+
+        var critBonus = this.calculateCritBonus(simResult.damageDealt, simResult.buffsApplied)
+        score += critBonus
+
+        var otkoBonus = 0
+        var finalPos = simResult.finalPosition
+        if (finalPos != -1 && mapContainsKey(this._fieldMap.damageMap, finalPos)) {
+            var cell = this._fieldMap.damageMap[finalPos]
+            if (cell._isOTKOCell) {
+                otkoBonus = this.getWeight('otkoBonus', 5000)
+            }
+        }
+        score += otkoBonus
+
+        var checkpointBonus = 0
+        var poisonDumpBonus = 0
+        if (scenario != null && count(scenario) > 0) {
+            for (var action in scenario) {
+                if (action.type == 15) {
+                    if (action.checkpointType == "POISON_DUMP") {
+                        poisonDumpBonus = 10000
+                    } else if (action.checkpointType == "POISON_BAIT") {
+                        checkpointBonus = 6000
+                    } else {
+                        checkpointBonus = this.getWeight('checkpointBonus', 2500)
+                    }
+                    break
+                }
+            }
+        }
+        score += checkpointBonus + poisonDumpBonus
+
+        var synergyBonus = this.evaluateSynergyBonus(scenario)
+        score += synergyBonus
+
+        var continuationScore = this.evaluateContinuationValue(simResult, scenario)
+        score += continuationScore
+
+        var destroyerBonus = 0
+        if (scenario != null && count(scenario) > 0 && this._target._strength > 150) {
+            var destroyerUses = 0
+            for (var action in scenario) {
+                if (action.weaponId == WEAPON_DESTROYER) {
+                    destroyerUses++
+                }
+            }
+            if (destroyerUses > 0) {
+                destroyerBonus = destroyerUses * 400
+            }
+        }
+        score += destroyerBonus
+
+        var centerPenalty = 0
+        if (isBattleRoyale) {
+            var aliveEnemies = getAliveEnemies()
+            var enemyCount = count(aliveEnemies)
+
+            if (enemyCount > 4) {
+                var centerCell = getCellFromXY(9, 9)
+                if (centerCell != null && simResult.finalPosition != -1) {
+                    var currentDistToCenter = getCellDistance(this._player._cellPos, centerCell)
+                    var finalDistToCenter = getCellDistance(simResult.finalPosition, centerCell)
+
+                    if (finalDistToCenter != null && currentDistToCenter != null) {
+                        if (finalDistToCenter < currentDistToCenter) {
+                            var movementTowardCenter = currentDistToCenter - finalDistToCenter
+                            centerPenalty = movementTowardCenter * 150
+                        }
+                    }
+                }
+                score -= centerPenalty
+            }
+        }
+
+        var survivalMultiplier = 1.0
+        if (simResult.hpGained > 0) {
+            var playerPos = this._player._cellPos
+            var threatAtPos = this._fieldMap.getThreatAtCell(playerPos)
+            var hasShield = this._player.hasEffect(EFFECT_ABSOLUTE_SHIELD) || this._player.hasEffect(EFFECT_RELATIVE_SHIELD)
+
+            if (hpRatio < 0.45 && (threatAtPos > 800 || !hasShield)) {
+                if (hpRatio < 0.30) {
+                    survivalMultiplier = 50.0
+                } else if (hpRatio < 0.40) {
+                    survivalMultiplier = 25.0
+                } else {
+                    survivalMultiplier = 10.0
+                }
+            }
+        }
+
+        score *= survivalMultiplier
+
+        if (__timePressure) {
+            var currentTurn = getTurn()
+            var turnsRemaining = 64 - currentTurn
+            var urgencyFactor = 1.0
+
+            // Steeper urgency curve — old curve plateaued at 1.8 by turn 30,
+            // which barely budged scoring vs slow tanky opponents.
+            // turn 5-15: 1.0 → 1.8 (0.08/turn)
+            // turn 15-30: 1.8 → 3.3 (0.10/turn)
+            // turn 30-50: 3.3 → 6.3 (0.15/turn)
+            // turn 50+: keep ramp, cap 7.5
+            if (currentTurn > 50) {
+                urgencyFactor = 6.3 + (currentTurn - 50) * 0.15
+                if (urgencyFactor > 7.5) urgencyFactor = 7.5
+            } else if (currentTurn > 30) {
+                urgencyFactor = 3.3 + (currentTurn - 30) * 0.15
+            } else if (currentTurn > 15) {
+                urgencyFactor = 1.8 + (currentTurn - 15) * 0.10
+            } else if (currentTurn > 5) {
+                urgencyFactor = 1.0 + (currentTurn - 5) * 0.08
+            }
+
+            var dotDmgTP = simResult.dotDamageQueued != null ? simResult.dotDamageQueued : 0
+            var novaDmgTP = simResult.novaDamageQueued != null ? simResult.novaDamageQueued : 0
+            var totalDmgTP = simResult.damageDealt + dotDmgTP + novaDmgTP
+            score += totalDmgTP * (urgencyFactor - 1.0) * damageWeight
+
+            if (turnsRemaining < 30) {
+                if (novaDmgTP > 0) score += novaDmgTP * 5.0
+                if (simResult.denialApplied > 0) score += 500
+            }
+        }
+
+        return score
+    }
+
+    calculateDamageWeight() {
+        var str = this._player._strength
+        var mag = this._player._magic
+        var agi = this._player._agility
+
+        if (str > mag && str > agi) {
+            return 3.0 + (str / 500.0)  
+        }
+
+        else if (mag > str && mag > agi) {
+            return 1.6 + (mag / 1000.0)
+        }
+
+        else if (agi > str && agi > mag) {
+            return 2.6 + (agi / 750.0)
+        }
+
+        return 2.0  
+    }
+
+    calculateDotWeight() {
+        var str = this._player._strength
+        var mag = this._player._magic
+        var agi = this._player._agility
+
+        if (mag > str && mag > agi) {
+            return 2.0 + (mag / 1000.0)
+        }
+
+        return 0.3
+    }
+
+    calculateAntidoteMultiplier() {
+        var enemyId = this._target._id
+        var tracker = new CooldownTracker(this._target)
+        var antidoteCd = tracker.getCooldownRemaining(enemyId, CooldownTracker.CHIP_ANTIDOTE_ID)
+        var cureCd = tracker.getCooldownRemaining(enemyId, CooldownTracker.CHIP_CURE_ID)
+        var remissionCd = tracker.getCooldownRemaining(enemyId, CooldownTracker.CHIP_REMISSION_ID)
+
+        // Use the shortest cooldown among all cleanse chips
+        var bestCleanseCd = antidoteCd
+        if (cureCd >= 0 && (bestCleanseCd < 0 || cureCd < bestCleanseCd)) bestCleanseCd = cureCd
+        if (remissionCd >= 0 && (bestCleanseCd < 0 || remissionCd < bestCleanseCd)) bestCleanseCd = remissionCd
+
+        // Smooth the cliff at cd=0: 0.2 was too punishing — caused magic builds
+        // to avoid poison entirely vs antidote-cycling enemies, leading to
+        // infinite stalemate. Bumped to 0.5 (BAIT 0.7) so we still apply poison
+        // and force the cleanse rotation.
+        if (bestCleanseCd == 0) {
+            if (POISON_PHASE == "BAIT") return 0.7
+            return 0.5
+        } else if (bestCleanseCd == 1) {
+            return 1.7
+        } else if (bestCleanseCd == 2) {
+            return 1.9
+        } else if (bestCleanseCd >= 3) {
+            return 2.1 + (bestCleanseCd * 0.2)
+        }
+
+        return 1.0
+    }
+
+    calculateEhpWeight() {
+        var resistance = this._player._resistance
+        var wisdom = this._player._wisdom
+        var currentHP = this._player._currHealth
+        var maxHP = this._player._maxHealth
+
+        var hpRatio = currentHP / maxHP
+        var urgencyMultiplier = 1.0
+        if (hpRatio < 0.3) urgencyMultiplier = 5.0
+        else if (hpRatio < 0.5) urgencyMultiplier = 3.5
+        else if (hpRatio < 0.7) urgencyMultiplier = 2.0
+        else if (hpRatio < 0.8) urgencyMultiplier = 1.3
+
+        var baseWeight = 0.5 + (resistance / 500.0) + (wisdom / 1000.0)
+
+        var knowledgeActive = (getCooldown(CHIP_KNOWLEDGE, this._player._id) > 0)
+        var elevationActive = (getCooldown(CHIP_ELEVATION, this._player._id) > 0)
+
+        if (knowledgeActive || elevationActive) {
+            baseWeight *= 1.5
+        }
+
+        var playerPos = this._player._cellPos
+        var threatAtPos = this._fieldMap.getThreatAtCell(playerPos)
+        if (threatAtPos > 200) {
+            urgencyMultiplier *= 1.5
+        }
+
+        return baseWeight * urgencyMultiplier
+    }
+
+    calculatePositionWeight() {
+        var agi = this._player._agility
+        var str = this._player._strength
+        var mag = this._player._magic
+
+        if (agi > str && agi > mag) {
+            return 0.8 + (agi / 1000.0)
+        }
+
+        else if (mag > str && mag > agi) {
+            return 0.5 + (mag / 2000.0)
+        }
+
+        return 0.2
+    }
+
+    calculateEfficiencyWeight() {
+        var currentHP = this._player._currHealth
+        var maxHP = this._player._maxHealth
+        var targetHP = this._target._currHealth
+
+        var fightLengthEstimate = targetHP / max(1, this._player._strength + this._player._magic)
+
+        // Raised floor (was 0.05-0.3) — TP efficiency matters more vs tanky
+        // long-fight opponents where every wasted TP compounds.
+        if (fightLengthEstimate > 3) return 0.6
+        else if (fightLengthEstimate > 1.5) return 0.3
+        return 0.15
+    }
+
+    calculateBuffWeight() {
+        return 2.0  
+    }
+
+    evaluatePosition(finalPos) {
+        if (finalPos == -1 || finalPos == this._player._cellPos) return 0
+
+        var offensiveValue = 0
+        if (mapContainsKey(this._fieldMap.damageMap, finalPos)) {
+            var cellObj = this._fieldMap.damageMap[finalPos]
+            offensiveValue = cellObj._totalDamage
+        }
+
+        var distToTarget = getCellDistance(finalPos, this._target._cellPos)
+        var kitingValue = 0
+        if (distToTarget != null) {
+            var outOfRange = (count(mapKeys(this._fieldMap.damageMap)) == 0)
+
+            if (outOfRange) {
+                var currentDist = getCellDistance(this._player._cellPos, this._target._cellPos)
+                if (currentDist != null && distToTarget < currentDist) {
+                    kitingValue = (currentDist - distToTarget) * 50
+                }
+            } else if (this._player._magic > this._player._strength) {
+                kitingValue = distToTarget * 10
+            } else {
+                kitingValue = max(0, (10 - distToTarget)) * 10
+            }
+        }
+
+        var threatPenalty = 0
+        var threatAtPos = this._fieldMap.getThreatAtCell(finalPos)
+
+        var hpPercent = (this._player._currHealth * 100) / this._player._maxHealth
+
+        if (threatAtPos > 0) {
+            threatPenalty = -threatAtPos * 0.5
+
+            if (hpPercent < 50) {
+                threatPenalty *= 2.0
+            }
+
+            var hasDamageReturn = this._player.hasDamageReturn()
+            if (hasDamageReturn && this._player._agility > 400) {
+                threatPenalty *= 0.3
+            }
+        }
+
+        var coverBonus = 0
+        var enemies = this._fieldMap.getEnemySubMap()
+        var exposureCount = 0
+        for (var eid in mapKeys(enemies)) {
+            if (!isDead(eid)) {
+                var enemyCell = enemies[eid]._cellPos
+                if (enemyCell != null && getCachedLineOfSight(finalPos, enemyCell)) {
+                    exposureCount++
+                }
+            }
+        }
+
+        var totalEnemies = count(mapKeys(enemies))
+        if (totalEnemies > 0 && exposureCount < totalEnemies) {
+            var coverRatio = 1.0 - (exposureCount / totalEnemies)
+            var W1
+            var W2
+            if (hpPercent < 40) {
+                W1 = 3.0
+                W2 = 2.0
+            } else if (hpPercent < 70) {
+                W1 = 2.0
+                W2 = 1.5
+            } else {
+                W1 = 1.0
+                W2 = 1.0
+            }
+            coverBonus = (coverRatio * W2 * 200) + (max(0, threatAtPos) * coverRatio * W1 * 0.3)
+        }
+
+        if (exposureCount == 0 && totalEnemies > 0) {
+            coverBonus += 400
+        }
+
+        var totalScore = offensiveValue + kitingValue + threatPenalty + coverBonus
+        return totalScore
+    }
+
+    calculateEfficiency(simResult) {
+        var tpEfficiency = 0
+        var mpEfficiency = 0
+
+        var dotDmg = simResult.dotDamageQueued != null ? simResult.dotDamageQueued : 0
+        var novaDmg = simResult.novaDamageQueued != null ? simResult.novaDamageQueued : 0
+        var totalDamage = simResult.damageDealt + dotDmg + novaDmg
+
+        var healingTPCost = 0
+        for (var buff in simResult.buffsApplied) {
+            if (isHealingChip(buff)) healingTPCost += getCachedChipCost(buff)
+        }
+
+        var offensiveTPSpent = simResult.tpSpent - healingTPCost
+        if (offensiveTPSpent < 0) offensiveTPSpent = 0
+
+        if (offensiveTPSpent > 0 && totalDamage > 0) {
+            var damagePerTP = totalDamage / offensiveTPSpent
+            tpEfficiency = damagePerTP * 10
+        }
+
+        if (simResult.mpSpent > 0 && totalDamage > 0) {
+            var damagePerMP = totalDamage / simResult.mpSpent
+            mpEfficiency = damagePerMP * 5
+        }
+
+        return tpEfficiency + mpEfficiency
+    }
+
+    evaluateBuffs(buffsApplied, simResult) {
+        var value = 0
+
+        var playerPos = simResult.finalPosition != -1 ? simResult.finalPosition : this._player._cellPos
+        var expectedDamage = this._fieldMap.getThreatAtCell(playerPos)
+        if (expectedDamage == null || expectedDamage < 0) expectedDamage = 0
+
+        var enemyHP = this._target._currHealth
+        var dotDmg = simResult.dotDamageQueued != null ? simResult.dotDamageQueued : 0
+        var novaDmg = simResult.novaDamageQueued != null ? simResult.novaDamageQueued : 0
+        var totalDamage = simResult.damageDealt + dotDmg + novaDmg
+        var killMargin = totalDamage / enemyHP
+        var buffMultiplier = 1.0
+
+        if (killMargin >= 1.1) {
+            buffMultiplier = 0.1
+        } else if (killMargin < 0.7 && expectedDamage > 200) {
+            if (this._player._magic > this._player._strength + 100) {
+                buffMultiplier = 1.3
+            } else {
+                buffMultiplier = 5.0
+            }
+        }
+
+        var effectiveAgi = this._player._agility
+        for (var bc in buffsApplied) {
+            if (bc == CHIP_WARM_UP) effectiveAgi += 180
+            if (bc == CHIP_PRISM) effectiveAgi += 60
+        }
+
+        for (var buffChip in buffsApplied) {
+
+            if (buffChip == CHIP_STEROID) value += 200
+            if (buffChip == CHIP_DOPING) value += 100
+            if (buffChip == CHIP_WARM_UP) value += 200
+            if (buffChip == CHIP_WIZARDRY) value += 200
+            if (buffChip == CHIP_KNOWLEDGE) value += 150
+            if (buffChip == CHIP_ELEVATION) value += 120
+            if (buffChip == CHIP_PRISM) value += 180
+            if (buffChip == CHIP_ADRENALINE) value += 100
+            if (buffChip == CHIP_RAGE) value += 300
+            if (buffChip == CHIP_SEVEN_LEAGUE_BOOTS) value += 200
+
+            if (isAbsoluteShieldChip(buffChip)) {
+                value += 80
+            }
+
+            if (buffChip == CHIP_WALL) {
+                var resistance = this._player._resistance
+                var reductionPercent = 4.5 * (1 + resistance / 100.0)
+                var duration = 2
+                var effectiveHP = (expectedDamage * duration) * (reductionPercent / 100.0)
+                var wallValue = effectiveHP * 0.5
+                if (wallValue < 80) wallValue = 80
+                value += wallValue
+            }
+
+            if (buffChip == CHIP_FORTRESS) {
+                var resistance = this._player._resistance
+                var reductionPercent = 7.5 * (1 + resistance / 100.0)
+                var duration = 3
+                var effectiveHP = (expectedDamage * duration) * (reductionPercent / 100.0)
+                var fortressValue = effectiveHP * 0.5
+                if (fortressValue < 150) fortressValue = 150
+                value += fortressValue
+            }
+
+            if (isRelativeShieldChip(buffChip) && buffChip != CHIP_WALL && buffChip != CHIP_FORTRESS) value += 100
+
+            if (buffChip == CHIP_REGENERATION) value += 80
+            if (buffChip == CHIP_CURE) value += 120
+            if (buffChip == CHIP_DRIP) value += 100
+            if (buffChip == CHIP_REMISSION) value += 100
+
+            if (buffChip == CHIP_ANTIDOTE) {
+                var preventedValue = 50
+                if (this._player.hasEffect(EFFECT_POISON)) {
+                    var poisonDmg = this._player.getEffectValue(EFFECT_POISON)
+                    var poisonTurns = this._player.getEffectRemaining(EFFECT_POISON)
+                    if (poisonDmg != null && poisonTurns != null) {
+                        preventedValue += poisonDmg * poisonTurns * 0.6
+                    }
+                }
+                value += preventedValue
+            }
+
+            if (buffChip == CHIP_MANUMISSION) {
+                var manumissionValue = 40  // baseline for the +2 TP
+                var shackleTPVal = this._player.getEffectValue(EFFECT_SHACKLE_TP)
+                var shackleTPTurns = this._player.getEffectRemaining(EFFECT_SHACKLE_TP)
+                if (shackleTPVal != null && shackleTPTurns != null && shackleTPVal > 0) {
+                    // Each lost TP costs us future damage; price ~60/TP per turn cleansed
+                    manumissionValue += shackleTPVal * shackleTPTurns * 60
+                }
+                var shackleMPVal = this._player.getEffectValue(EFFECT_SHACKLE_MP)
+                var shackleMPTurns = this._player.getEffectRemaining(EFFECT_SHACKLE_MP)
+                if (shackleMPVal != null && shackleMPTurns != null && shackleMPVal > 0) {
+                    manumissionValue += shackleMPVal * shackleMPTurns * 40
+                }
+                var shackleStrVal = this._player.getEffectValue(EFFECT_SHACKLE_STRENGTH)
+                var shackleStrTurns = this._player.getEffectRemaining(EFFECT_SHACKLE_STRENGTH)
+                if (shackleStrVal != null && shackleStrTurns != null && shackleStrVal > 0) {
+                    manumissionValue += shackleStrVal * shackleStrTurns * 2
+                }
+                var shackleMagVal = this._player.getEffectValue(EFFECT_SHACKLE_MAGIC)
+                var shackleMagTurns = this._player.getEffectRemaining(EFFECT_SHACKLE_MAGIC)
+                if (shackleMagVal != null && shackleMagTurns != null && shackleMagVal > 0) {
+                    manumissionValue += shackleMagVal * shackleMagTurns * 2
+                }
+                value += manumissionValue
+            }
+
+            if (buffChip == CHIP_MIRROR) {
+                var agility = effectiveAgi
+                var returnPercent = 5.5 * (1 + agility / 100.0)
+                var duration = 3
+                var returnDamage = (expectedDamage * duration) * (returnPercent / 100.0)
+                var mirrorValue = returnDamage * 0.8
+                if (mirrorValue < 100) mirrorValue = 100
+                value += mirrorValue
+            }
+
+            if (buffChip == CHIP_THORN) {
+                var agility = effectiveAgi
+                var returnPercent = 3.5 * (1 + agility / 100.0)
+                var duration = 2
+                var returnDamage = (expectedDamage * duration) * (returnPercent / 100.0)
+                var thornValue = returnDamage * 0.8
+                value += thornValue
+            }
+
+            if (buffChip == CHIP_BRAMBLE) {
+                var agility = effectiveAgi
+                var returnPercent = 25.0 * (1 + agility / 100.0)
+                var duration = 1
+                var returnDamage = expectedDamage * (returnPercent / 100.0)
+
+                var brambleValue = 0
+                if (expectedDamage > 300) {
+                    brambleValue = returnDamage * 1.5
+                } else if (expectedDamage > 0) {
+                    brambleValue = returnDamage * 0.5
+                }
+
+                value += brambleValue
+            }
+        }
+
+        value *= buffMultiplier
+
+        return value
+    }
+
+    evaluateDebuffs(debuffsApplied) {
+        var value = 0
+
+        for (var debuffChip in debuffsApplied) {
+            if (isPoisonChip(debuffChip)) value += 100
+            if (debuffChip == CHIP_STALACTITE || debuffChip == CHIP_ICEBERG) value += 120
+            if (debuffChip == CHIP_ARMOR || debuffChip == CHIP_SOLIDIFICATION) value += 150
+            if (debuffChip == CHIP_SLOW_DOWN || debuffChip == CHIP_BALL_AND_CHAIN) value += 80
+
+            if (debuffChip == CHIP_LIBERATION) {
+                var strippedValue = 0
+                if (this._target != null) {
+                    strippedValue += this._target._absShield * 0.4 * 2.0
+                    strippedValue += this._target._relShield * 0.4 * 5.0
+                    if (this._target.hasEffect(EFFECT_DAMAGE_RETURN)) strippedValue += 300
+                    if (this._target.hasEffect(EFFECT_BUFF_STRENGTH)) strippedValue += 200
+                    if (this._target.hasEffect(EFFECT_BUFF_RESISTANCE)) strippedValue += 200
+                }
+                if (strippedValue < 120) strippedValue = 120
+                value += strippedValue
+            }
+
+            if (debuffChip == CHIP_INVERSION && !_isBossFight) {
+                value += 600
+            }
+        }
+
+        return value
+    }
+
+    calculateCritBonus(damageDealt, buffsApplied) {
+        var agi = this._player._agility
+        if (buffsApplied != null) {
+            for (var b in buffsApplied) {
+                if (b == CHIP_WARM_UP) agi += 180
+                if (b == CHIP_PRISM) agi += 60
+            }
+        }
+
+        if (agi >= 300) {
+            var critChance = min(0.5, agi / 2000.0)
+            var critMultiplier = 1.3
+            var expectedCritBonus = damageDealt * critChance * (critMultiplier - 1.0)
+            return expectedCritBonus * 0.5
+        }
+
+        return 0
+    }
+
+    calculateRelativeShieldValue(relativeShieldPercent) {
+        var maxHP = this._player._maxHealth
+        return (relativeShieldPercent / 100.0) * maxHP
+    }
+
+    evaluateContinuationValue(simResult, scenario) {
+        var value = 0
+
+        var finalPos = simResult.finalPosition
+        var futureThreat = 0
+        if (finalPos != -1 && this._fieldMap != null) {
+            futureThreat = this._fieldMap.getThreatAtCell(finalPos)
+        }
+
+        for (var buff in simResult.buffsApplied) {
+            if (buff == CHIP_WIZARDRY) value += 300
+            else if (buff == CHIP_STEROID) value += 200
+            else if (buff == CHIP_PRISM) value += 250
+            else if (buff == CHIP_FORTRESS) value += 200
+            else if (buff == CHIP_WALL) value += 100
+            else if (buff == CHIP_WARM_UP) value += 200
+            else if (buff == CHIP_MIRROR || buff == CHIP_THORN || buff == CHIP_BRAMBLE) {
+                if (futureThreat > 0) value += 250
+            }
+            else if (buff == CHIP_KNOWLEDGE) value += 200
+            else if (buff == CHIP_RAGE) value += 300
+            else if (buff == CHIP_SEVEN_LEAGUE_BOOTS) value += 200
+        }
+
+        if (simResult.dotDamageQueued > 0) {
+            value += simResult.dotDamageQueued * 0.5
+        }
+
+        if (finalPos != -1 && this._target != null) {
+            var dist = getCellDistance(finalPos, this._target._cellPos)
+            if (dist != null) {
+                var attackable = 0
+                for (var wid in mapKeys(this._fieldMap.damageMap)) {
+                }
+                for (var wid in mapKeys(arsenal.playerEquippedWeapons)) {
+                    var wObj = arsenal.playerEquippedWeapons[wid]
+                    if (dist >= wObj._minRange && dist <= wObj._maxRange) attackable++
+                }
+                for (var cid in mapKeys(arsenal.playerEquippedChips)) {
+                    if (isHealingChip(cid) || isOffensiveBuff(cid) || isShieldChip(cid) ||
+                        isDamageReturnChip(cid) || isResourceChip(cid)) continue
+                    var cObj = arsenal.playerEquippedChips[cid]
+                    if (dist >= cObj._minRange && dist <= cObj._maxRange) attackable++
+                }
+                value += attackable * 80
+                if (dist <= 8) value += (8 - dist) * 20
+            }
+        }
+
+        var novaDmg = simResult.novaDamageQueued != null ? simResult.novaDamageQueued : 0
+        if (novaDmg > 0 && this._target != null) {
+            var hpReductionRatio = novaDmg / this._target._maxHealth
+            value += hpReductionRatio * 500
+        }
+
+        var unspentTP = this._player._currTp - simResult.tpSpent
+        if (__playerBuildType == BUILD_TANK_SCI) {
+            // Tanks: allow banking up to 7 TP without penalty (was 10).
+            // Quadratic curve so wasting 9+ TP is felt strongly.
+            if (unspentTP > 7) {
+                var excessT = unspentTP - 6
+                value -= excessT * (excessT - 1) * 4
+            }
+            // Bonus: banking TP when shield is down (enables next-turn combo)
+            if (unspentTP >= 6 && !this._player.hasEffect(EFFECT_RELATIVE_SHIELD)) {
+                value += 100
+            }
+        } else {
+            // Non-tanks: quadratic penalty grows fast — 5 leftover ≈ -240,
+            // 7 leftover ≈ -640, 9 leftover ≈ -1200. Strong enough to override
+            // marginal "buff and stall" scenarios.
+            if (unspentTP > 3) {
+                var excessN = unspentTP - 2
+                value -= excessN * (excessN - 1) * 8
+            }
+        }
+
+        return value * 0.35
+    }
+
+    evaluateSynergyBonus(scenario) {
+        if (scenario == null || count(scenario) == 0) return 0
+
+        var bonus = 0
+        var hasGrapple = false
+        var hasMelee = false
+        var hasWizardry = false
+        var hasPoison = false
+        var hasTeleport = false
+        var hasSteroid = false
+        var hasNeutrino = false
+        var hasPrism = false
+        var hasNova = false
+        var hasShield = false
+        var hasDenial = false
+        var hasDamageReturn = false
+        var hasWarmUp = false
+
+        for (var action in scenario) {
+            if (action.chip == CHIP_GRAPPLE) hasGrapple = true
+            if (action.chip == CHIP_WIZARDRY) hasWizardry = true
+            if (action.chip == CHIP_STEROID) hasSteroid = true
+            if (action.chip == CHIP_TELEPORTATION || action.chip == CHIP_JUMP) hasTeleport = true
+            if (action.chip == CHIP_PRISM) hasPrism = true
+            if (action.chip == CHIP_FORTRESS || action.chip == CHIP_WALL) hasShield = true
+            if (action.chip == CHIP_SOPORIFIC || action.chip == CHIP_BALL_AND_CHAIN) hasDenial = true
+            if (action.chip == CHIP_MIRROR || action.chip == CHIP_THORN || action.chip == CHIP_BRAMBLE) hasDamageReturn = true
+            if (action.chip == CHIP_WARM_UP) hasWarmUp = true
+            if (action.weaponId == WEAPON_HEAVY_SWORD) hasMelee = true
+            if (action.weaponId == WEAPON_NEUTRINO) hasNeutrino = true
+            if (action.chip != -1 && isPoisonChip(action.chip)) hasPoison = true
+            if (action.type == Action.ACTION_DOT) hasPoison = true
+        }
+
+        var hasJump = false
+        for (var action in scenario) {
+            if (action.chip == CHIP_JUMP) { hasJump = true; break }
+        }
+        if (hasJump) bonus += 150
+
+        if (hasGrapple && hasMelee) bonus += 300
+
+        if (hasWizardry && hasPoison) bonus += 400
+
+        if (hasWizardry && hasDenial) bonus += 350
+
+        if (hasSteroid && hasTeleport) bonus += 250
+
+        if (hasGrapple && hasNeutrino) bonus += 200
+
+        if (hasWizardry && hasNeutrino) bonus += 350
+
+        if (hasPrism && hasShield) bonus += 300
+
+        if (hasPoison && hasDenial) bonus += 300
+
+        if (hasSteroid && hasDamageReturn) bonus += 350
+
+        if (hasWarmUp && hasDamageReturn) bonus += 400
+
+        if (hasSteroid && hasWarmUp) bonus += 300
+
+        return bonus
+    }
+
+    project2ndTurnValue(simResult) {
+        if (this._target == null) return 0
+
+        var value = 0
+        var finalPos = simResult.finalPosition
+        if (finalPos == -1) finalPos = this._player._cellPos
+
+        var incomingDmg = 0
+        if (__adversarialThreatCacheBuilt) {
+            incomingDmg = getAdversarialThreat(finalPos)
+        }
+
+        var projectedHP = this._player._currHealth + simResult.hpGained - incomingDmg
+        var relShieldReduction = simResult.relativeShieldGained / 100.0
+        projectedHP += incomingDmg * relShieldReduction
+        projectedHP += simResult.shieldsGained
+
+        if (projectedHP <= 0) return -2000
+
+        var nextTurnTP = max(0, this._player._currTp - simResult.tpSpent) + 10
+        if (nextTurnTP > 25) nextTurnTP = 25
+
+        var nextTurnDmg = 0
+        var dist = getCellDistance(finalPos, this._target._cellPos)
+        if (dist != null) {
+            for (var wid in mapKeys(this._fieldMap.damageMap != null ? arsenal.playerEquippedWeapons : [:])) {
+                if (!mapContainsKey(arsenal.playerEquippedWeapons, wid)) continue
+                var wObj = arsenal.playerEquippedWeapons[wid]
+                if (dist >= wObj._minRange && dist <= wObj._maxRange && wObj._cost <= nextTurnTP) {
+                    var bd = arsenal.getDamageBreakdown(
+                        this._player._strength, this._player._magic,
+                        this._player._wisdom, this._player._science, wid)
+                    var uses = min(wObj._maxUse, floor(nextTurnTP / wObj._cost))
+                    nextTurnDmg += bd['total'] * uses
+                    break
+                }
+            }
+        }
+
+        // Phase 4b: enemy will likely heal/shield on their turn — discount our
+        // projected next-turn damage by an estimate of their sustain.
+        var enemyProfileP = getEnemyProfile(this._target._id)
+        var enemyHealEstimate = 0
+        if (enemyProfileP != null) {
+            if (enemyProfileP['isTank']) enemyHealEstimate = 400
+            else if (enemyProfileP['isHealer']) enemyHealEstimate = 300
+            else enemyHealEstimate = 200
+        }
+        nextTurnDmg = max(0, nextTurnDmg - enemyHealEstimate)
+
+        // Cap projection bonus when we're under heavy threat — overly
+        // optimistic plans get punished by reality.
+        if (incomingDmg > 500 && nextTurnDmg > 0) {
+            nextTurnDmg = floor(nextTurnDmg * 0.3)
+        }
+
+        value += nextTurnDmg
+
+        if (simResult.dotDamageQueued > 0 && simResult.poisonTurnsQueued > 0) {
+            var avgDuration = simResult.poisonTurnsQueued / max(1, simResult.poisonSourcesUsed)
+            var remainingTicks = max(0, avgDuration - 1)
+            var perTurnPoison = simResult.dotDamageQueued / max(1, simResult.poisonTurnsQueued)
+            // Phase 4b: weight remaining poison ticks more (was *1, now *1.3) —
+            // existing poison is guaranteed future damage that should survive
+            // any antidote that already cleansed this turn.
+            value += perTurnPoison * remainingTicks * 1.3
+        }
+
+        for (var buff in simResult.buffsApplied) {
+            if (buff == CHIP_STEROID || buff == CHIP_WIZARDRY || buff == CHIP_PRISM || buff == CHIP_WARM_UP ||
+                buff == CHIP_RAGE || buff == CHIP_SEVEN_LEAGUE_BOOTS) {
+                value += 150
+            }
+        }
+
+        return value * 0.4
+    }
+
+    scorePuzzle(simResult, scenario) {
+        var score = 0
+
+        score += simResult.crystalAxisReduction * this.getWeight('axisAlignment', 2000)
+
+        if (simResult.crystalSolved) {
+            score += this.getWeight('crystalSolved', 5000)
+        }
+
+        if (simResult.finalPosition != -1 && _bossTargetEID != null) {
+            var initialDist = getCellDistance(this._player._cellPos, _myCrystalCell)
+            var finalDist = getCellDistance(simResult.finalPosition, _myCrystalCell)
+            if (initialDist != null && finalDist != null) {
+                var proximityGain = initialDist - finalDist
+                score += proximityGain * this.getWeight('crystalProximity', 800)
+            }
+        }
+
+        score += simResult.hpGained * this.getWeight('healValue', 50) * 0.1
+
+        if (simResult.actionsExecuted == 0) {
+            score -= 500
+        }
+
+        return score
+    }
+}

@@ -1,0 +1,164 @@
+/******************************************************************************
+ * Round
+ * information sur un tour  de jeu (simule ou reel)
+ ******************************************************************************/
+class Round extends Objects {
+  
+  public MeRound meRound;
+  
+  public Array<CellRound> cellsRound = [];
+  
+  public Array<AllieRound> alliesRound = [];
+  public Array<EnemyRound> enemiesRound = [];
+  
+  public Map<integer, LeekRound> leeksRound = [:];
+  
+  public integer maxAOERange;
+  public integer whoHasMaxAOERange = -1; // -1 = Me, 0 = both, 1  = enemy 
+
+}
+
+/******************************************************************************
+ * RealRound
+ ******************************************************************************/
+class RealRound extends Round {
+
+  /**
+   * constructor
+   * @param previousRound : le round precedant si il existe
+   **/
+  public constructor(Round|null previousRound = null) {
+    
+    //
+    // cells creations
+    //
+    for(integer i = 0;i < NB_CELLS; i++) {
+      push(cellsRound, new CellRound(this, Board.cells[i]));
+    }
+     
+    id = getTurn()
+
+    //
+    // add me and enemies
+    //
+    if(previousRound != null) {
+      meRound = new MeRound(this, Board.me, previousRound!.meRound);
+      leeksRound[meRound.id] = meRound;
+      maxAOERange = meRound.maxAOERange;
+      Array<InterCellInfo> myInter = meRound.currentCell.cell.interCellInfo;
+      for(Leek enemy in Board.enemies) {
+        if(!isAlive(enemy.id)) continue
+        pushEnemy(new EnemyRound(this, enemy, myInter, previousRound!.leeksRound[enemy.id] as EnemyRound));
+      }
+    } else {
+      meRound = new MeRound(this, Board.me);
+      leeksRound[meRound.id] = meRound;
+      maxAOERange = meRound.maxAOERange;
+      for(Leek enemy in Board.enemies) {
+        if(!isAlive(enemy.id)) continue
+        pushEnemy(new EnemyRound(this, enemy));
+      }
+    }
+
+    //
+    // add allies
+    //
+    for(Leek enemy in Board.allies) {
+      if(!isAlive(enemy.id)) continue
+      AllieRound en = new AllieRound(this, enemy);
+      push(alliesRound, en);
+      leeksRound[en.id] = en;
+    }
+    
+  }
+
+  /**
+   * pushEnemy
+   * factorisation
+   **/
+  private pushEnemy(EnemyRound en) {
+    push(enemiesRound, en);
+    leeksRound[en.id] = en;
+    if(en.maxAOERange == maxAOERange) {
+      (whoHasMaxAOERange < 0) and (whoHasMaxAOERange = 0);
+    } else if(en.maxAOERange > maxAOERange) {
+      maxAOERange = en.maxAOERange;
+      whoHasMaxAOERange = 1;
+    }
+  }
+  
+  /**
+   * update
+   * mets a jour le round par rapport aux actions qui viennent d etre executer :
+   * - met a jour la liste des leek vivant
+   * - met a jour la liste des chip dispo de chaque leek
+   * - met a jour les valeurs caracteristique des leek
+   * - met a jour les leekOnCell
+   * - met a jour le setWeapon
+   * - clear les actions
+   **/
+  public update() {
+    
+    for(integer id : LeekRound leek in leeksRound) {
+      if(!isAlive(id)) {
+        mapRemove(leeksRound,id);
+        if(leek.leek.isEnemy) removeElement(enemiesRound,leek);
+        else if(leek.leek.isAllie) removeElement(alliesRound,leek);
+      } else {
+        leek.update();
+      }  
+    }
+    
+  }
+
+}
+
+/******************************************************************************
+ * SimulatedRound
+ ******************************************************************************/
+ class SimulatedRound extends Round {
+
+  /**
+   * constructor
+   * @param clone : le round a cloner
+   **/
+  public constructor(Round clone) {
+      
+    //
+    // cells creations
+    //
+    for(integer i = 0;i < NB_CELLS; i++) {
+      push(cellsRound, new CellRound(this, Board.cells[i]));
+    }
+    
+    id = clone.id;
+    maxAOERange = clone.maxAOERange
+    whoHasMaxAOERange = clone.whoHasMaxAOERange
+    
+    //
+    // add me
+    //
+    meRound = new MeRound(this, clone.meRound);
+    leeksRound[meRound.id] = meRound;
+
+    //
+    // add enemies
+    //
+    for(EnemyRound enemy in clone.enemiesRound) {
+      EnemyRound en = new EnemyRound(this, enemy); 
+      push(enemiesRound, en);
+      leeksRound[en.id] = en;
+    }
+
+    //
+    // add allies
+    //
+    for(AllieRound enemy in clone.alliesRound) {
+      AllieRound en = new AllieRound(this, enemy);
+      push(alliesRound, en);
+      leeksRound[en.id] = en;
+    }
+    
+  }
+
+ }

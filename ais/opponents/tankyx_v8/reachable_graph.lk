@@ -1,0 +1,112 @@
+
+global GLOBAL_NEIGHBORS = []
+global ReachableGraph = null
+
+function initializeAdjacency() {
+    if (count(GLOBAL_NEIGHBORS) > 0) return null
+
+    GLOBAL_NEIGHBORS = []
+
+    for (var cell = 0; cell < 613; cell++) {
+        var neighbors = []
+
+        var candidates = [
+            cell - 18,
+            cell - 17,
+            cell - 1,
+            cell + 1,
+            cell + 17,
+            cell + 18
+        ]
+
+        for (var n in candidates) {
+            if (n >= 0 && n < 613 && !isObstacle(n)) {
+                var dist = getCellDistance(cell, n)
+                if (dist == 1) {
+                    push(neighbors, n)
+                }
+            }
+        }
+
+        push(GLOBAL_NEIGHBORS, neighbors)
+    }
+
+    return null
+}
+
+function buildReachableGraph(startCell, maxMP, playerObj, targetObj, arsenalObj) {
+
+    var mpCost = [:]
+
+    var queue = [startCell]
+    var head = 0
+    mpCost[startCell] = 0
+
+    while (head < count(queue)) {
+        if (getOperations() > _ops86) {
+            break
+        }
+
+        var current = queue[head]
+        head = head + 1
+
+        var currentCost = mpCost[current]
+        if (currentCost >= maxMP) continue
+
+        var neighbors = GLOBAL_NEIGHBORS[current]
+        for (var neighbor in neighbors) {
+            if (!mapContainsKey(mpCost, neighbor)) {
+                mpCost[neighbor] = currentCost + 1
+                push(queue, neighbor)
+            }
+        }
+    }
+
+    ReachableGraph = enrichReachableGraph(mpCost, playerObj, targetObj, arsenalObj)
+
+    var cellCount = count(mapKeys(ReachableGraph))
+
+    return ReachableGraph
+}
+
+function enrichReachableGraph(mpCost, playerObj, targetObj, arsenalObj) {
+    var graph = [:]
+
+    for (var cellId in mapKeys(mpCost)) {
+        graph[cellId] = [
+            'mp': mpCost[cellId],
+            'threat': 0
+        ]
+    }
+
+    return graph
+}
+
+function getGraphMPCost(cellId) {
+    if (ReachableGraph == null) return 999
+    if (!mapContainsKey(ReachableGraph, cellId)) return 999
+    return ReachableGraph[cellId]['mp']
+}
+
+function getGraphThreat(cellId) {
+    if (ReachableGraph == null) return 0
+    if (!mapContainsKey(ReachableGraph, cellId)) return 0
+    return ReachableGraph[cellId]['threat']
+}
+
+function isGraphReachableCell(cellId) {
+    if (ReachableGraph == null) return false
+    return mapContainsKey(ReachableGraph, cellId)
+}
+
+function getReachableCells() {
+    if (ReachableGraph == null) return []
+    return mapKeys(ReachableGraph)
+}
+
+function updateGraphThreat(cellId, threat) {
+    if (ReachableGraph == null) return null
+    if (!mapContainsKey(ReachableGraph, cellId)) return null
+    ReachableGraph[cellId]['threat'] = threat
+    return null
+}

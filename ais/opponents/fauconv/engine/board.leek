@@ -1,0 +1,129 @@
+/******************************************************************************
+ * Board
+ * plateau du jeu contiens toute la simulation
+ * TODO : cas des summon
+ ******************************************************************************/
+class Board extends Objects {
+  
+  public static integer myId;
+  public static integer maxAOERange;
+  public static Me me;
+  public static RealRound currentRound;
+  public static Array<Round> previousRounds = [];
+  public static Cell centerCell;
+  
+  public static Array<Enemy> enemies = [];
+  public static Array<Allie> allies  = [];
+  public static Map<integer, Leek> leeks;
+  public static Array<Cell> cells = [];    // Array(Cell) par consequent Map  
+  
+  /**
+   * constructor
+   **/
+  public static boolean init() {
+    
+    if(gFirstRound) {
+    
+      //
+      // add me
+      //
+      me    = new Me();
+      myId  = me.id;
+      leeks = [myId:me];
+      maxAOERange = me.maxAOERange;
+    
+      //
+      // add enemies
+      //
+      Array<integer> ens = getEnemies();
+      for(integer en in ens) {
+        Enemy leek = new Enemy(en); 
+        leeks[en] = leek;
+        push(enemies, leek);
+        if(leek.maxAOERange > maxAOERange)
+          maxAOERange = leek.maxAOERange;
+      }
+    
+      //
+      // add allies
+      //
+      ens = getAllies();
+      for(integer en in ens) {
+        if(en != myId) {
+          leeks[en] = new Allie(en);
+          push(allies, leeks[en]);
+        }
+      }
+    
+      //
+      // cells creations
+      //
+      InterCellInfo interCellNull = new InterCellInfo();
+      for(integer i = 0;i < NB_CELLS; i++) {
+        push(cells, (getCellContent(i) == CELL_OBSTACLE)?new Wall(i, interCellNull):new FreeCell(i, interCellNull));
+      }
+      centerCell = cells[CENTER_CELL_ID];
+    
+      //
+      // voisin creations
+      //
+      for(Cell objCell in cells) {
+        for(string direction in STAR_DIRECTION) {
+          Object xy = XY_DIRECTION[direction] as Object;
+          integer|null cellId = getCellFromXY((objCell.x+xy.x) as integer,(objCell.y+xy.y) as integer);
+          (cellId) and (objCell[direction] = cells[cellId as integer]);
+        }
+      }
+    
+      //
+      // deadend
+      // TODO: chercher un algorythme moins bourrin
+      //
+      boolean deadEndLoop = true;
+      while(deadEndLoop) {
+        deadEndLoop = false;
+        for(Cell objCell in cells) {
+          if(objCell.isDeadEnd) continue;
+          integer deadCount = 0;
+          for(string direction in LINE_DIRECTION) {
+            ((!objCell[direction]) || (objCell[direction] as Cell).isDeadEnd) and (deadCount++);
+          }
+          if(deadCount >= 3) {
+            objCell.isDeadEnd = true;
+            deadEndLoop = true;
+          }
+        }
+      }
+    } // First Round
+    
+    //
+    // interCell computation
+    //
+    for(integer x = 0; x < NB_CELLS; x++) {
+      Cell cellFrom = cells[x];
+      if(cellFrom.isWall) continue;
+      for(integer y = 0; y <= x; y++) { // je dois gerer la range 0
+        Cell cellTo = cells[y];
+        if(cellTo.isWall) continue;
+        cellFrom.interCellInfo[cellTo.id] = cellTo.interCellInfo[cellFrom.id] = new InterCellInfo(cellFrom, cellTo);
+      }
+    }
+  
+    //
+    // first round
+    //
+    currentRound = new RealRound();
+    push(previousRounds, new SimulatedRound(currentRound)) // initialise le tour 0 avec les position de depart des leek
+    return true;
+  }
+    
+  /**
+   * update
+   **/
+  public static void update() {
+    push(previousRounds, currentRound);
+    currentRound = new RealRound(currentRound);
+  }
+  
+}
+

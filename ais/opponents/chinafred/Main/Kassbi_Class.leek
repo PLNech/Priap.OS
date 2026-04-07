@@ -1,0 +1,23 @@
+include("/Classes/Leek")
+include("/Brain/simpleActionSequence")
+include("/Brain/PlanActScenario")
+include("/Classes/Context/World")
+global World world = new World()
+global Leek kassbi = new Leek(getEntity(), simpleActionSequence)
+	
+	var turn = getTurn()
+	if (turn > 1)
+	{
+		kassbi.updateData()
+		kassbi.updateDataMyLeeks()
+		world.updateData()
+	}
+	else // tour 0 
+	{
+		kassbi.updateDataMyLeeks()
+	}
+	
+
+
+
+kassbi.play()

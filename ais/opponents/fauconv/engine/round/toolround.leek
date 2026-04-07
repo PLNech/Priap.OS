@@ -1,0 +1,170 @@
+/******************************************************************************
+ * ToolRound
+ * information d'un tool qui change a chaque tour weapon ou chip
+ ******************************************************************************/
+class ToolRound extends Objects {
+  
+  public Tool tool;
+  public Round roundObj;
+  public LeekRound owner;
+  private integer usable;
+  private integer cooldown; 
+  
+  /**
+   * constructor
+   * @param tool le tool correspondant au toolround
+   * @param owner le ower du tool
+   **/
+  protected constructor(Tool|ToolRound tool, LeekRound owner) {
+    this.owner = owner;
+    roundObj = owner.roundObj;
+    id = tool.id;
+    if(tool.class.super.name == "Tool") {
+      this.tool = tool as Tool;
+      cooldown = 0;
+      usable = this.tool.maxUse;
+    } else {
+      this.tool = (tool as ToolRound).tool;
+      cooldown = (tool as ToolRound).cooldown;
+      usable = (tool as ToolRound).usable;
+    }
+  }
+  
+  public boolean isUsable() {
+    return cooldown == 0 && usable != 0;
+  }
+  /**
+   * simulateUseOnCell
+   * abstract
+   * @param cellId l id de la cell cible du tool
+   **/
+  public void simulateUseOnCell(integer cellId) {
+  }
+
+  /**
+   * simulateUse
+   * @param targets la liste des cible atteinte par le tool
+   **/
+  protected void simulateUse(Array<Integer> targets, integer cellId) {
+    
+    Array<real> AOEs = [];
+    for(integer entity in targets)
+      push(AOEs, max(0.0,1.0-roundObj.leeksRound[entity]!.currentCell.cell.interCellInfo[cellId].range*AOE_DEC_LINE_FACTOR));
+    integer cost = tool.cost;
+    owner.minTP -= cost;
+    owner.maxTP -= cost;
+    owner.midTP -= cost;
+    cooldown = tool.cooldown;
+    usable--;
+    real midCriticalLuck = owner.midAgility/1000.0; // probabilite de coup critique
+    if(owner.maxAgility <= 0) {
+      midCriticalLuck = 0.0
+    } else if (midCriticalLuck > 1.0) {
+      midCriticalLuck = 1.0
+    }
+    for(Effect effect in tool.effects) {
+      if(effect.modOnCast) {
+        effect.simulateUse(owner, owner, 1.0, 1, midCriticalLuck)
+      } else {
+        integer nbTargets = count(targets);
+        for(integer i : integer targetId in targets) {
+          LeekRound target = roundObj.leeksRound[targetId]!;
+          effect.simulateUse(owner, target, AOEs[i], nbTargets, midCriticalLuck)
+        }
+      }
+    }
+    
+  }
+  
+  /**
+   * UseOnCell
+   * abstract
+   * @cellId l id de la cell cible du tool
+   **/
+  public void useOnCell(integer cellId) {
+  }
+
+  /**
+   * toString
+   *
+   * @return string
+   **/
+  string string(string space = "") {
+    return shortString();
+  }
+  string shortString(string space = "") {
+    return this.class.name+"("+TOOL_NAME_TRANSLATOR[id]+")";
+  }
+  
+}
+
+/******************************************************************************
+ * WeaponRound
+ ******************************************************************************/
+class WeaponRound extends ToolRound {
+  
+  /**
+   * constructor
+   * @param tool le tool correspondant au toolround
+   * @param owner le owner du tool
+   **/
+  public constructor(Tool|ToolRound tool, LeekRound owner) {
+    super(tool, owner);
+  }
+  
+  /**
+   * useOnCell
+   * attention il ne degaine pas
+   * Attention il faut faire un update du round apres
+   * @param cellId id de la cell cible du tir
+   **/
+  public void useOnCell(integer cellId) {
+    useWeaponOnCell(cellId);
+  }
+
+  /**
+   * simulateUseOnCell
+   * TODO: check si getWeaponTargets gere l enemi qui se tire sur lui meme
+   * @param cellId id de la cell cible du tir
+   **/
+  public void simulateUseOnCell(integer cellId) {
+    simulateUse(getWeaponTargets(id, cellId)!, cellId);
+  }
+    
+}
+
+/******************************************************************************
+ * ChipRound
+ *
+ * Exist only if cooldown == 0
+ ******************************************************************************/
+class ChipRound extends ToolRound {
+  
+  /**
+   * constructor
+   * @param tool le tool correspondant au toolround
+   * @param owner le owner du tool
+   **/
+  public constructor(Tool|ToolRound tool, LeekRound owner) {
+    super(tool, owner);
+  }
+  
+  /**
+   * useOnCell
+   * Attention il faut faire un update du round apres
+   * @param cellId id de la cell cible du tir
+   **/
+  public void useOnCell(integer cellId) {
+    useChipOnCell(id, cellId);
+  }
+  
+  /**
+   * simulateUseOnCell
+   * TODO: check si getChipTargets gere l enemi qui se tire sur lui meme
+   * @param cellId id de la cell cible du tir
+   **/
+  public void simulateUseOnCell(integer cellId) {
+    simulateUse(getChipTargets(id, cellId)!, cellId);
+  }
+    
+}

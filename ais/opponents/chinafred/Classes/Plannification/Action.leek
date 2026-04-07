@@ -1,0 +1,17 @@
+class Action{
+	public string name = "" 
+	public any action
+	public string desc = ""
+	
+	
+	constructor(string n, any a){
+		name = n 
+		action = a
+	}
+	
+		constructor(string n, any a, string d){
+		name = n 
+		action = a
+		desc = d
+	}
+}

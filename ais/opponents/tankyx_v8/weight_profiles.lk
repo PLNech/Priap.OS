@@ -1,0 +1,284 @@
+
+global BUILD_STRENGTH = 1
+global BUILD_MAGIC = 2
+global BUILD_AGILITY = 3
+global BUILD_STRENGTH_SCIENCE = 4
+global BUILD_TANK_SCI = 5
+global BUILD_HYBRID = 6
+global BUILD_BRUISER_REFLECT = 7
+
+global __playerBuildType = 0
+
+global STRENGTH_WEIGHTS = [
+    'burstDamage': 300,
+    'weaponUses': 100,
+    'tpEfficiency': 50,
+    'dotEffects': -50,
+    'kiteDistance': 0,
+    'damageReturn': 0,
+    'poisonStacks': 0,
+    'shieldValue': 80,
+    'healValue': 60,
+    'distanceToTarget': -20,
+    'threatReduction': 40,
+    'otkoBonus': 5000,
+    'checkpointBonus': 2500,
+    'bulbDamageMultiplier': 1.2,
+    'bulbKillBonusHealer': 2500,
+    'bulbKillBonusBuffer': 1500,
+    'bulbKillBonusAttacker': 800,
+    'multiTargetBonus': 500
+]
+
+global MAGIC_WEIGHTS = [
+    'burstDamage': 100,
+    'weaponUses': 0,
+    'tpEfficiency': 50,
+    'dotEffects': 500,
+    'kiteDistance': 200,
+    'damageReturn': 0,
+    'poisonStacks': 400,
+    'shieldValue': 100,
+    'healValue': 80,
+    'distanceToTarget': 30,
+    'threatReduction': 80,
+    'otkoBonus': 3000,
+    'checkpointBonus': 2500,
+    'bulbDamageMultiplier': 1.2,
+    'bulbKillBonusHealer': 3000,
+    'bulbKillBonusBuffer': 1800,
+    'bulbKillBonusAttacker': 1000,
+    'multiTargetBonus': 400
+]
+
+global AGILITY_WEIGHTS = [
+    'burstDamage': 250,
+    'weaponUses': 100,
+    'tpEfficiency': 50,
+    'dotEffects': 0,
+    'kiteDistance': 50,
+    'damageReturn': 300,
+    'poisonStacks': 0,
+    'shieldValue': 80,
+    'healValue': 60,
+    'distanceToTarget': -10,
+    'threatReduction': 50,
+    'otkoBonus': 4500,
+    'checkpointBonus': 2500,
+    'bulbDamageMultiplier': 1.2,
+    'bulbKillBonusHealer': 2700,
+    'bulbKillBonusBuffer': 1600,
+    'bulbKillBonusAttacker': 900,
+    'multiTargetBonus': 550
+]
+
+global STRENGTH_SCIENCE_WEIGHTS = [
+    'burstDamage': 250,
+    'weaponUses': 80,
+    'tpEfficiency': 50,
+    'dotEffects': 0,
+    'kiteDistance': 0,
+    'damageReturn': 0,
+    'poisonStacks': 0,
+    'shieldValue': 80,
+    'healValue': 60,
+    'distanceToTarget': -15,
+    'threatReduction': 40,
+    'otkoBonus': 5000,
+    'checkpointBonus': 2500,
+    'novaEffects': 600,
+    'bulbDamageMultiplier': 1.2,
+    'bulbKillBonusHealer': 2500,
+    'bulbKillBonusBuffer': 1500,
+    'bulbKillBonusAttacker': 800,
+    'multiTargetBonus': 500
+]
+
+global TANK_SCI_WEIGHTS = [
+    'burstDamage': 150,
+    'weaponUses': 60,
+    'tpEfficiency': 50,
+    'dotEffects': 0,
+    'kiteDistance': -50,
+    'damageReturn': 0,
+    'poisonStacks': 0,
+    'shieldValue': 400,
+    'healValue': 200,
+    'distanceToTarget': -10,
+    'threatReduction': 300,
+    'otkoBonus': 3000,
+    'checkpointBonus': 2500,
+    'novaEffects': 600,
+    'bulbDamageMultiplier': 1.2,
+    'bulbKillBonusHealer': 3000,
+    'bulbKillBonusBuffer': 1500,
+    'bulbKillBonusAttacker': 800,
+    'multiTargetBonus': 500
+]
+
+global HYBRID_WEIGHTS = [
+    'burstDamage': 200,
+    'weaponUses': 60,
+    'tpEfficiency': 50,
+    'dotEffects': 250,
+    'kiteDistance': 50,
+    'damageReturn': 0,
+    'poisonStacks': 200,
+    'shieldValue': 100,
+    'healValue': 70,
+    'distanceToTarget': 0,
+    'threatReduction': 60,
+    'otkoBonus': 4000,
+    'checkpointBonus': 2500,
+    'bulbDamageMultiplier': 1.2,
+    'bulbKillBonusHealer': 2800,
+    'bulbKillBonusBuffer': 1600,
+    'bulbKillBonusAttacker': 900,
+    'multiTargetBonus': 500
+]
+
+global BRUISER_REFLECT_WEIGHTS = [
+    'burstDamage': 250,
+    'weaponUses': 100,
+    'tpEfficiency': 50,
+    'dotEffects': 0,
+    'kiteDistance': -30,
+    'damageReturn': 400,
+    'poisonStacks': 0,
+    'shieldValue': 60,
+    'healValue': 80,
+    'distanceToTarget': -10,
+    'threatReduction': 30,
+    'otkoBonus': 5000,
+    'checkpointBonus': 2500,
+    'bulbDamageMultiplier': 1.2,
+    'bulbKillBonusHealer': 2500,
+    'bulbKillBonusBuffer': 1500,
+    'bulbKillBonusAttacker': 800,
+    'multiTargetBonus': 550
+]
+
+global BOSS_PUZZLE_WEIGHTS = [
+    'burstDamage': 0,
+    'weaponUses': 0,
+    'tpEfficiency': 50,
+    'dotEffects': 0,
+    'kiteDistance': 0,
+    'damageReturn': 0,
+    'poisonStacks': 0,
+    'shieldValue': 0,
+    'healValue': 50,
+    'distanceToTarget': -100,
+    'threatReduction': 0,
+    'novaEffects': 0,
+    'otkoBonus': 0,
+    'checkpointBonus': 0,
+    'noDamagePenalty': 0,
+    'axisAlignment': 2000,
+    'crystalProximity': 800,
+    'crystalSolved': 5000,
+    'multiTargetBonus': 0
+]
+
+global BOSS_COMBAT_WEIGHTS = [
+    'burstDamage': 300,
+    'weaponUses': 100,
+    'tpEfficiency': 50,
+    'dotEffects': 200,
+    'kiteDistance': 0,
+    'damageReturn': 0,
+    'poisonStacks': 100,
+    'shieldValue': 200,
+    'healValue': 150,
+    'distanceToTarget': -20,
+    'threatReduction': 100,
+    'novaEffects': 200,
+    'otkoBonus': 5000,
+    'checkpointBonus': 2500,
+    'noDamagePenalty': -2000,
+    'antidoteUrgency': 500,
+    'multiTargetBonus': 300
+]
+
+function getWeightsForBuild(buildType) {
+    if (buildType == BUILD_STRENGTH) {
+        return STRENGTH_WEIGHTS
+    }
+    if (buildType == BUILD_MAGIC) {
+        return MAGIC_WEIGHTS
+    }
+    if (buildType == BUILD_AGILITY) {
+        return AGILITY_WEIGHTS
+    }
+    if (buildType == BUILD_STRENGTH_SCIENCE) {
+        return STRENGTH_SCIENCE_WEIGHTS
+    }
+    if (buildType == BUILD_TANK_SCI) {
+        return TANK_SCI_WEIGHTS
+    }
+    if (buildType == BUILD_HYBRID) {
+        return HYBRID_WEIGHTS
+    }
+    if (buildType == BUILD_BRUISER_REFLECT) {
+        return BRUISER_REFLECT_WEIGHTS
+    }
+    return STRENGTH_WEIGHTS
+}
+
+function detectBuildType(player) {
+    var strStat = player._strength
+    var magStat = player._magic
+    var agiStat = player._agility
+    var sciStat = player._science
+    var resStat = player._resistance
+
+    if (resStat >= 300 && sciStat >= 300) {
+        return BUILD_TANK_SCI
+    }
+
+    if (strStat > 400 && agiStat > 400 &&
+        (mapContainsKey(arsenal.playerEquippedChips, CHIP_MIRROR) ||
+         mapContainsKey(arsenal.playerEquippedChips, CHIP_THORN) ||
+         mapContainsKey(arsenal.playerEquippedChips, CHIP_BRAMBLE))) {
+        return BUILD_BRUISER_REFLECT
+    }
+
+    if (strStat >= magStat && strStat >= agiStat && sciStat >= 200) {
+        return BUILD_STRENGTH_SCIENCE
+    }
+
+    if (magStat > strStat + 100) {
+        if (strStat >= 200) {
+            return BUILD_HYBRID
+        }
+        return BUILD_MAGIC
+    }
+
+    if (abs(strStat - magStat) < 100 && magStat >= 100 && strStat >= 100) {
+        return BUILD_HYBRID
+    }
+
+    if (agiStat >= strStat && agiStat >= magStat) {
+        return BUILD_AGILITY
+    }
+    if (magStat >= strStat) {
+        return BUILD_MAGIC
+    }
+
+    return BUILD_STRENGTH
+}
+
+function blendWeights(weights1, weights2, ratio) {
+    var blended = [:]
+
+    for (var key in mapKeys(weights1)) {
+        var val1 = weights1[key]
+        var val2 = 0
+        if (mapContainsKey(weights2, key)) {
+            val2 = weights2[key]
+        }
+        blended[key] = floor(val1 * ratio + val2 * (1.0 - ratio))
+    }
+
+    return blended
+}

@@ -1,0 +1,416 @@
+/*****************************************************************************
+ * Function<Effect, LeekRound, LeekRound => EffectResult>
+ * Function(Effect obj, LeekRound shooter, LeekRound target) => EffectResult
+ * liste des fonctions qui calcul les effets de chaque effet
+ *****************************************************************************/
+
+/**
+ * effect_absolute_shield
+ **/
+function effect_absolute_shield(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg(shooter.minResistance, shooter.maxResistance, shooter.midResistance);
+  target.minAbsoluteShield += round(targetDmg.minEffect);
+  target.maxAbsoluteShield += round(targetDmg.maxEffect);
+  target.midAbsoluteShield += round(targetDmg.midEffect);
+}
+
+/**
+ * effect_absolute_vulnerability
+ **/
+function effect_absolute_vulnerability(Effect obj, LeekRound shooter, LeekRound target) => void { 
+  target.minAbsoluteShield -= round(obj.tmpMinEffect);
+  target.maxAbsoluteShield -= round(obj.tmpMaxEffect);
+  target.midAbsoluteShield -= round(obj.tmpMidEffect);
+}
+
+/**
+ * effect_aftereffect
+ **/
+function effect_aftereffect(Effect obj, LeekRound shooter, LeekRound target) => void {
+  IntegerEffectResult roundedDmg = obj.targetDmg( shooter.minScience, shooter.maxScience, shooter.midScience).round();
+  obj.applyDmg(target, roundedDmg); 
+  obj.applyErosion(target, PHYSICAL_EROSION, roundedDmg);
+}
+
+/**
+ * effect_boost_max_life
+ **/
+function effect_boost_max_life(Effect obj, LeekRound shooter, LeekRound target) => void {
+  IntegerEffectResult roundedDmg = obj.targetDmg(shooter.minWisdom, shooter.maxWisdom, shooter.midWisdom).round();
+  target.maxTotalLife += roundedDmg.maxEffect;
+  target.minTotalLife += roundedDmg.minEffect;
+  target.midTotalLife += roundedDmg.midEffect;
+  obj.applyHeal(target, roundedDmg);
+}
+
+/**
+ * effect_buff_agility
+ **/
+function effect_buff_agility(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minScience, shooter.maxScience, shooter.midScience);
+  target.minAgility += round(targetDmg.minEffect);
+  target.maxAgility += round(targetDmg.maxEffect);
+  target.midAgility += round(targetDmg.midEffect);
+}
+
+/**
+ * effect_buff_mp
+ **/
+function effect_buff_mp(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minScience, shooter.maxScience, shooter.midScience);
+  target.minMP += round(targetDmg.minEffect);
+  target.maxMP += round(targetDmg.maxEffect);
+  target.midMP += round(targetDmg.midEffect);
+}
+
+/**
+ * effect_buff_resistance
+ **/
+function effect_buff_resistance(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minScience, shooter.maxScience, shooter.midScience);
+  target.minResistance += round(targetDmg.minEffect);
+  target.maxResistance += round(targetDmg.maxEffect);
+  target.midResistance += round(targetDmg.midEffect);
+}
+
+/**
+ * effect_buff_strength
+ **/
+function effect_buff_strength(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minScience, shooter.maxScience, shooter.midScience);
+  target.minStrength += round(targetDmg.minEffect);
+  target.maxStrength += round(targetDmg.maxEffect);
+  target.midStrength += round(targetDmg.midEffect);
+}
+
+/**
+ * effect_buff_tp
+ **/
+function effect_buff_tp(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minScience, shooter.maxScience, shooter.midScience);
+  target.minTP += round(targetDmg.minEffect);
+  target.maxTP += round(targetDmg.maxEffect);
+  target.midTP += round(targetDmg.midEffect);
+}
+
+/**
+ * effect_buff_wisdom
+ **/
+function effect_buff_wisdom(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg(shooter.minScience, shooter.maxScience, shooter.midScience);
+  target.minWisdom += round(targetDmg.minEffect);
+  target.maxWisdom += round(targetDmg.maxEffect);
+  target.midWisdom += round(targetDmg.midEffect);
+}
+
+/**
+ * effect_damage
+ **/
+function effect_damage(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg(shooter.minStrength, shooter.maxStrength, shooter.midStrength);
+  GameDebug.add(EFFECT_DEBUG && UNIT_TEST_DEBUG, targetDmg, "targetDmg");
+  // TODO: puissance
+  IntegerEffectResult dmgReturn = new IntegerEffectResult();
+  (target.id != shooter.id) and (dmgReturn = obj.dmgReturn(target, targetDmg));
+  GameDebug.add(EFFECT_DEBUG && UNIT_TEST_DEBUG, dmgReturn, "dmgReturn");
+  obj.shield(target, targetDmg);
+  GameDebug.add(EFFECT_DEBUG && UNIT_TEST_DEBUG, targetDmg, "shield");
+  IntegerEffectResult roundedDmg = targetDmg.round()
+  obj.applyDmg(target, roundedDmg);
+  obj.applyErosion(target, PHYSICAL_EROSION, roundedDmg);
+  GameDebug.add(EFFECT_DEBUG && UNIT_TEST_DEBUG,{max:target.maxTotalLife,min:target.minTotalLife,mid:target.midTotalLife},"target totalLife");
+  if(target.id != shooter.id) {
+    IntegerEffectResult shooterDmg = obj.lifeSteal(shooter, roundedDmg, dmgReturn);
+    GameDebug.add(EFFECT_DEBUG && UNIT_TEST_DEBUG, shooterDmg, "shooterDmg");
+    obj.applyLifeStealAndDmgReturn(shooter, shooterDmg);
+    obj.applyErosion(shooter, PHYSICAL_EROSION, dmgReturn);
+  }
+}
+
+/**
+ * effect_damage_return
+ **/
+function effect_damage_return(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minAgility, shooter.maxAgility, shooter.midAgility);
+  target.minDmgReturn += round(targetDmg.minEffect);
+  target.maxDmgReturn += round(targetDmg.maxEffect);
+  target.midDmgReturn += round(targetDmg.midEffect);
+}
+
+/**
+ * effect_heal
+ **/
+function effect_heal(Effect obj, LeekRound shooter, LeekRound target) => void {
+  IntegerEffectResult roundedDmg = obj.targetDmg( shooter.minWisdom, shooter.maxWisdom, shooter.midWisdom).round();
+  obj.applyHeal(target, roundedDmg);
+}
+
+/**
+ * effect_kill
+ **/
+function effect_kill(Effect obj, LeekRound shooter, LeekRound target) => void {
+  IntegerEffectResult roundedDmg = new IntegerEffectResult(target.minLife, target.maxLife, target.midLife);
+  obj.applyDmg(target, roundedDmg);
+}
+
+/**
+ * effect_life_damage
+ **/
+function effect_life_damage(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = new RealEffectResult(max(0.0, obj.tmpMinEffect/100*shooter.minLife),
+                                                    max(0.0, obj.tmpMaxEffect/100*shooter.maxLife),
+                                                    max(0.0, obj.tmpMidEffect/100*shooter.midLife))
+  // TODO: puissance
+  IntegerEffectResult dmgReturn = new IntegerEffectResult();
+  (target.id != shooter.id) and (dmgReturn = obj.dmgReturn(target, targetDmg));
+  obj.shield(target, targetDmg);
+  IntegerEffectResult roundedDmg = targetDmg.round()
+  obj.applyDmg(target, roundedDmg);
+  obj.applyErosion(target, PHYSICAL_EROSION, roundedDmg);
+  if(target.id != shooter.id) {
+    obj.applyLifeStealAndDmgReturn(shooter, dmgReturn);
+    obj.applyErosion(shooter, PHYSICAL_EROSION, dmgReturn);
+  }
+}
+
+/**
+ * effect_nova_damage
+ **/
+function effect_nova_damage(Effect obj, LeekRound shooter, LeekRound target) => void {
+  IntegerEffectResult roundedDmg = obj.targetDmg(shooter.minScience, shooter.maxScience, shooter.midScience).round();
+  obj.applyErosion(shooter, PHYSICAL_EROSION, roundedDmg);
+}
+
+/**
+ * effect_nova_vitality
+ **/
+function effect_nova_vitality(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minScience, shooter.maxScience, shooter.midScience);
+  target.maxTotalLife += round(targetDmg.minEffect);
+  target.minTotalLife += round(targetDmg.maxEffect);
+  target.midTotalLife += round(targetDmg.midEffect);
+}
+
+/**
+ * effect_poison
+ * l effet poison est normalement applique au debut du coup suivant et s'applique sur n tour
+ * ici on ne prend en compte que le premier tour
+ * TODO: prendre en compte tous les tours
+ **/
+function effect_poison(Effect obj, LeekRound shooter, LeekRound target) => void {
+  IntegerEffectResult roundedDmg = obj.targetDmg( shooter.minMagic, shooter.maxMagic, shooter.midMagic).round();
+  // TODO: puissance
+  obj.applyDmg(target, roundedDmg);
+  obj.applyErosion(target, POISON_EROSION, roundedDmg);
+  string category = EFFECT_TYPE_TRANSLATOR_CATEGORY[obj.type]![1] as string;
+  Array<boolean|integer> applied_effect = [obj.type,roundedDmg.midEffect,shooter.id,getTurn(),false,obj.owner.id,target.id,0]
+  if(mapContainsKey(target.appliedEffectCategories[category]!, obj.type)) push(target.appliedEffectCategories[category]![obj.type]!, applied_effect);
+  else target.appliedEffectCategories[category]![obj.type] = [applied_effect] // TODO: gerer le coup suivant comme il faut
+}
+
+/**
+ * effect_raw_absolute_shield
+ **/
+function effect_raw_absolute_shield(Effect obj, LeekRound shooter, LeekRound target) => void {  
+  target.minAbsoluteShield += round(obj.tmpMinEffect);
+  target.maxAbsoluteShield += round(obj.tmpMaxEffect);
+  target.midAbsoluteShield += round(obj.tmpMidEffect);
+}
+
+/**
+ * effect_raw_buff_agility
+ **/
+function effect_raw_buff_agility(Effect obj, LeekRound shooter, LeekRound target) => void { 
+  target.minAgility += round(obj.tmpMinEffect);
+  target.maxAgility += round(obj.tmpMaxEffect);
+  target.midAgility += round(obj.tmpMidEffect);
+}
+
+/**
+ * effect_raw_buff_magic
+ **/
+function effect_raw_buff_magic(Effect obj, LeekRound shooter, LeekRound target) => void {
+  target.minMagic += round(obj.tmpMinEffect);
+  target.maxMagic += round(obj.tmpMaxEffect); 
+  target.midMagic += round(obj.tmpMidEffect);
+}
+
+/**
+ * effect_raw_buff_mp
+ **/
+function effect_raw_buff_mp(Effect obj, LeekRound shooter, LeekRound target) => void {
+  target.minMP += round(obj.tmpMinEffect);
+  target.maxMP += round(obj.tmpMaxEffect);
+  target.midMP += round(obj.tmpMidEffect);
+}
+
+/**
+ * effect_raw_buff_power
+ **/
+function effect_raw_buff_power(Effect obj, LeekRound shooter, LeekRound target) => void {  
+  target.minPower += round(obj.tmpMinEffect);
+  target.maxPower += round(obj.tmpMaxEffect);
+  target.midPower += round(obj.tmpMidEffect);
+}
+
+/**
+ * effect_raw_buff_resistance
+ **/
+function effect_raw_buff_resistance(Effect obj, LeekRound shooter, LeekRound target) => void {  
+  target.minResistance += round(obj.tmpMinEffect);
+  target.maxResistance += round(obj.tmpMaxEffect);
+  target.midResistance += round(obj.tmpMidEffect);
+}
+
+/**
+ * effect_raw_buff_science
+ **/
+function effect_raw_buff_science(Effect obj, LeekRound shooter, LeekRound target) => void { 
+  target.minScience += round(obj.tmpMinEffect);
+  target.maxScience += round(obj.tmpMaxEffect);
+  target.midScience += round(obj.tmpMidEffect);
+}
+
+/**
+ * effect_raw_buff_strength
+ **/
+function effect_raw_buff_strength(Effect obj, LeekRound shooter, LeekRound target) => void {  
+  target.minStrength += round(obj.tmpMinEffect);
+  target.maxStrength += round(obj.tmpMaxEffect);
+  target.midStrength += round(obj.tmpMidEffect);
+}
+
+/**
+ * effect_raw_buff_tp
+ **/
+function effect_raw_buff_tp(Effect obj, LeekRound shooter, LeekRound target) => void {  
+  target.minTP += round(obj.tmpMinEffect);
+  target.maxTP += round(obj.tmpMaxEffect);
+  target.midTP += round(obj.tmpMidEffect);
+}
+
+/**
+ * effect_raw_buff_wisdom
+ **/
+function effect_raw_buff_wisdom(Effect obj, LeekRound shooter, LeekRound target) => void { 
+  target.minWisdom += round(obj.tmpMinEffect);
+  target.maxWisdom += round(obj.tmpMaxEffect);
+  target.midWisdom += round(obj.tmpMidEffect);
+}
+
+/**
+ * effect_raw_heal
+ **/
+function effect_raw_heal(Effect obj, LeekRound shooter, LeekRound target) => void {
+  IntegerEffectResult roundedDmg =  new IntegerEffectResult(round(obj.tmpMinEffect),round(obj.tmpMaxEffect),round(obj.tmpMidEffect));
+  obj.applyHeal(target, roundedDmg);
+}
+
+/**
+ * effect_raw_relative_shield
+ **/
+function effect_raw_relative_shield(Effect obj, LeekRound shooter, LeekRound target) => void { 
+  target.minRelativeShield += round(obj.tmpMinEffect);
+  target.maxRelativeShield += round(obj.tmpMaxEffect);
+  target.midRelativeShield += round(obj.tmpMidEffect);
+}
+
+/**
+ * effect_relative_shield
+ **/
+function effect_relative_shield(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minResistance, shooter.maxResistance, shooter.midResistance);
+  target.minRelativeShield += round(targetDmg.minEffect);
+  target.maxRelativeShield += round(targetDmg.maxEffect);
+  target.midRelativeShield += round(targetDmg.midEffect);
+}
+
+/**
+ * effect_shackle_agility
+ **/
+function effect_shackle_agility(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minMagic, shooter.maxMagic, shooter.midMagic);
+  target.minAgility -= round(targetDmg.minEffect);
+  target.maxAgility -= round(targetDmg.maxEffect);
+  target.midAgility -= round(targetDmg.midEffect);
+}
+
+/**
+ * effect_shackle_magic
+ **/
+function effect_shackle_magic(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minMagic, shooter.maxMagic, shooter.midMagic);
+  target.minMagic -= round(targetDmg.minEffect);
+  target.maxMagic -= round(targetDmg.maxEffect);
+  target.midMagic -= round(targetDmg.midEffect);
+}
+
+/**
+ * effect_shackle_mp
+ **/
+function effect_shackle_mp(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minMagic, shooter.maxMagic, shooter.midMagic);
+  target.minMP -= round(targetDmg.minEffect);
+  target.maxMP -= round(targetDmg.maxEffect);
+  target.midMP -= round(targetDmg.midEffect);
+}
+
+/**
+ * effect_shackle_strength
+ **/
+function effect_shackle_strength(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minMagic, shooter.maxMagic, shooter.midMagic);
+  target.minStrength -= round(targetDmg.minEffect);
+  target.maxStrength -= round(targetDmg.maxEffect);
+  target.midStrength -= round(targetDmg.midEffect);
+}
+
+/**
+ * effect_shackle_tp
+ **/
+function effect_shackle_tp(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minMagic, shooter.maxMagic, shooter.midMagic);
+  target.minTP -= round(targetDmg.minEffect);
+  target.maxTP -= round(targetDmg.minEffect);
+  target.midTP -= round(targetDmg.minEffect);
+}
+
+/**
+ * effect_shackle_wisdom
+ **/
+function effect_shackle_wisdom(Effect obj, LeekRound shooter, LeekRound target) => void {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minMagic, shooter.maxMagic, shooter.midMagic);
+  target.minWisdom -= round(targetDmg.minEffect);
+  target.maxWisdom -= round(targetDmg.maxEffect);
+  target.midWisdom -= round(targetDmg.midEffect);
+}
+
+/**
+ * effect_vitality
+ * existe dans le code du generator mais la constante EFFECT_VITALITY n existe pas
+ **/
+/*
+function effect_vitality(Effect obj, LeekRound shooter, LeekRound target) => EffectResult {
+  RealEffectResult targetDmg = obj.targetDmg( shooter.minWisdom, shooter.maxWisdom, shooter.midWisdom);
+  target.maxTotalLife += round(targetDmg.minEffect);
+  target.minTotalLife += round(targetDmg.maxEffect);
+  target.midTotalLife += round(targetDmg.midEffect);
+  return new EffectResult();
+}
+*/
+
+/**
+ * effect_vulnerability
+ **/
+function effect_vulnerability(Effect obj, LeekRound shooter, LeekRound target) => void {
+  target.minRelativeShield -= round(obj.tmpMinEffect);
+  target.maxRelativeShield -= round(obj.tmpMaxEffect);
+  target.midRelativeShield -= round(obj.tmpMidEffect);
+}
+
+/**
+ * effect_default
+ **/
+function effect_default(Effect obj, LeekRound shooter, LeekRound target) => void {
+  GameDebug.add(true, obj, "Unmanaged Effect", 0);
+}

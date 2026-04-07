@@ -1,0 +1,52 @@
+include("chain");
+include("objects");
+include("functions");
+
+/*****************************************************************************
+ * GameDebug
+ * empeche le calcul et l affichage des debugs
+ * la classe ne fait rien
+ *****************************************************************************/
+class GameDebug {
+  
+  /**
+   * display
+   **/
+  static void display() {
+  }
+  
+  /**
+   * add
+   *
+   * ajoute un element a debugger dans la liste a afficher
+   **/
+  static void add(boolean condition, any element, string txt = "", integer depth = 1, Array<integer> limit = [], Array<integer> start = [], Array<boolean> revers = [], string space = "", string debugFunction = "shortString") {
+  }
+  
+  /**
+   * addBackground
+   *
+   * change la couleur de fond d une liste de cells ou d'un cellId
+   **/
+  static void addBackground(boolean condition, any cellsOrCellId, integer color = 0) {
+  }
+  
+  /**
+   * addCellText
+   *
+   * ecrit le text (contenu dans cellsTexts) correspondant dans chacune des cases en index de cellsTexts
+   **/
+  static void addCellText(boolean condition, Map<integer, any> cellsTexts, integer color = 0) {
+  }
+
+  /**
+   * addOperation
+   * calcul les opt et la ram depuis le dernier addOperation et l affiche
+   **/
+  static void addOperation(boolean condition, string txt = "") {
+  }
+  
+}
+
+
+

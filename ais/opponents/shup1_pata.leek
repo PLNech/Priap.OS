@@ -1,0 +1,30 @@
+include("Main");
+
+var turn = function() {
+		var mainWeapon = getWeapons()[0];
+		var distance = CHIP_SPARK;
+		var final = CHIP_PEBBLE;
+		var shield = CHIP_HELMET;
+		
+		var me = getLeek();
+		var weapon = setup(mainWeapon);
+		var target = getTarget();
+		if (target != null && target != -1) {
+			var cell;
+			cell = getRangeCell(target, [mainWeapon, distance]);
+			if (cell != null) moveTowardCell(cell);
+			else moveToward(target, getMP() / 2 + 1);
+			
+			autoShield(me, shield, 20);
+			onKill(attackAll(target, weapon), turn);
+			onKill(chipItAll(target, distance), turn);
+			chipItAll(target, final);
+		moveTowardCell(moveToSafestCell());
+			finish(target);
+			debug("TP:" + getTP() + " MP:" + getMP() + " OP:" + ceil(getOperations() / OPERATIONS_LIMIT * 100) + "%");
+		} else {
+			say("C'est bon, t'es mûr");
+		}
+	};
+	
+turn();

@@ -1,0 +1,804 @@
+
+include('item_roles.lk')
+include('cache_manager.lk')
+include('reachable_graph.lk')
+
+function beamSearchScenarios(playerObj, targetObj, arsenalObj, fieldMapObj) {
+    if (targetObj == null) return []
+
+    var beamWidth = _beamWidth
+    var maxDepth = _beamMaxDepth
+
+    var playerPos = playerObj._cellPos
+    var targetPos = targetObj._cellPos
+    var str = playerObj._strength
+    var mag = playerObj._magic
+    var wis = playerObj._wisdom
+    var sci = playerObj._science
+    var currentWeapon = getWeapon()
+
+    var weaponMaxUses = [:]
+    for (var wid in mapKeys(arsenalObj.playerEquippedWeapons)) {
+        weaponMaxUses[wid] = getWeaponMaxUses(wid)
+    }
+
+    var agi = playerObj._agility
+
+    var beam = []
+    push(beam, [
+        'actions': [],
+        'simTP': getTP(),
+        'simMP': getMP(),
+        'simPos': playerPos,
+        'simWeapon': currentWeapon,
+        'simStr': str,
+        'simMag': mag,
+        'simWis': wis,
+        'simSci': sci,
+        'simAgi': agi,
+        'chipUsed': [:],
+        'weaponUses': [:],
+        'cumScore': 0,
+        'cumDamage': 0,
+        'moveCount': 0,
+        'wMaxUses': weaponMaxUses
+    ])
+
+    for (var depth = 0; depth < maxDepth; depth++) {
+        var allCandidates = []
+
+        for (var partial in beam) {
+            if (partial['simTP'] < 3 && partial['simMP'] < 1) {
+                push(allCandidates, partial)
+                continue
+            }
+
+            var legalActions = beamGetLegalActions(partial, targetObj, arsenalObj)
+
+            if (count(legalActions) == 0) {
+                push(allCandidates, partial)
+                continue
+            }
+
+            for (var actionInfo in legalActions) {
+                var value = beamEvaluateAction(actionInfo, partial, targetObj, arsenalObj, playerObj, fieldMapObj)
+                if (value < 0) continue
+                var newCandidate = beamExtendCandidate(partial, actionInfo, value, targetObj, arsenalObj)
+                push(allCandidates, newCandidate)
+            }
+        }
+
+        if (count(allCandidates) == 0) break
+
+        arraySort(allCandidates, function(a, b) {
+            return b['cumScore'] - a['cumScore']
+        })
+
+        beam = []
+        var selected = [:]
+        var limit = min(max(4, _beamWidth - 6), count(allCandidates))
+        for (var i = 0; i < limit; i++) {
+            push(beam, allCandidates[i])
+            selected[i] = true
+        }
+
+        var defAdded = 0
+        for (var i = 0; i < count(allCandidates) && defAdded < 3; i++) {
+            if (mapContainsKey(selected, i)) continue
+            if (beamHasDefensiveAction(allCandidates[i])) {
+                push(beam, allCandidates[i])
+                selected[i] = true
+                defAdded++
+            }
+        }
+
+        var utilAdded = 0
+        for (var i = 0; i < count(allCandidates) && utilAdded < 3; i++) {
+            if (mapContainsKey(selected, i)) continue
+            if (beamHasUtilityAction(allCandidates[i])) {
+                push(beam, allCandidates[i])
+                selected[i] = true
+                utilAdded++
+            }
+        }
+
+        if (getOperations() > _ops82) break
+    }
+
+    var scenarios = []
+    for (var candidate in beam) {
+        if (count(candidate['actions']) > 0) {
+            push(scenarios, candidate['actions'])
+        }
+    }
+    return scenarios
+}
+
+function beamGetLegalActions(partial, targetObj, arsenalObj) {
+    var actions = []
+    var simTP = partial['simTP']
+    var simMP = partial['simMP']
+    var simPos = partial['simPos']
+    var simWeapon = partial['simWeapon']
+    var chipUsed = partial['chipUsed']
+    var weaponUses = partial['weaponUses']
+    var wMaxUses = partial['wMaxUses']
+    var targetPos = targetObj._cellPos
+    var dist = getCellDistance(simPos, targetPos)
+
+    for (var chipId in mapKeys(arsenalObj.playerEquippedChips)) {
+        var chipObj = arsenalObj.playerEquippedChips[chipId]
+        var cost = chipObj._cost
+        if (cost > simTP) continue
+        if (mapContainsKey(chipUsed, chipId)) continue
+
+        var cd = getCooldown(chipId, getEntity())
+        if (cd > 0) continue
+
+        var chipTargetCell = -1
+        var isSelfTarget = false
+
+        if (isHealingChip(chipId) || isOffensiveBuff(chipId) || isShieldChip(chipId) ||
+            isDamageReturnChip(chipId) || isResourceChip(chipId)) {
+            chipTargetCell = simPos
+            isSelfTarget = true
+        } else if (isUtilityChip(chipId)) {
+            if (chipId == CHIP_TELEPORTATION || chipId == CHIP_JUMP) continue
+            if (chipId == CHIP_INVERSION && _isBossFight) continue
+            chipTargetCell = targetPos
+        } else {
+            chipTargetCell = targetPos
+        }
+
+        if (!isSelfTarget && chipTargetCell != -1) {
+            var chipDist = getCellDistance(simPos, chipTargetCell)
+            if (chipDist == null || chipDist < chipObj._minRange || chipDist > chipObj._maxRange) continue
+            if (!getCachedLineOfSight(simPos, chipTargetCell)) continue
+        }
+
+        var actionType = Action.ACTION_BUFF
+        if (isPoisonChip(chipId)) {
+            actionType = Action.ACTION_DOT
+        } else if (isDebuffChip(chipId)) {
+            actionType = Action.ACTION_DEBUFF
+        } else if (!isHealingChip(chipId) && !isOffensiveBuff(chipId) && !isShieldChip(chipId) &&
+                   !isDamageReturnChip(chipId) && !isResourceChip(chipId) && !isUtilityChip(chipId)) {
+            actionType = Action.ACTION_DIRECT
+        }
+
+        push(actions, [
+            'type': 'chip',
+            'actionType': actionType,
+            'id': chipId,
+            'targetCell': chipTargetCell,
+            'cost': cost,
+            'isSelf': isSelfTarget
+        ])
+    }
+
+    if (simWeapon != null && simWeapon != -1) {
+        var wCost = 0
+        var weaponObj = null
+        if (mapContainsKey(arsenalObj.playerEquippedWeapons, simWeapon)) {
+            weaponObj = arsenalObj.playerEquippedWeapons[simWeapon]
+            wCost = weaponObj._cost
+        }
+        if (weaponObj != null && wCost <= simTP) {
+            var currentUses = 0
+            if (mapContainsKey(weaponUses, simWeapon)) currentUses = weaponUses[simWeapon]
+            var maxUse = mapContainsKey(wMaxUses, simWeapon) ? wMaxUses[simWeapon] : 1
+            if (currentUses < maxUse) {
+                if (dist != null && dist >= weaponObj._minRange && dist <= weaponObj._maxRange &&
+                    getCachedLineOfSight(simPos, targetPos)) {
+                    push(actions, [
+                        'type': 'weapon',
+                        'actionType': Action.ACTION_DIRECT,
+                        'id': simWeapon,
+                        'targetCell': targetPos,
+                        'cost': wCost,
+                        'isSelf': false,
+                        'needsSwap': false
+                    ])
+                }
+            }
+        }
+    }
+
+    for (var wid in mapKeys(arsenalObj.playerEquippedWeapons)) {
+        if (wid == simWeapon) continue
+        var weaponObj = arsenalObj.playerEquippedWeapons[wid]
+        var totalCost = 1 + weaponObj._cost
+        if (totalCost > simTP) continue
+        var currentUses = 0
+        if (mapContainsKey(weaponUses, wid)) currentUses = weaponUses[wid]
+        var maxUse = mapContainsKey(wMaxUses, wid) ? wMaxUses[wid] : 1
+        if (currentUses >= maxUse) continue
+        if (dist != null && dist >= weaponObj._minRange && dist <= weaponObj._maxRange &&
+            getCachedLineOfSight(simPos, targetPos)) {
+            push(actions, [
+                'type': 'weapon',
+                'actionType': Action.ACTION_DIRECT,
+                'id': wid,
+                'targetCell': targetPos,
+                'cost': totalCost,
+                'isSelf': false,
+                'needsSwap': true
+            ])
+        }
+    }
+
+    if (simMP > 0 && partial['moveCount'] < 2) {
+        var moveCells = beamGetMoveCells(simPos, targetPos, simMP, arsenalObj, partial)
+        for (var moveCell in moveCells) {
+            push(actions, [
+                'type': 'move',
+                'actionType': Action.MOVEMENT_APPROACH,
+                'id': -1,
+                'targetCell': moveCell,
+                'cost': 0,
+                'isSelf': true,
+                'mpCost': getGraphMPCost(moveCell)
+            ])
+        }
+    }
+
+    return actions
+}
+
+function beamGetMoveCells(simPos, targetPos, simMP, arsenalObj, partial) {
+    var cells = []
+    var reachable = getReachableCells()
+    if (count(reachable) == 0) return cells
+
+    var currentDist = getCellDistance(simPos, targetPos)
+    if (currentDist == null) return cells
+
+    var bestApproachCell = -1
+    var bestApproachDist = currentDist
+
+    var bestKiteCell = -1
+    var bestKiteDist = currentDist
+
+    var bestWeaponCell = -1
+    var bestWeaponScore = -1
+
+    for (var cell in reachable) {
+        if (cell == simPos) continue
+        var mpCost = getGraphMPCost(cell)
+        if (mpCost > simMP || mpCost <= 0) continue
+
+        var d = getCellDistance(cell, targetPos)
+        if (d == null) continue
+
+        if (d < bestApproachDist) {
+            bestApproachDist = d
+            bestApproachCell = cell
+        }
+        if (d > bestKiteDist) {
+            bestKiteDist = d
+            bestKiteCell = cell
+        }
+        var weaponScore = 0
+        for (var wid in mapKeys(arsenalObj.playerEquippedWeapons)) {
+            var wObj = arsenalObj.playerEquippedWeapons[wid]
+            if (d >= wObj._minRange && d <= wObj._maxRange) {
+                var bd = getCachedDamageBreakdown(wid)
+                if (bd != null) weaponScore += bd['total']
+                else weaponScore += 100
+            }
+        }
+        for (var chipId in mapKeys(arsenalObj.playerEquippedChips)) {
+            if (mapContainsKey(partial['chipUsed'], chipId)) continue
+            if (isHealingChip(chipId) || isOffensiveBuff(chipId) || isShieldChip(chipId) ||
+                isDamageReturnChip(chipId) || isResourceChip(chipId) || isUtilityChip(chipId)) continue
+            var chipObj = arsenalObj.playerEquippedChips[chipId]
+            if (d >= chipObj._minRange && d <= chipObj._maxRange) {
+                var bd = getCachedDamageBreakdown(chipId)
+                if (bd != null) weaponScore += bd['total']
+                else weaponScore += 50
+            }
+        }
+        if (weaponScore > bestWeaponScore) {
+            bestWeaponScore = weaponScore
+            bestWeaponCell = cell
+        }
+    }
+
+    if (bestApproachCell != -1) push(cells, bestApproachCell)
+    if (bestWeaponCell != -1 && bestWeaponCell != bestApproachCell) push(cells, bestWeaponCell)
+    if (bestKiteCell != -1 && bestKiteCell != bestApproachCell && bestKiteCell != bestWeaponCell) push(cells, bestKiteCell)
+
+    // Threat-gate: filter out suicidal cells for defensive builds
+    if (__playerBuildType == BUILD_MAGIC || __playerBuildType == BUILD_TANK_SCI) {
+        if (__adversarialThreatCacheBuilt && count(cells) > 1) {
+            var playerHP = getLife()
+            var safeCells = []
+            for (var c in cells) {
+                var threat = getAdversarialThreat(c)
+                if (threat < playerHP * 0.50) {
+                    push(safeCells, c)
+                }
+            }
+            if (count(safeCells) > 0) {
+                cells = safeCells
+            }
+        }
+    }
+
+    return cells
+}
+
+function beamEvaluateAction(actionInfo, partial, targetObj, arsenalObj, playerObj, fieldMapObj) {
+    var value = 0
+    var simStr = partial['simStr']
+    var simMag = partial['simMag']
+    var simWis = partial['simWis']
+    var simSci = partial['simSci']
+    var cumDamage = partial['cumDamage']
+    var enemyHP = targetObj._currHealth
+
+    if (actionInfo['type'] == 'chip') {
+        var chipId = actionInfo['id']
+
+        if (actionInfo['actionType'] == Action.ACTION_DIRECT) {
+            var bd = arsenalObj.getDamageBreakdown(simStr, simMag, simWis, simSci, chipId)
+            var dmg = bd['direct'] + bd['nova']
+            value += dmg * 2.0
+
+            // PLASMA: multiply by number of enemies in AoE (PLUS_2 pattern)
+            if (chipId == CHIP_PLASMA && fieldMapObj != null) {
+                var plasmaTargetCell = actionInfo['targetCell']
+                var plasmaHitCount = 1
+                var enemies = fieldMapObj.getEnemySubMap()
+                for (var eid in mapKeys(enemies)) {
+                    if (eid == targetObj._id) continue
+                    if (isDead(eid)) continue
+                    var eCell = enemies[eid]._cellPos
+                    if (eCell != null && eCell != plasmaTargetCell) {
+                        var eDist = getCellDistance(plasmaTargetCell, eCell)
+                        if (eDist != null && eDist <= 2) {
+                            plasmaHitCount++
+                        }
+                    }
+                }
+                if (plasmaHitCount > 1) {
+                    value *= plasmaHitCount
+                }
+            }
+
+            if (bd['nova'] > 0) {
+                value += bd['nova'] * 1.5
+            }
+
+            if (chipId == CHIP_PUNISHMENT) {
+                // Hard-block: only allow as fight-finisher on last enemy leek
+                if (isBulb(targetObj) || enemyHP <= 0 || (cumDamage + dmg) < enemyHP) {
+                    return -999999
+                }
+            }
+
+            if (enemyHP > 0 && (cumDamage + dmg) / enemyHP > 0.7) {
+                value *= 3.0
+            }
+        }
+        else if (isPoisonChip(chipId)) {
+            var bd = arsenalObj.getDamageBreakdown(simStr, simMag, simWis, simSci, chipId)
+            var dot = bd['dot']
+            value += dot * 1.5
+
+            var poisonCount = 0
+            for (var a in partial['actions']) {
+                if (a.type == Action.ACTION_DOT) poisonCount++
+            }
+            if (poisonCount > 0) value += 100 * poisonCount
+
+            var antidoteCd = 0
+            var tracker = new CooldownTracker(targetObj)
+            antidoteCd = tracker.getCooldownRemaining(targetObj._id, CooldownTracker.CHIP_ANTIDOTE_ID)
+            if (antidoteCd >= 3) value *= 1.5
+            else if (antidoteCd == 0) value *= 0.3
+        }
+        else if (isOffensiveBuff(chipId)) {
+            if (chipId == CHIP_WIZARDRY) {
+                value += 200
+                var unusedPoison = beamCountUnusedPoisonChips(partial, arsenalObj)
+                var unusedDenial = beamCountUnusedDenialChips(partial, arsenalObj)
+                if (unusedPoison > 0) value += 200 * unusedPoison
+                if (unusedDenial > 0) value += 200 * unusedDenial
+            } else if (chipId == CHIP_PRISM) {
+                value += 180
+                if (beamHasUnusedNovaWeapon(partial, arsenalObj)) value += 300
+                var unusedShields = beamCountUnusedShieldChips(partial, arsenalObj)
+                if (unusedShields > 0) value += 150
+            } else if (chipId == CHIP_STEROID || chipId == CHIP_DOPING) {
+                value += 200
+                var unusedWeapons = beamCountUnusedWeapons(partial, arsenalObj)
+                if (unusedWeapons > 0) value += 250
+            } else if (chipId == CHIP_KNOWLEDGE) {
+                value += 150
+                var unusedHeals = beamCountUnusedHealChips(partial, arsenalObj)
+                if (unusedHeals > 0) value += 100 * unusedHeals
+            } else if (chipId == CHIP_WARM_UP) {
+                value += 200
+                var unusedReturn = beamCountUnusedReturnChips(partial, arsenalObj)
+                if (unusedReturn > 0) value += 200
+                var unusedWeaponsWU = beamCountUnusedWeapons(partial, arsenalObj)
+                if (unusedWeaponsWU > 0) value += 150
+            } else if (chipId == CHIP_ADRENALINE) {
+                value += 400
+            } else if (chipId == CHIP_ARMORING) {
+                value += 120
+            } else if (chipId == CHIP_ELEVATION) {
+                value += 150
+            } else {
+                value += 100
+            }
+        }
+        else if (isHealingChip(chipId)) {
+            var hpMissing = playerObj._maxHealth - playerObj._currHealth
+            if (hpMissing > 0) {
+                var healEstimate = beamEstimateHeal(chipId, simWis)
+                var effectiveHeal = min(hpMissing, healEstimate)
+                value += effectiveHeal * 1.5
+
+                var hpRatio = playerObj._currHealth / playerObj._maxHealth
+                if (hpRatio < 0.3) value *= 3.0
+                else if (hpRatio < 0.5) value *= 2.0
+            } else {
+                return -1
+            }
+        }
+        else if (isShieldChip(chipId)) {
+            value += 150
+            var threat = 0
+            if (fieldMapObj != null) threat = fieldMapObj.getThreatAtCell(partial['simPos'])
+            if (threat > 300) value *= 2.0
+        }
+        else if (isDamageReturnChip(chipId)) {
+            var drDuration = (chipId == CHIP_BRAMBLE) ? 1 : (chipId == CHIP_THORN) ? 2 : 3
+            if (predictEnemyCanAttackWithin(partial['simPos'], targetObj, drDuration)) {
+                value += 200
+                var threat = 0
+                if (fieldMapObj != null) threat = fieldMapObj.getThreatAtCell(partial['simPos'])
+                if (threat > 300) value *= 2.0
+            } else {
+                value += 10
+            }
+        }
+        else if (isDebuffChip(chipId)) {
+            if (chipId == CHIP_SOPORIFIC || chipId == CHIP_BALL_AND_CHAIN) {
+                value += 200 * (1 + simMag / 500)
+                var hasPoison = false
+                for (var a in partial['actions']) {
+                    if (a.type == Action.ACTION_DOT) { hasPoison = true; break }
+                }
+                if (hasPoison) value += 150
+            } else if (chipId == CHIP_LIBERATION) {
+                value += 120
+            } else {
+                var cBd = arsenalObj.getDamageBreakdown(simStr, simMag, simWis, simSci, chipId)
+                if (cBd['statReduce'] > 0) value += 150 * (1 + simMag / 500)
+                else if (cBd['denial'] > 0) value += 150 * (1 + simMag / 500)
+                else value += 80
+            }
+        }
+        else if (isResourceChip(chipId)) {
+            if (chipId == CHIP_LEATHER_BOOTS) {
+                value += 150
+            }
+        }
+        else if (isUtilityChip(chipId)) {
+            if (chipId == CHIP_ANTIDOTE) {
+                if (playerObj.hasEffect(EFFECT_POISON)) value += 300
+                else return -1
+            } else if (chipId == CHIP_MANUMISSION) {
+                var shackled = playerObj.hasEffect(EFFECT_SHACKLE_TP)
+                    || playerObj.hasEffect(EFFECT_SHACKLE_MP)
+                    || playerObj.hasEffect(EFFECT_SHACKLE_STRENGTH)
+                    || playerObj.hasEffect(EFFECT_SHACKLE_MAGIC)
+                if (shackled) value += 350
+                else return -1
+            } else if (chipId == CHIP_GRAPPLE) {
+                value += 200
+                var shortRangeCount = 0
+                for (var cid in mapKeys(arsenalObj.playerEquippedChips)) {
+                    if (mapContainsKey(partial['chipUsed'], cid)) continue
+                    var cObj = arsenalObj.playerEquippedChips[cid]
+                    if (cObj._maxRange <= 4 && !isHealingChip(cid) && !isOffensiveBuff(cid) &&
+                        !isShieldChip(cid) && !isDamageReturnChip(cid) && !isResourceChip(cid)) {
+                        shortRangeCount++
+                    }
+                }
+                if (shortRangeCount > 0) value += 100 * shortRangeCount
+            } else {
+                value += 150
+            }
+        }
+
+    } else if (actionInfo['type'] == 'weapon') {
+        var wid = actionInfo['id']
+        var bd = arsenalObj.getDamageBreakdown(simStr, simMag, simWis, simSci, wid)
+        var directDmg = bd['direct']
+        var dotDmg = bd['dot']
+        var novaDmg = bd['nova']
+
+        value += directDmg * 2.0
+        value += dotDmg * 1.5
+        value += novaDmg * 2.5
+
+        if (dotDmg > 0) {
+            var antidoteCd = 0
+            var tracker = new CooldownTracker(targetObj)
+            antidoteCd = tracker.getCooldownRemaining(targetObj._id, CooldownTracker.CHIP_ANTIDOTE_ID)
+            if (antidoteCd >= 3) value += dotDmg * 0.5
+            else if (antidoteCd == 0) value -= dotDmg * 0.5
+        }
+
+        if (enemyHP > 0 && (cumDamage + directDmg + dotDmg + novaDmg) / enemyHP > 0.7) {
+            value *= 3.0
+        }
+
+        if (bd['statReduce'] > 0) value += 100
+        if (bd['denial'] > 0) value += 80
+
+        if (actionInfo['needsSwap']) {
+            value -= 50
+        }
+
+    } else if (actionInfo['type'] == 'move') {
+        var moveTargetPos = actionInfo['targetCell']
+        var targetEnemyPos = targetObj._cellPos
+        var newDist = getCellDistance(moveTargetPos, targetEnemyPos)
+        var oldDist = getCellDistance(partial['simPos'], targetEnemyPos)
+
+        if (newDist != null && oldDist != null) {
+            var newAttacks = beamCountAttacksFromPos(moveTargetPos, targetEnemyPos, arsenalObj, partial)
+            var oldAttacks = beamCountAttacksFromPos(partial['simPos'], targetEnemyPos, arsenalObj, partial)
+            var enabledDelta = newAttacks - oldAttacks
+            value += enabledDelta * 150
+            value += newAttacks * 50
+
+            if (newDist < oldDist) {
+                value += (oldDist - newDist) * 50
+            }
+
+            if (fieldMapObj != null) {
+                var enemies = fieldMapObj.getEnemySubMap()
+                var exposureNew = 0
+                var exposureOld = 0
+                for (var eid in mapKeys(enemies)) {
+                    if (!isDead(eid)) {
+                        var eCell = enemies[eid]._cellPos
+                        if (eCell != null) {
+                            if (getCachedLineOfSight(moveTargetPos, eCell)) exposureNew++
+                            if (getCachedLineOfSight(partial['simPos'], eCell)) exposureOld++
+                        }
+                    }
+                }
+                if (exposureNew < exposureOld) value += (exposureOld - exposureNew) * 100
+            }
+        }
+    }
+
+    return value
+}
+
+function beamExtendCandidate(partial, actionInfo, value, targetObj, arsenalObj) {
+    var newActions = []
+    for (var a in partial['actions']) push(newActions, a)
+
+    var newChipUsed = [:]
+    for (var k in mapKeys(partial['chipUsed'])) newChipUsed[k] = true
+
+    var newWeaponUses = [:]
+    for (var k in mapKeys(partial['weaponUses'])) newWeaponUses[k] = partial['weaponUses'][k]
+
+    var newTP = partial['simTP']
+    var newMP = partial['simMP']
+    var newPos = partial['simPos']
+    var newWeapon = partial['simWeapon']
+    var newStr = partial['simStr']
+    var newMag = partial['simMag']
+    var newWis = partial['simWis']
+    var newSci = partial['simSci']
+    var newAgi = partial['simAgi']
+    var newCumDamage = partial['cumDamage']
+    var newMoveCount = partial['moveCount']
+
+    if (actionInfo['type'] == 'chip') {
+        var chipId = actionInfo['id']
+        var targetEntity = actionInfo['isSelf'] ? null : targetObj
+        var action = new Action(actionInfo['actionType'], -1, chipId, actionInfo['targetCell'], targetEntity)
+        push(newActions, action)
+        newTP -= actionInfo['cost']
+        newChipUsed[chipId] = true
+
+        if (chipId == CHIP_STEROID) newStr += 200
+        else if (chipId == CHIP_DOPING) newStr += 100
+        else if (chipId == CHIP_WIZARDRY) newMag += 160
+        else if (chipId == CHIP_KNOWLEDGE) newWis += 260
+        else if (chipId == CHIP_WARM_UP) newAgi += 180
+        else if (chipId == CHIP_PRISM) {
+            newStr += 60; newMag += 60; newWis += 60; newSci += 60; newAgi += 60
+        }
+        else if (chipId == CHIP_ADRENALINE) newTP += 5
+        else if (chipId == CHIP_LEATHER_BOOTS) newMP += 2
+
+        if (actionInfo['actionType'] == Action.ACTION_DIRECT || actionInfo['actionType'] == Action.ACTION_DOT) {
+            var bd = arsenalObj.getDamageBreakdown(newStr, newMag, newWis, newSci, chipId)
+            if (bd != null) {
+                newCumDamage += bd['direct'] + bd['dot'] + bd['nova']
+            }
+        }
+
+    } else if (actionInfo['type'] == 'weapon') {
+        var wid = actionInfo['id']
+        if (actionInfo['needsSwap']) {
+            var swapAction = new Action(Action.ACTION_WEAPON_SWAP, wid, -1, -1, null)
+            push(newActions, swapAction)
+            newWeapon = wid
+        }
+        var attackAction = new Action(Action.ACTION_DIRECT, wid, -1, actionInfo['targetCell'], targetObj)
+        push(newActions, attackAction)
+        newTP -= actionInfo['cost']
+
+        var uses = 0
+        if (mapContainsKey(newWeaponUses, wid)) uses = newWeaponUses[wid]
+        newWeaponUses[wid] = uses + 1
+        newWeapon = wid
+
+        var bd = arsenalObj.getDamageBreakdown(newStr, newMag, newWis, newSci, wid)
+        if (bd != null) {
+            newCumDamage += bd['direct'] + bd['dot'] + bd['nova']
+        }
+
+    } else if (actionInfo['type'] == 'move') {
+        var moveAction = new Action(Action.MOVEMENT_APPROACH, -1, -1, actionInfo['targetCell'], null)
+        push(newActions, moveAction)
+        var mpCost = actionInfo['mpCost']
+        if (mpCost == null || mpCost == 999) mpCost = 1
+        newMP -= mpCost
+        newPos = actionInfo['targetCell']
+        newMoveCount++
+    }
+
+    return [
+        'actions': newActions,
+        'simTP': newTP,
+        'simMP': newMP,
+        'simPos': newPos,
+        'simWeapon': newWeapon,
+        'simStr': newStr,
+        'simMag': newMag,
+        'simWis': newWis,
+        'simSci': newSci,
+        'simAgi': newAgi,
+        'chipUsed': newChipUsed,
+        'weaponUses': newWeaponUses,
+        'cumScore': partial['cumScore'] + value,
+        'cumDamage': newCumDamage,
+        'moveCount': newMoveCount,
+        'wMaxUses': partial['wMaxUses']
+    ]
+}
+
+function beamCountUnusedPoisonChips(partial, arsenalObj) {
+    var count = 0
+    for (var chipId in mapKeys(arsenalObj.playerEquippedChips)) {
+        if (isPoisonChip(chipId) && !mapContainsKey(partial['chipUsed'], chipId)) {
+            if (getCooldown(chipId, getEntity()) == 0) count++
+        }
+    }
+    return count
+}
+
+function beamCountUnusedDenialChips(partial, arsenalObj) {
+    var count = 0
+    for (var chipId in mapKeys(arsenalObj.playerEquippedChips)) {
+        if ((chipId == CHIP_SOPORIFIC || chipId == CHIP_BALL_AND_CHAIN) &&
+            !mapContainsKey(partial['chipUsed'], chipId)) {
+            if (getCooldown(chipId, getEntity()) == 0) count++
+        }
+    }
+    return count
+}
+
+function beamCountUnusedHealChips(partial, arsenalObj) {
+    var count = 0
+    for (var chipId in mapKeys(arsenalObj.playerEquippedChips)) {
+        if (isHealingChip(chipId) && !mapContainsKey(partial['chipUsed'], chipId)) {
+            if (getCooldown(chipId, getEntity()) == 0) count++
+        }
+    }
+    return count
+}
+
+function beamCountUnusedReturnChips(partial, arsenalObj) {
+    var count = 0
+    for (var chipId in mapKeys(arsenalObj.playerEquippedChips)) {
+        if (isDamageReturnChip(chipId) && !mapContainsKey(partial['chipUsed'], chipId)) {
+            if (getCooldown(chipId, getEntity()) == 0) count++
+        }
+    }
+    return count
+}
+
+function beamHasUnusedNovaWeapon(partial, arsenalObj) {
+    for (var wid in mapKeys(arsenalObj.playerEquippedWeapons)) {
+        var bd = getCachedDamageBreakdown(wid)
+        if (bd != null && bd['nova'] > 0) {
+            var uses = 0
+            if (mapContainsKey(partial['weaponUses'], wid)) uses = partial['weaponUses'][wid]
+            var maxUse = mapContainsKey(partial['wMaxUses'], wid) ? partial['wMaxUses'][wid] : 1
+            if (uses < maxUse) return true
+        }
+    }
+    return false
+}
+
+function beamCountUnusedShieldChips(partial, arsenalObj) {
+    var count = 0
+    for (var chipId in mapKeys(arsenalObj.playerEquippedChips)) {
+        if (isShieldChip(chipId) && !mapContainsKey(partial['chipUsed'], chipId)) {
+            if (getCooldown(chipId, getEntity()) == 0) count++
+        }
+    }
+    return count
+}
+
+function beamCountUnusedWeapons(partial, arsenalObj) {
+    var count = 0
+    for (var wid in mapKeys(arsenalObj.playerEquippedWeapons)) {
+        var uses = 0
+        if (mapContainsKey(partial['weaponUses'], wid)) uses = partial['weaponUses'][wid]
+        var maxUse = mapContainsKey(partial['wMaxUses'], wid) ? partial['wMaxUses'][wid] : 1
+        if (uses < maxUse) count++
+    }
+    return count
+}
+
+function beamCountAttacksFromPos(fromPos, targetPos, arsenalObj, partial) {
+    var count = 0
+    var dist = getCellDistance(fromPos, targetPos)
+    if (dist == null) return 0
+
+    for (var wid in mapKeys(arsenalObj.playerEquippedWeapons)) {
+        var wObj = arsenalObj.playerEquippedWeapons[wid]
+        if (dist >= wObj._minRange && dist <= wObj._maxRange) count++
+    }
+    for (var chipId in mapKeys(arsenalObj.playerEquippedChips)) {
+        if (mapContainsKey(partial['chipUsed'], chipId)) continue
+        if (isHealingChip(chipId) || isOffensiveBuff(chipId) || isShieldChip(chipId) ||
+            isDamageReturnChip(chipId) || isResourceChip(chipId)) continue
+        var chipObj = arsenalObj.playerEquippedChips[chipId]
+        if (dist >= chipObj._minRange && dist <= chipObj._maxRange) count++
+    }
+    return count
+}
+
+function beamEstimateHeal(chipId, wisdom) {
+    if (chipId == CHIP_REGENERATION) return 500 * (1 + wisdom / 100)
+    if (chipId == CHIP_REMISSION) return 71.5 * (1 + wisdom / 100)
+    if (chipId == CHIP_CURE) return 100 * (1 + wisdom / 100)
+    if (chipId == CHIP_DRIP) return 200 * (1 + wisdom / 100)
+    return 50 * (1 + wisdom / 100)
+}
+
+function beamHasDefensiveAction(candidate) {
+    for (var action in candidate['actions']) {
+        if (action.chip != null && action.chip != -1) {
+            if (isShieldChip(action.chip) || isHealingChip(action.chip)) return true
+            if (isDamageReturnChip(action.chip)) return true
+        }
+    }
+    return false
+}
+
+function beamHasUtilityAction(candidate) {
+    for (var action in candidate['actions']) {
+        if (action.type == Action.ACTION_DOT) return true
+        if (action.type == Action.ACTION_DEBUFF) return true
+        if (action.chip != null && action.chip != -1 && isOffensiveBuff(action.chip)) return true
+    }
+    return false
+}

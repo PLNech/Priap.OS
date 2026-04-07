@@ -1,0 +1,50 @@
+
+class Action {
+    static NONE = -1
+    static ACTION_DIRECT = 0
+    static ACTION_DOT = 1
+    static ACTION_DEBUFF = 2
+    static ACTION_BUFF = 3
+    static ACTION_WEAPON_SWAP = 4
+    static MOVEMENT_APPROACH = 5
+    static MOVEMENT_OFFENSIVE = 6
+    static MOVEMENT_DEFENSIVE = 7
+    static MOVEMENT_OTKO = 8
+    static MOVEMENT_DOT_OFFENSIVE = 9
+    static MOVEMENT_DEBUFF = 10
+    static MOVEMENT_FLEE = 11
+    static MOVEMENT_HNS = 12 
+    static MOVEMENT_PAB = 13 
+    static ACTION_TELEPORT = 14
+    static ACTION_CHECKPOINT = 15
+    static ACTION_SUMMON = 16
+
+    type = -1
+    weaponId = -1
+    chip = -1
+    targetCell = -1
+    targetEntity = -1
+    isSplash = false
+    weapon = null
+
+    checkpointType = ""
+    continuationFn = ""
+    context = null
+    bulbAIFunc = null
+
+    constructor(type, weaponId, chip, targetCell, targetEntity) {
+        this.type = type
+        this.weaponId = weaponId
+        this.chip = chip
+        this.targetCell = targetCell
+        this.targetEntity = targetEntity
+    }
+
+    static createCheckpoint(checkpointType, continuationFn, context) {
+        var checkpoint = new Action(Action.ACTION_CHECKPOINT, -1, -1, -1, null)
+        checkpoint.checkpointType = checkpointType
+        checkpoint.continuationFn = continuationFn
+        checkpoint.context = context
+        return checkpoint
+    }
+}

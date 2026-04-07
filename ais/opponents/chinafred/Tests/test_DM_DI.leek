@@ -1,0 +1,47 @@
+include("/Classes/Context/DangerInfo")
+include("/Classes/Context/DangerMap")
+include("/Classes/Leek")
+include("/Classes/Context/World")
+include("/Toolbox/Constants")
+include("/Brain/PlanActScenario")
+//FCH
+
+global World world = new World()
+
+DangerInfo di2 = new DangerInfo(7, 20, 2,3,4)
+debug ("Danger Info 2" +di2 )
+DangerInfo di3 = new DangerInfo(8, 22, 2,3,4)
+debug ("Danger Info 3" +di3 )
+
+
+Coordinates cell = new Coordinates(7)
+debug("cell " + cell)
+cell.mark(COLORS.BROWN)
+Coordinates cell2 = new Coordinates(8)
+debug("cell " + cell2)
+cell2.mark(COLORS.LIGHT_GREEN)
+
+DangerMap dm = new DangerMap()
+
+dm.resetMap()
+dm.initialize()
+
+dm.replaceDangerInfo(cell, di2)
+dm.replaceDangerInfo(cell2, di3)
+
+debug("test get from di " + dm.getCellFromDangerInfo(di2))
+debug("getDangerWithMinWeight " + dm.getDangerWithMinWeight())
+debug("getCellsFromWeight "+ dm.getCellsFromWeight(20,CONST_COMPARISON.MIN_OR_EQUAL))
+debug("getCellsFromWeight "+ dm.getCellsFromWeight(21,CONST_COMPARISON.MIN_OR_EQUAL))
+debug("getCellsFromWeight "+ dm.getCellsFromWeight(22,CONST_COMPARISON.MIN_OR_EQUAL))
+debug("getCellsFromWeight "+ dm.getCellsFromWeight(23,CONST_COMPARISON.MIN_OR_EQUAL))
+Coordinates origin  = new Coordinates (100)
+Set<Coordinates> reachable = <cell,cell2>
+//debug(" furthest "  + dm.getFurthestLessDangerous(origin, reachable) )
+
+
+Leek me = new Leek(getEntity(), planAct)
+me.setTarget(getNearestEnemy())
+
+
+dm.getPlaceToHide(me, me.target,new Coordinates (me.cell), 10 )

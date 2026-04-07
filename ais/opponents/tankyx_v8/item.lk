@@ -1,0 +1,592 @@
+include('item_database.lk')
+
+class EffectsInfos {
+    _minEffectAmount = 0
+    _maxEffectAmount = 0
+    _effectDuration = 0
+}
+
+class Item {
+    _id = -1
+    _minRange = 0
+    _maxRange = 0
+    _cost = 0
+    _maxUse = 0
+    _launchType = -1
+    _aoeType = -1
+    _effects = [:]
+
+    constructor(id, minRange, maxRange, effects, cost, maxUse, launchType, aoeType) {
+        this._id = id
+        this._minRange = minRange
+        this._maxRange = maxRange
+        this._cost = cost
+        this._maxUse = maxUse
+        this._launchType = launchType
+        this._aoeType = aoeType
+
+        this.parseAllEffects(effects)
+    }
+
+    parseAllEffects(effects) {
+        for (var e in effects) {
+            var effectsInfos = new EffectsInfos()
+            effectsInfos._minEffectAmount += e[1]
+            effectsInfos._maxEffectAmount += e[2]
+            effectsInfos._effectDuration += e[3]
+
+            mapPut(this._effects, e[0], effectsInfos)
+        }
+    }
+}
+
+class Weapon extends Item {
+    constructor(id, minRange, maxRange, effects, cost, maxUse, launchType, aoeType) {
+        super(id, minRange, maxRange, effects, cost, maxUse, launchType, aoeType)
+    }
+}
+
+class Chip extends Item {
+    cooldown = -1
+
+    constructor(id, minRange, maxRange, effects, cost, maxUse, launchType, aoeType, cooldown) {
+        super(id, minRange, maxRange, effects, cost, maxUse, launchType, aoeType)
+        this.cooldown = cooldown
+    }
+}
+
+class Arsenal {
+    constructor() {
+        this.buildAllWeaponsList()
+        this.buildAllChipsList()
+        this.getEquippedWeaponsSubMap()
+        this.getEquippedChipsSubMap()
+    }
+
+    weaponsList = [:]
+    chipsList = [:]
+    playerEquippedWeapons = [:]
+    playerEquippedChips = [:]
+
+    convertEffectsMapToArray(effectsMap) {
+        var effectsArray = []
+        for (var effectType in mapKeys(effectsMap)) {
+            var effectData = effectsMap[effectType]
+            push(effectsArray, [effectType, effectData[0], effectData[1], effectData[2]])
+        }
+        return effectsArray
+    }
+
+    buildAllWeaponsList() {
+        var allWeapons = getAllWeapons()
+        var dbCount = 0
+        var apiCount = 0
+
+        for (var w in allWeapons) {
+            var weaponData = getWeaponData(w)
+
+            if (weaponData != null) {
+                dbCount++
+                var effects = this.convertEffectsMapToArray(weaponData[3])
+                mapPut(this.weaponsList, w, new Weapon(
+                    w,
+                    weaponData[1],
+                    weaponData[2],
+                    effects,
+                    weaponData[4],
+                    1,
+                    weaponData[5],
+                    weaponData[6]
+                ));
+            } else {
+                apiCount++
+                mapPut(this.weaponsList, w, new Weapon(
+                    w,
+                    getWeaponMinRange(w),
+                    getWeaponMaxRange(w),
+                    getWeaponEffects(w),
+                    getWeaponCost(w),
+                    getWeaponMaxUses(w),
+                    getWeaponLaunchType(w),
+                    getWeaponArea(w)
+                ));
+            }
+        }
+        debug("Arsenal: " + dbCount + " weapons from DB, " + apiCount + " from API")
+    }
+
+    buildAllChipsList() {
+        var allChips = getAllChips()
+        var dbCount = 0
+        var apiCount = 0
+
+        for (var c in allChips) {
+            var chipData = getChipData(c)
+
+            if (chipData != null) {
+                dbCount++
+                var effects = this.convertEffectsMapToArray(chipData[3])
+                mapPut(this.chipsList, c, new Chip(
+                    c,
+                    chipData[1],
+                    chipData[2],
+                    effects,
+                    chipData[4],
+                    1,
+                    chipData[5],
+                    chipData[6],
+                    chipData[7]
+                ));
+            } else {
+                apiCount++
+                mapPut(this.chipsList, c, new Chip(
+                    c,
+                    getChipMinRange(c),
+                    getChipMaxRange(c),
+                    getChipEffects(c),
+                    getChipCost(c),
+                    getChipMaxUses(c),
+                    getChipLaunchType(c),
+                    getChipArea(c),
+                    getCooldown(c, getEntity())
+                ));
+            }
+        }
+        debug("Arsenal: " + dbCount + " chips from DB, " + apiCount + " from API")
+    }
+
+    getEquippedWeaponsSubMap() {
+        var equippedWeapons = getWeapons()
+
+        for (var w in equippedWeapons) {
+            mapPut(this.playerEquippedWeapons, w, this.weaponsList[w])
+        }
+    }
+
+    getEquippedChipsSubMap() {
+        var equippedChips = getChips()
+
+        for (var c in equippedChips) {
+            mapPut(this.playerEquippedChips, c, this.chipsList[c])
+        }
+    }
+
+    computeAoEModifier(centerCell, targetCell, aoeType) {
+
+        if (aoeType == AREA_POINT) {
+            return (centerCell == targetCell) ? 1.0 : 0.0
+        }
+
+        if (centerCell == targetCell) return 1.0
+
+        var dist = getCellDistance(centerCell, targetCell)
+        if (dist == null) return 0.0
+
+        var percentage = 1.0 - 0.2 * dist
+        if (percentage < 0) percentage = 0
+
+        return percentage
+    }
+
+    computeEffectsBaseDamage(effectsMap, str, mag, sci, aoeModifier = 1.0, isChip = false) {
+        var total = 0
+        var directStat = str
+        for (var e in mapKeys(effectsMap)) {
+            var info = effectsMap[e]
+            if (e == EFFECT_DAMAGE) {
+                var avg = (info._minEffectAmount + info._maxEffectAmount) / 2
+                total += avg * (1 + (directStat / 100)) * aoeModifier
+            } else if (e == EFFECT_POISON) {
+                var avg2 = (info._minEffectAmount + info._maxEffectAmount) / 2
+                var totalOverTime = avg2 * info._effectDuration
+                total += totalOverTime * (1 + (mag / 100)) * aoeModifier
+            } else if (e == EFFECT_NOVA_DAMAGE) {
+
+                var avgNova = (info._minEffectAmount + info._maxEffectAmount) / 2
+                total += avgNova * (1 + (sci / 100)) * aoeModifier
+            }
+        }
+        return total
+    }
+
+    getDamageBreakdown(str, mag, wis, sci, itemID, centerCell = -1, targetCell = -1) {
+
+        var isWeapon = mapContainsKey(this.playerEquippedWeapons, itemID)
+
+        var chipInFull = mapContainsKey(this.chipsList, itemID)
+        var chipInEquipped = mapContainsKey(this.playerEquippedChips, itemID)
+        var isChip = !isWeapon && (chipInFull || chipInEquipped)
+        if (!isWeapon && !isChip) return ['direct': 0, 'dot': 0, 'nova': 0, 'total': 0, 'min': 0, 'max': 0]
+        var item = isWeapon ? this.playerEquippedWeapons[itemID] : (chipInFull ? this.chipsList[itemID] : this.playerEquippedChips[itemID])
+
+        var aoeModifier = 1.0
+        if (centerCell != -1 && targetCell != -1) {
+            aoeModifier = this.computeAoEModifier(centerCell, targetCell, item._aoeType)
+        }
+
+        var directStat = str
+
+        var direct = 0
+        var dot = 0
+        var nova = 0
+        var minDmg = 0
+        var maxDmg = 0
+        var denial = 0
+        var statReduce = 0
+
+        for (var e in mapKeys(item._effects)) {
+            var info = item._effects[e]
+            if (e == EFFECT_DAMAGE) {
+                var avg = (info._minEffectAmount + info._maxEffectAmount) / 2
+                direct += avg * (1 + (directStat / 100)) * aoeModifier
+
+                minDmg += info._minEffectAmount * (1 + (directStat / 100)) * aoeModifier
+                maxDmg += info._maxEffectAmount * (1 + (directStat / 100)) * aoeModifier
+            } else if (e == EFFECT_POISON) {
+                var avg2 = (info._minEffectAmount + info._maxEffectAmount) / 2
+                var totalOverTime = avg2 * info._effectDuration
+                dot += totalOverTime * (1 + (mag / 100)) * aoeModifier
+
+                var minPoison = info._minEffectAmount * info._effectDuration * (1 + (mag / 100)) * aoeModifier
+                var maxPoison = info._maxEffectAmount * info._effectDuration * (1 + (mag / 100)) * aoeModifier
+                minDmg += minPoison
+                maxDmg += maxPoison
+            } else if (e == EFFECT_NOVA_DAMAGE) {
+
+                var avgNova = (info._minEffectAmount + info._maxEffectAmount) / 2
+                nova += avgNova * (1 + (sci / 100)) * aoeModifier
+
+                var minNova = info._minEffectAmount * (1 + (sci / 100)) * aoeModifier
+                var maxNova = info._maxEffectAmount * (1 + (sci / 100)) * aoeModifier
+                minDmg += minNova
+                maxDmg += maxNova
+            } else if (e == EFFECT_SHACKLE_TP || e == EFFECT_SHACKLE_MP) {
+                var avg3 = (info._minEffectAmount + info._maxEffectAmount) / 2
+                denial += avg3 * (1 + (mag / 100)) * info._effectDuration
+            } else if (e == EFFECT_SHACKLE_STRENGTH || e == EFFECT_SHACKLE_MAGIC) {
+                var avg4 = (info._minEffectAmount + info._maxEffectAmount) / 2
+                statReduce += avg4 * (1 + (mag / 100)) * info._effectDuration
+            } else if (e == EFFECT_LIFE_DAMAGE) {
+                var avgPct = (info._minEffectAmount + info._maxEffectAmount) / 2
+                var currentHP = getLife()
+                var lifeDmg = (avgPct / 100) * currentHP
+                direct += lifeDmg * aoeModifier
+                minDmg += (info._minEffectAmount / 100) * currentHP * aoeModifier
+                maxDmg += (info._maxEffectAmount / 100) * currentHP * aoeModifier
+            }
+        }
+        var selfDamage = 0
+        if (itemID == CHIP_PUNISHMENT) {
+            selfDamage = getLife() * 0.75
+        }
+        return ['direct': direct, 'dot': dot, 'nova': nova, 'total': direct + dot + nova, 'min': minDmg, 'max': maxDmg, 'denial': denial, 'statReduce': statReduce, 'selfDamage': selfDamage]
+    }
+
+    getPoisonChipsSorted(str, mag, wis, sci) {
+        var arr = []
+        for (var cid in mapKeys(this.playerEquippedChips)) {
+            var chip = this.playerEquippedChips[cid]
+            if (!mapContainsKey(chip._effects, EFFECT_POISON)) continue
+            var bd = this.getDamageBreakdown(str, mag, wis, sci, cid)
+            push(arr, ['chip': chip, 'dot': bd['dot'], 'direct': bd['direct'], 'nova': bd['nova'], 'total': bd['total']])
+        }
+
+        var sorted = []
+        while (count(arr) > 0) {
+            var bestIdx = 0
+            var bestDot = arr[0]['dot']
+            for (var i = 1; i < count(arr); i++) {
+                if (arr[i]['dot'] > bestDot) {
+                    bestDot = arr[i]['dot']
+                    bestIdx = i
+                }
+            }
+            push(sorted, arr[bestIdx]['chip'])
+            remove(arr, bestIdx)
+        }
+        return sorted
+    }
+
+    getDotWeaponsSorted(str, mag, wis, sci) {
+        var arr = []
+        for (var wid in mapKeys(this.playerEquippedWeapons)) {
+            var w = this.playerEquippedWeapons[wid]
+            var bd = this.getDamageBreakdown(str, mag, wis, sci, wid)
+            if (bd['dot'] > 0 || bd['nova'] > 0) {
+                push(arr, ['weapon': w, 'dot': bd['dot'], 'nova': bd['nova'], 'direct': bd['direct'], 'total': bd['total']])
+            }
+        }
+        if (count(arr) == 0) {
+
+            for (var wid2 in mapKeys(this.playerEquippedWeapons)) {
+                var w2 = this.playerEquippedWeapons[wid2]
+                var bd2 = this.getDamageBreakdown(str, mag, wis, sci, wid2)
+                push(arr, ['weapon': w2, 'dot': bd2['dot'], 'nova': bd2['nova'], 'direct': bd2['direct'], 'total': bd2['total']])
+            }
+        }
+
+        var sorted = []
+        while (count(arr) > 0) {
+            var bestIdx = 0
+            var bestDot = arr[0]['dot']
+            var bestTot = arr[0]['total']
+            for (var i = 1; i < count(arr); i++) {
+                if (arr[i]['dot'] > bestDot || (arr[i]['dot'] == bestDot && arr[i]['total'] > bestTot)) {
+                    bestDot = arr[i]['dot']
+                    bestTot = arr[i]['total']
+                    bestIdx = i
+                }
+            }
+            push(sorted, arr[bestIdx]['weapon'])
+            remove(arr, bestIdx)
+        }
+        return sorted
+    }
+
+    getNetDamageAgainstTarget(str, mag, wis, sci, itemID, targetEntity) {
+        var bd = this.getDamageBreakdown(str, mag, wis, sci, itemID)
+        var directDmg = bd['direct']
+        var dotDmg = bd['dot']
+        var novaDmg = bd['nova']
+
+        var relShield = targetEntity._relShield / 100
+        var absShield = targetEntity._absShield
+
+        var netDirect = directDmg * (1 - relShield) - absShield
+        if (netDirect < 0) netDirect = 0
+
+        var hpDeficit = targetEntity._maxHealth - targetEntity._currHealth
+        var cappedNova = novaDmg
+        if (netDirect > 0 && novaDmg > 0) {
+            cappedNova = min(novaDmg, hpDeficit + netDirect)
+        } else if (novaDmg > 0) {
+            cappedNova = min(novaDmg, hpDeficit)
+        }
+
+        return netDirect + dotDmg + cappedNova
+    }
+
+    calculateMultiEnemyDamage(shooterCell, aimCell, itemId, enemies) {
+
+        var item = null
+        if (mapContainsKey(this.playerEquippedWeapons, itemId)) {
+            item = this.playerEquippedWeapons[itemId]
+        } else if (mapContainsKey(this.playerEquippedChips, itemId)) {
+            item = this.playerEquippedChips[itemId]
+        }
+
+        if (item == null) return ['total': 0, 'enemies': [], 'breakdown': [:]]
+
+        var totalDamage = 0
+        var hitEnemies = []
+        var breakdown = [:]
+
+        var aoeType = item._aoeType
+        var useOptimization = mapContainsKey(__aoePatternMasks, aoeType) &&
+                               aoeType != 4
+
+        if (useOptimization) {
+            var mask = __aoePatternMasks[aoeType]
+            var processedEnemies = [:]
+
+            for (var offset in mask) {
+                var checkCell = aimCell + offset
+                if (checkCell < 0 || checkCell >= 613) continue
+
+                var entityId = getEntityAtCell(checkCell)
+                if (entityId == null) continue
+                if (mapContainsKey(processedEnemies, entityId)) continue
+
+                var enemyObj = null
+                for (var e in enemies) {
+                    if (e._id == entityId && !isDead(e._id)) {
+                        enemyObj = e
+                        break
+                    }
+                }
+
+                if (enemyObj == null) continue
+                mapPut(processedEnemies, entityId, true)
+
+                var aoeModifier = this.computeAoEModifier(aimCell, enemyObj._cellPos, aoeType)
+                if (aoeModifier <= 0) continue
+
+                var bd = this.getDamageBreakdown(player._strength, player._magic, player._wisdom, player._science, itemId, aimCell, enemyObj._cellPos)
+
+                var directAfterShield = bd['direct']
+                if (bd['direct'] > 0 && (enemyObj._relShield > 0 || enemyObj._absShield > 0)) {
+                    directAfterShield = directAfterShield * (1 - enemyObj._relShield / 100) - enemyObj._absShield
+                    if (directAfterShield < 0) directAfterShield = 0
+                }
+
+                var dotDamage = bd['dot']
+                var novaDamage = bd['nova']
+                var hpDeficit = enemyObj._maxHealth - enemyObj._currHealth
+                var cappedNova = novaDamage
+                if (directAfterShield > 0 && novaDamage > 0) {
+                    cappedNova = min(novaDamage, hpDeficit + directAfterShield)
+                } else if (novaDamage > 0) {
+                    cappedNova = min(novaDamage, hpDeficit)
+                }
+                var netDmg = directAfterShield + dotDamage + cappedNova
+
+                totalDamage += netDmg
+                push(hitEnemies, enemyObj)
+                mapPut(breakdown, enemyObj._id, netDmg)
+            }
+        } else {
+            for (var e in enemies) {
+                if (isDead(e._id)) continue
+
+                var aoeModifier = this.computeAoEModifier(aimCell, e._cellPos, aoeType)
+
+                if (aoeModifier > 0) {
+
+                    var bd = this.getDamageBreakdown(player._strength, player._magic, player._wisdom, player._science, itemId, aimCell, e._cellPos)
+
+                    var directAfterShield = bd['direct']
+                    if (bd['direct'] > 0 && (e._relShield > 0 || e._absShield > 0)) {
+                        directAfterShield = directAfterShield * (1 - e._relShield / 100) - e._absShield
+                        if (directAfterShield < 0) directAfterShield = 0
+                    }
+
+                    var dotDamage = bd['dot']
+                    var novaDamage = bd['nova']
+                    var hpDeficit = e._maxHealth - e._currHealth
+                    var cappedNova = novaDamage
+                    if (directAfterShield > 0 && novaDamage > 0) {
+                        cappedNova = min(novaDamage, hpDeficit + directAfterShield)
+                    } else if (novaDamage > 0) {
+                        cappedNova = min(novaDamage, hpDeficit)
+                    }
+
+                    var netDmg = directAfterShield + dotDamage + cappedNova
+
+                    totalDamage += netDmg
+                    push(hitEnemies, e)
+                    mapPut(breakdown, e._id, netDmg)
+                }
+            }
+        }
+
+        if (itemId == CHIP_PLASMA && count(hitEnemies) > 1) {
+            var multiplier = count(hitEnemies)
+            totalDamage = 0
+            for (var eid in mapKeys(breakdown)) {
+                breakdown[eid] = breakdown[eid] * multiplier
+                totalDamage += breakdown[eid]
+            }
+        }
+
+        return ['total': totalDamage, 'enemies': hitEnemies, 'breakdown': breakdown]
+    }
+
+    getHighestDamageWeapon() {
+        var highestDmg = -1
+        var highestDmgWeapon = null
+
+        for (var w in mapKeys(this.playerEquippedWeapons)) {
+            var bd = this.getDamageBreakdown(player._strength, player._magic, player._wisdom, player._science, w)
+            var dmg = bd['total']
+            if (dmg > highestDmg) {
+                highestDmg = dmg
+                highestDmgWeapon = w
+            }
+        }
+
+        return highestDmgWeapon
+    }
+
+    getDamageReturnValue(agility, chipID) {
+        var baseMin = 0
+        var baseMax = 0
+
+        if (chipID == CHIP_BRAMBLE) {
+
+            baseMin = 25
+            baseMax = 25
+        } else if (chipID == CHIP_MIRROR) {
+
+            baseMin = 5
+            baseMax = 6
+        } else if (chipID == CHIP_THORN) {
+
+            baseMin = 3
+            baseMax = 4
+        } else {
+            return 0
+        }
+
+        var baseAvg = (baseMin + baseMax) / 2.0
+        return baseAvg * (1 + agility / 100.0)
+    }
+
+    estimateReturnDamagePerTurn(agility, chipID, estimatedEnemyDPS) {
+        var returnPct = this.getDamageReturnValue(agility, chipID) / 100.0
+        return estimatedEnemyDPS * returnPct
+    }
+
+    getKillProbability(itemIds, playerStr, playerMag, playerWis, playerSci, playerAgility, targetEntity) {
+
+        var totalDmg = 0
+        for (var i = 0; i < count(itemIds); i++) {
+            var bd = this.getDamageBreakdown(playerStr, playerMag, playerWis, playerSci, itemIds[i])
+            var netDmg = this.getNetDamageAgainstTarget(playerStr, playerMag, playerWis, playerSci, itemIds[i], targetEntity)
+            totalDmg += netDmg
+        }
+
+        if (totalDmg >= targetEntity._currHealth) {
+            return 0.9  
+        } else if (totalDmg >= targetEntity._currHealth * 0.8) {
+            return 0.5  
+        } else {
+            return 0.1  
+        }
+    }
+
+    calculateNeutrinoAmplification(stacks, futureAttacks, avgWeaponDamage) {
+
+        var vulnPercent = stacks * 8
+        var multiplier = 1 + (vulnPercent / 100.0)
+
+        var baseTotal = futureAttacks * avgWeaponDamage
+        var amplifiedTotal = baseTotal * multiplier
+        var amplificationValue = amplifiedTotal - baseTotal
+
+        var neutrinoCost = stacks * 4  
+        var neutrinoDirectDamage = stacks * 27.5  
+
+        var netBenefit = amplificationValue + neutrinoDirectDamage
+
+        return [
+            'amplification': amplificationValue,
+            'tpCost': neutrinoCost,
+            'directDamage': neutrinoDirectDamage,
+            'netBenefit': netBenefit,
+            'multiplier': multiplier
+        ]
+    }
+
+    getVulnerabilityStacks(targetEntity) {
+        var relShield = targetEntity._relShield
+
+        if (relShield <= -20) return 3
+        if (relShield <= -12) return 2
+        if (relShield <= -4) return 1
+        return 0
+    }
+
+    getExpectedHeal(chip, wisdom) {
+        if (chip == CHIP_REGENERATION) {
+            return 500 * (1 + wisdom / 100)
+        } else if (chip == CHIP_REMISSION) {
+            var baseAvg = 71.5
+            return baseAvg * (1 + wisdom / 100)
+        } else if (chip == CHIP_CURE) {
+            return 100 * (1 + wisdom / 100)
+        } else if (chip == CHIP_DRIP) {
+            return 200 * (1 + wisdom / 100)
+        }
+        return 0
+    }
+}

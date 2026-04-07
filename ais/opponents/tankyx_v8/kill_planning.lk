@@ -1,0 +1,194 @@
+
+
+global KILL_PLAN_STATE = null
+
+class KillPlanner {
+    _arsenal = null
+    _player = null
+    _target = null
+
+    constructor(arsenal, player, target) {
+        this._arsenal = arsenal
+        this._player = player
+        this._target = target
+    }
+
+    calculateMaxDamageThisTurn(availableTP) {
+        var damageItems = []
+
+        var weapons = mapValues(this._arsenal.playerEquippedWeapons)
+        for (var weapon in weapons) {
+            if (weapon._cost <= availableTP) {
+                var netDmg = this._arsenal.getNetDamageAgainstTarget(
+                    this._player._strength,
+                    this._player._magic,
+                    this._player._wisdom,
+                    this._player._science,
+                    weapon._id,
+                    this._target
+                )
+
+                if (netDmg > 0) {
+                    push(damageItems, [
+                        'id': weapon._id,
+                        'cost': weapon._cost,
+                        'damage': netDmg,
+                        'maxUse': weapon._maxUse,
+                        'isWeapon': true
+                    ])
+                }
+            }
+        }
+
+        var chips = mapValues(this._arsenal.playerEquippedChips)
+        for (var chip in chips) {
+            if (chip._cost <= availableTP) {
+                var netDmg = this._arsenal.getNetDamageAgainstTarget(
+                    this._player._strength,
+                    this._player._magic,
+                    this._player._wisdom,
+                    this._player._science,
+                    chip._id,
+                    this._target
+                )
+
+                if (netDmg > 0) {
+                    push(damageItems, [
+                        'id': chip._id,
+                        'cost': chip._cost,
+                        'damage': netDmg,
+                        'maxUse': 1,
+                        'isWeapon': false
+                    ])
+                }
+            }
+        }
+
+        arraySort(damageItems, function(a, b) {
+            var ratioA = a['damage'] / a['cost']
+            var ratioB = b['damage'] / b['cost']
+            return ratioB - ratioA
+        })
+
+        var remainingTP = availableTP
+        var totalDamage = 0
+
+        for (var item in damageItems) {
+            var cost = item['cost']
+            var damage = item['damage']
+            var maxUse = item['maxUse']
+            var isWeapon = item['isWeapon']
+
+            if (isWeapon) {
+                var affordableUses = floor(remainingTP / cost)
+                var actualUses = min(affordableUses, maxUse)
+
+                totalDamage += damage * actualUses
+                remainingTP -= cost * actualUses
+            } else {
+                if (remainingTP >= cost) {
+                    totalDamage += damage
+                    remainingTP -= cost
+                }
+            }
+        }
+
+        return totalDamage
+    }
+
+    detect2TurnKill() {
+        var targetHP = this._target._currHealth
+        var currentTP = this._player._currTp
+
+        var damage1 = this.calculateMaxDamageThisTurn(currentTP)
+
+        var nextTurnTP = min(12, currentTP + 6)
+        var damage2 = this.calculateMaxDamageThisTurn(nextTurnTP)
+
+        var totalDamage = damage1 + damage2
+        var canKill2Turn = (totalDamage >= targetHP)
+
+        var canKill1Turn = (damage1 >= targetHP)
+
+        var result = [
+            'canKill1Turn': canKill1Turn,
+            'canKill2Turn': canKill2Turn,
+            'damage1': damage1,
+            'damage2': damage2,
+            'totalDamage': totalDamage,
+            'targetHP': targetHP,
+            'tpReserveNeeded': 0
+        ]
+
+        if (canKill2Turn && !canKill1Turn) {
+            var hpAfterThisTurn = targetHP - damage1
+            var minTPNeeded = this.calculateMinTPForDamage(hpAfterThisTurn)
+
+            result['tpReserveNeeded'] = minTPNeeded
+        }
+
+        return result
+    }
+
+    calculateMinTPForDamage(targetDamage) {
+        var weapons = mapValues(this._arsenal.playerEquippedWeapons)
+        var bestRatio = 0
+        var bestCost = 12
+
+        for (var weapon in weapons) {
+            var netDmg = this._arsenal.getNetDamageAgainstTarget(
+                this._player._strength,
+                this._player._magic,
+                this._player._wisdom,
+                this._player._science,
+                weapon._id,
+                this._target
+            )
+
+            if (netDmg > 0) {
+                var ratio = netDmg / weapon._cost
+                if (ratio > bestRatio) {
+                    bestRatio = ratio
+                    bestCost = weapon._cost
+                }
+            }
+        }
+
+        if (bestRatio > 0) {
+            var usesNeeded = ceil(targetDamage / (bestRatio * bestCost))
+            return min(12, usesNeeded * bestCost)
+        }
+
+        return 12
+    }
+
+    updateGlobalKillPlan() {
+        var plan = this.detect2TurnKill()
+
+        KILL_PLAN_STATE = [
+            'active': plan['canKill2Turn'] && !plan['canKill1Turn'],
+            'tpReserve': plan['tpReserveNeeded'],
+            'targetHP': plan['targetHP'],
+            'damage1': plan['damage1'],
+            'damage2': plan['damage2']
+        ]
+
+        return KILL_PLAN_STATE
+    }
+}
+
+function isKillReserveActive() {
+    if (KILL_PLAN_STATE == null) return false
+    return KILL_PLAN_STATE['active']
+}
+
+function getReservedTP() {
+    if (KILL_PLAN_STATE == null) return 0
+    if (!KILL_PLAN_STATE['active']) return 0
+    return KILL_PLAN_STATE['tpReserve']
+}
+
+function getAvailableTPAfterReservation(currentTP) {
+    var reserved = getReservedTP()
+    return max(0, currentTP - reserved)
+}

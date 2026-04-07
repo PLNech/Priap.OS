@@ -1,0 +1,371 @@
+/******************************************************
+ * globals
+ *******************************************************/
+
+//
+// global variables
+//
+global boolean gFirstRound  = true;        // premier tour
+global boolean gSecondRound = false;       // deuxieme tour
+global boolean gBoardInit   = false;       // true quand le board est initialise completement
+
+//
+// const
+//
+global integer NB_CELLS           = 613;
+global integer MAX_DISTANCE       = 34; // 2*17
+global integer CENTER_CELL_ID     = 306;
+global integer MIN_COORD          = -17;
+global integer MAX_COORD          = 17;
+global real CRITICAL_BONUS      = CRITICAL_FACTOR - 1.0;
+global real PHYSICAL_EROSION    = 0.05;
+global real POISON_EROSION      = 0.1;
+global real CRITICAL_EROSION    = 0.1;
+global real AOE_DEC_LINE_FACTOR = 0.2;
+global real AOE_DEC_DIAG_FACTOR = 0.4;
+global integer SET_WEAPON_COST = 1;
+
+//
+// colors
+//
+global integer COLOR_BROWN = 12019715;
+global integer COLOR_YELLOW = 15596544;
+global integer COLOR_ORANGE = 16545280;
+global integer COLOR_PINK = 16515255;
+global integer COLOR_PURPLE = 13762812;
+global integer COLOR_CYAN = 62716;
+global integer COLOR_LIGHT_GREEN = 10550272;
+
+//
+// DIRECTIONS
+//
+global Object XY_DIRECTION = {
+  top : {x:0,y:-1},
+  bottom  : {x:0,y:1},
+  left : {x:-1,y:0},
+  right : {x:1,y:0},
+  leftTop : {x:-1,y:-1},
+  rightTop : {x:1,y:-1},
+  leftBottom : {x:-1,y:1},
+  rightBottom : {x:1,y:1}
+};
+
+global Array<string> LINE_DIRECTION = [
+  "top",
+  "bottom",
+  "left",
+  "right"
+];
+
+global Array<string> DIAG_DIRECTION = [
+  "leftTop",
+  "rightTop",
+  "leftBottom",
+  "rightBottom"
+];
+
+global Array<string> STAR_DIRECTION = [
+  "leftTop",
+  "rightTop",
+  "leftBottom",
+  "rightBottom",
+  "top",
+  "bottom",
+  "left",
+  "right"
+];
+
+global Array<string> HEIGHT_DIRECTION = ["top","bottom"];
+global Array<string> WIDTH_DIRECTION = ["left","right"];
+
+//
+// effects
+//
+global Map<integer,string> EFFECT_MODIFIER_TRANSLATOR = [
+  EFFECT_MODIFIER_IRREDUCTIBLE:"effect_modifier_irreductible",
+  EFFECT_MODIFIER_MULTIPLIED_BY_TARGETS:"effect_modifier_multiplied_by_targets",
+  EFFECT_MODIFIER_NOT_REPLACEABLE:"effect_modifier_not_replaceable",
+  EFFECT_MODIFIER_ON_CASTER:"effect_modifier_on_caster",
+  EFFECT_MODIFIER_STACKABLE:"effect_modifier_stackable"
+]
+
+global Map<integer,string> EFFECT_TARGET_TRANSLATOR = [
+  EFFECT_TARGET_ALLIES:"effect_target_allies",
+  EFFECT_TARGET_CASTER:"effect_target_caster",
+  EFFECT_TARGET_ENEMIES:"effect_target_enemies",
+  EFFECT_TARGET_NON_SUMMONS:"effect_target_non_summons",
+  EFFECT_TARGET_SUMMONS:"effect_target_summons"
+]
+
+//
+// tools
+//
+global Map<integer,string> TOOL_LAUNCHTYPE_TRANSLATOR = [
+  LAUNCH_TYPE_LINE:"line",
+  LAUNCH_TYPE_DIAGONAL:"diag",
+  LAUNCH_TYPE_STAR:"star",
+  LAUNCH_TYPE_STAR_INVERTED:"star_inv"
+  LAUNCH_TYPE_DIAGONAL_INVERTED:"diag_inv",
+  LAUNCH_TYPE_LINE_INVERTED:"line_inv",
+  LAUNCH_TYPE_CIRCLE:"circle",
+  LAUNCH_TYPE_SQUARE:"square",
+]
+
+global Map<integer,string> TOOL_NAME_TRANSLATOR = [
+  WEAPON_AXE:"axe",
+  WEAPON_BAZOOKA:"bazooka",
+  WEAPON_B_LASER:"b-laser",
+  WEAPON_BROADSWORD:"broadsword",
+  WEAPON_DARK_KATANA:"dark katana",
+  WEAPON_DESTROYER:"destroyer",
+  WEAPON_DOUBLE_GUN:"double gun",
+  WEAPON_ELECTRISOR:"electrisor",
+  WEAPON_ENHANCED_LIGHTNINGER:"weapon_enhanced_lightninger",
+  WEAPON_EXPLORER_RIFLE:"explorer rifle",
+  WEAPON_FLAME_THROWER:"flame thrower",
+  WEAPON_GAZOR:"gazor",
+  WEAPON_GRENADE_LAUNCHER:"grenage launcher",
+  WEAPON_HEAVY_SWORD:"WEAPON_HEAVY_SWORD",
+  WEAPON_ILLICIT_GRENADE_LAUNCHER:"illicit grenade launcher",
+  WEAPON_J_LASER:"j-laser",
+  WEAPON_KATANA:"katana",
+  WEAPON_LASER:"laser",
+  WEAPON_LIGHTNINGER:"lightninger",
+  WEAPON_MACHINE_GUN:"machine gun",
+  WEAPON_MAGNUM:"magnum",
+  WEAPON_M_LASER:"m-laser",
+  WEAPON_MYSTERIOUS_ELECTRISOR:"mysterious electrisor",
+  WEAPON_NEUTRINO:"neutrino",
+  WEAPON_PISTOL:"pistol",
+  WEAPON_QUANTUM_RIFLE:"quantum rifle"
+  WEAPON_REVOKED_M_LASER:"revoked m-laser",
+  WEAPON_RHINO:"rhino",
+  WEAPON_RIFLE:"rifle",
+  WEAPON_SHOTGUN:"shotgun",
+  WEAPON_SWORD:"WEAPON_SWORD",
+  WEAPON_UNBRIDLED_GAZOR:"unbridled gazor",
+  WEAPON_UNSTABLE_DESTROYER:"weapon_unstable_destroyer",
+  CHIP_ACCELERATION:"chip acceleration",
+  CHIP_ADRENALINE:"chip adrenaline",
+  CHIP_ALTERATION:"chip alteration",
+  CHIP_ANTIDOTE:"chip antidote",
+  CHIP_APOCALYPSE:"CHIP_APOCALYPSE",
+  CHIP_ARMOR:"chip armor",
+  CHIP_ARMORING:"chip armoring",
+  CHIP_ARSENIC:"chip arsenic",
+  CHIP_AWEKENING:"chip_awekening",
+  CHIP_BALL_AND_CHAIN:"chip ball_and_chain",
+  CHIP_BANDAGE:"chip bandage",
+  CHIP_BARK:"chip bark",
+  CHIP_BOXING_GLOVE:"chip boxing_glove",
+  CHIP_BRAINWASHING:"chip brainwashing",
+  CHIP_BRAMBLE:"chip bramble",
+  CHIP_BURNING:"chip burning",
+  CHIP_CARAPACE:"chip carapace",
+  CHIP_COLLAR:"chip collar",
+  CHIP_COVETOUSNESS:"chip covetousness",
+  CHIP_COVID:"chip covid",
+  CHIP_CRUSHING:"chip crushing",
+  CHIP_CURE:"chip cure",
+  CHIP_DESINTEGRATION:"chip desintegration",
+  CHIP_DEVIL_STRIKE:"chip devil_strike",
+  CHIP_DIVINE_PROTECTION:"chip_divine_protection",
+  CHIP_DOME:"chip dome",
+  CHIP_DOPING:"chip doping",
+  CHIP_DRIP:"chip drip",
+  CHIP_ELEVATION:"chip elevation",
+  CHIP_FEROCITY:"chip ferocity",
+  CHIP_FERTILIZER:"chip fertilizer",
+  CHIP_FIRE_BULB:"chip fire_bulb",
+  CHIP_FLAME:"chip flame",
+  CHIP_FLASH:"chip flash",
+  CHIP_FORTRESS:"chip fortress",
+  CHIP_FRACTURE:"chip fracture",
+  CHIP_GRAPPLE:"chip grapple",
+  CHIP_HEALER_BULB:"chip healer_bulb",
+  CHIP_HELMET:"chip helmet",
+  CHIP_ICE:"chip ice",
+  CHIP_ICEBERG:"chip iceberg",
+  CHIP_ICED_BULB:"chip iced_bulb",
+  CHIP_INVERSION:"chip inversion",
+  CHIP_JUMP:"chip jump",
+  CHIP_KILL:"CHIP_KILL",
+  CHIP_KNOWLEDGE:"chip knowledge",
+  CHIP_LEATHER_BOOTS:"chip leather_boots",
+  CHIP_LIBERATION:"chip liberation",
+  CHIP_LIGHTNING:"chip lightning",
+  CHIP_LIGHTNING_BULB:"chip lightning_bulb",
+  CHIP_LOAM:"chip loam",
+  CHIP_MANUMISSION:"chip manumission",
+  CHIP_METALLIC_BULB:"chip metallic_bulb",
+  CHIP_METEORITE:"chip meteorite",
+  CHIP_MIRROR:"chip mirror",
+  CHIP_MOTIVATION:"chip motivation",
+  CHIP_MUTATION:"chip mutation",
+  CHIP_PEBBLE:"chip pebble",
+  CHIP_PLAGUE:"chip plague",
+  CHIP_PLASMA:"chip plasma",
+  CHIP_PRECIPITATION:"chip precipitation",
+  CHIP_PRISM:"CHIP_PRISM",
+  CHIP_PROTEIN:"chip protein",
+  CHIP_PUNISHMENT:"chip punishment",
+  CHIP_PUNY_BULB:"chip puny_bulb",
+  CHIP_RAGE:"chip rage",
+  CHIP_RAMPART:"chip rampart",
+  CHIP_REFLEXES:"chip reflexes",
+  CHIP_REGENERATION:"chip regeneration",
+  CHIP_REMISSION:"chip remission",
+  CHIP_REPOTTING:"chip repotting",
+  CHIP_RESURRECTION:"chip resurrection",
+  CHIP_ROCK:"chip rock",
+  CHIP_ROCKFALL:"chip rockfall",
+  CHIP_ROCKY_BULB:"chip rocky_bulb",
+  CHIP_SAVANT_BULB:"chip savant_bulb",
+  CHIP_SERUM:"chip serum",
+  CHIP_SEVEN_LEAGUE_BOOTS:"chip seven_league_boots",
+  CHIP_SHIELD:"chip shield",
+  CHIP_SHOCK:"chip shock",
+  CHIP_SLOW_DOWN:"chip slow_down",
+  CHIP_SOLIDIFICATION:"chip solidification",
+  CHIP_SOPORIFIC:"chip soporific",
+  CHIP_SPARK:"chip spark",
+  CHIP_STALACTITE:"chip stalactite",
+  CHIP_STEROID:"chip steroid",
+  CHIP_STRETCHING:"chip stretching",
+  CHIP_TACTICIAN_BULB:"chip tactician_bulb",
+  CHIP_TELEPORTATION:"chip teleportation",
+  CHIP_THERAPY:"chip therapy",
+  CHIP_THORN:"chip thorn",
+  CHIP_TOXIN:"chip toxin",
+  CHIP_TRANQUILIZER:"chip tranquilizer",
+  CHIP_TRANSMUTATION:"chip transmutation",
+  CHIP_VACCINE:"chip vaccine",
+  CHIP_VAMPIRIZATION:"chip vampirization",
+  CHIP_VENOM:"chip venom",
+  CHIP_WALL:"chip wall",
+  CHIP_WARM_UP:"chip warm_up",
+  CHIP_WHIP:"chip whip",
+  CHIP_WINGED_BOOTS:"chip winged_boots",
+  CHIP_WIZARD_BULB:"chip wizard_bulb",
+  CHIP_WIZARDRY:"chip wizardry",
+  CHIP_EXASPERATION: "chip exasperation"
+]
+
+//
+// category
+//
+global string CATEGORY_DAMAGE = "categoryDamage";
+global string CATEGORY_PROTECTION = "categoryProtection";
+global string CATEGORY_HEAL = "categoryHeal";
+global string CATEGORY_HEAL_DEFAULT = "categoryHealDefault";
+global string CATEGORY_MP_DEBUFF = "categoryMPBuff";
+global string CATEGORY_BUFF = "categoryBuff";
+global string CATEGORY_DEBUFF = "categoryDeBuff";
+global string CATEGORY_DEBUFF_DEFAULT = "categoryDeBuffDefault";
+global string CATEGORY_BULB = "categoryBulb";
+global string CATEGORY_OTHER = "categoryOther";  
+global string CATEGORY_MOVE = "categoryMove";
+
+global Array<string> CATEGORIES = [
+  CATEGORY_DAMAGE,
+  CATEGORY_PROTECTION,
+  CATEGORY_HEAL,
+  CATEGORY_HEAL_DEFAULT,
+  CATEGORY_MP_DEBUFF,
+  CATEGORY_BUFF,
+  CATEGORY_DEBUFF,
+  CATEGORY_DEBUFF_DEFAULT,
+  CATEGORY_BULB,
+  CATEGORY_OTHER,  
+  CATEGORY_MOVE,   
+];
+
+//
+// categorise les effets et donne la fonction qui calcul l effet
+// voir la liste des fonction dans effectfunctions
+//
+global Map<integer,Array<any>> EFFECT_TYPE_TRANSLATOR_CATEGORY = [
+  0:["effect_unknown",CATEGORY_OTHER,effect_default],
+  EFFECT_AFTEREFFECT:["effect_aftereffect",CATEGORY_DAMAGE,effect_aftereffect],
+  EFFECT_DAMAGE:["effect_damage",CATEGORY_DAMAGE,effect_damage],
+  EFFECT_KILL:["effect_kill",CATEGORY_DAMAGE,effect_kill],
+  EFFECT_LIFE_DAMAGE:["effect_life_damage",CATEGORY_DAMAGE,effect_life_damage],
+  EFFECT_POISON:["effect_poison",CATEGORY_DAMAGE,effect_poison],
+
+  EFFECT_ABSOLUTE_SHIELD:["effect_absolute_shield",CATEGORY_PROTECTION,effect_absolute_shield],
+  EFFECT_RAW_ABSOLUTE_SHIELD:["effect_raw_absolute_shield",CATEGORY_PROTECTION,effect_raw_absolute_shield],
+  EFFECT_RAW_RELATIVE_SHIELD:["effect_raw_relative_shield",CATEGORY_PROTECTION,effect_raw_relative_shield],
+  EFFECT_RELATIVE_SHIELD:["effect_relative_shield",CATEGORY_PROTECTION,effect_relative_shield],
+
+  EFFECT_HEAL:["effect_heal",CATEGORY_HEAL,effect_heal],
+  EFFECT_RAW_HEAL:["effect_raw_heal",CATEGORY_HEAL,effect_raw_heal],
+
+  EFFECT_ANTIDOTE:["effect_antidote",CATEGORY_HEAL_DEFAULT,effect_default],
+  EFFECT_REMOVE_SHACKLES:["effect_remove_shackles",CATEGORY_HEAL_DEFAULT,effect_default],
+
+  EFFECT_RAW_BUFF_MP:["effect_raw_buff_mp",CATEGORY_MP_DEBUFF,effect_raw_buff_mp],
+  EFFECT_BUFF_MP:["effect_buff_mp",CATEGORY_MP_DEBUFF,effect_buff_mp],
+
+  EFFECT_BOOST_MAX_LIFE:["effect_boost_max_life",CATEGORY_BUFF,effect_boost_max_life],
+  EFFECT_BUFF_AGILITY:["effect_buff_agility",CATEGORY_BUFF,effect_buff_agility],
+  EFFECT_BUFF_RESISTANCE:["effect_buff_resistance",CATEGORY_BUFF,effect_buff_resistance],
+  EFFECT_BUFF_STRENGTH:["effect_buff_strength",CATEGORY_BUFF,effect_buff_strength],
+  EFFECT_BUFF_TP:["effect_buff_tp",CATEGORY_BUFF,effect_buff_tp],
+  EFFECT_BUFF_WISDOM:["effect_buff_wisdom",CATEGORY_BUFF,effect_buff_wisdom],
+  EFFECT_DAMAGE_RETURN:["effect_damage_return",CATEGORY_BUFF,effect_damage_return],
+  EFFECT_NOVA_DAMAGE:["effect_nova_damage",CATEGORY_BUFF,effect_nova_damage],
+  EFFECT_NOVA_VITALITY:["effect_nova_vitality",CATEGORY_BUFF,effect_nova_vitality],
+  EFFECT_RAW_BUFF_AGILITY:["effect_raw_buff_agility",CATEGORY_BUFF,effect_raw_buff_agility],
+  EFFECT_RAW_BUFF_MAGIC:["effect_raw_buff_magic",CATEGORY_BUFF,effect_raw_buff_magic],
+  EFFECT_RAW_BUFF_POWER:["effect_raw_buff_power",CATEGORY_BUFF,effect_raw_buff_power],
+  EFFECT_RAW_BUFF_RESISTANCE:["effect_raw_buff_resistance",CATEGORY_BUFF,effect_raw_buff_resistance],
+  EFFECT_RAW_BUFF_SCIENCE:["effect_raw_buff_science",CATEGORY_BUFF,effect_raw_buff_science],
+  EFFECT_RAW_BUFF_STRENGTH:["effect_raw_buff_strength",CATEGORY_BUFF,effect_raw_buff_strength],
+  EFFECT_RAW_BUFF_TP:["effect_raw_buff_tp",CATEGORY_BUFF,effect_raw_buff_tp],
+  EFFECT_RAW_BUFF_WISDOM:["effect_raw_buff_wisdom",CATEGORY_BUFF,effect_raw_buff_wisdom],
+
+  EFFECT_DEBUFF:["effect_debuff",CATEGORY_DEBUFF_DEFAULT,effect_default],
+  EFFECT_STEAL_ABSOLUTE_SHIELD:["effect_steal_absolute_shield",CATEGORY_DEBUFF_DEFAULT,effect_default], // TODO:
+
+  EFFECT_ABSOLUTE_VULNERABILITY:["effect_absolute_vulnerability",CATEGORY_DEBUFF,effect_absolute_vulnerability],
+  EFFECT_SHACKLE_AGILITY:["effect_shackle_agility",CATEGORY_DEBUFF,effect_shackle_agility],
+  EFFECT_SHACKLE_MAGIC:["effect_shackle_magic",CATEGORY_DEBUFF,effect_shackle_magic],
+  EFFECT_SHACKLE_MP:["effect_shackle_mp",CATEGORY_DEBUFF,effect_shackle_mp],
+  EFFECT_SHACKLE_STRENGTH:["effect_shackle_strength",CATEGORY_DEBUFF,effect_shackle_strength],
+  EFFECT_SHACKLE_TP:["effect_shackle_tp",CATEGORY_DEBUFF,effect_shackle_tp],
+  EFFECT_SHACKLE_WISDOM:["effect_shackle_wisdom",CATEGORY_DEBUFF,effect_shackle_wisdom],
+  EFFECT_VULNERABILITY:["effect_vulnerability",CATEGORY_DEBUFF,effect_vulnerability],
+
+  EFFECT_SUMMON:["effect_summon",CATEGORY_BULB,effect_default],
+
+  EFFECT_ALLY_KILLED_TO_AGILITY:["effect_ally_killed_to_agility",CATEGORY_OTHER,effect_default],
+  EFFECT_CRITICAL_TO_HEAL:["effect_critical_to_heal",CATEGORY_OTHER,effect_default],
+  EFFECT_DAMAGE_TO_ABSOLUTE_SHIELD:["effect_damage_to_absolute_shield",CATEGORY_OTHER,effect_default],
+  EFFECT_DAMAGE_TO_STRENGTH:["effect_damage_to_strength",CATEGORY_OTHER,effect_default],
+  EFFECT_KILL_TO_TP:["effect_kill_to_tp",CATEGORY_OTHER,effect_default],
+  EFFECT_MOVED_TO_MP:["effect_moved_to_mp",CATEGORY_OTHER,effect_default],
+  EFFECT_NOVA_DAMAGE_TO_MAGIC:["effect_nova_damage_to_magic",CATEGORY_OTHER,effect_default],
+  EFFECT_POISON_TO_SCIENCE:["effect_poison_to_science",CATEGORY_OTHER,effect_default],
+  EFFECT_PROPAGATION:["effect_propagation",CATEGORY_OTHER,effect_default],
+  EFFECT_REPEL:["effect_repel",CATEGORY_OTHER,effect_default],
+  EFFECT_RESURRECT:["effect_resurrect",CATEGORY_OTHER,effect_default],
+  EFFECT_ADD_STATE:["effect_add_state",CATEGORY_OTHER,effect_default],
+  EFFECT_EXASPERATION: ["effect_exasperation", CATEGORY_OTHER,effect_default] // pour la chip exasperation
+
+  EFFECT_ATTRACT:["effect_attract",CATEGORY_MOVE,effect_default],
+  EFFECT_INVERT:["effect_invert",CATEGORY_MOVE,effect_default],
+  EFFECT_PUSH:["effect_push",CATEGORY_MOVE,effect_default],
+  EFFECT_TELEPORT:["effect_teleport",CATEGORY_MOVE,effect_default]
+]
+
+/**
+ * getEffectsInfo
+**/
+function getEffectsInfo(integer type) => Array<any> {
+  if(!mapContainsKey(EFFECT_TYPE_TRANSLATOR_CATEGORY,type)) {
+    debugC("getEffectsInfo-> type ("+type+") inconnu",COLOR_RED);
+    setRegister("getEffectsInfo_"+type, "getEffectsInfo-> type ("+type+") inconnu");
+    return EFFECT_TYPE_TRANSLATOR_CATEGORY[0]!;
+  }
+  return EFFECT_TYPE_TRANSLATOR_CATEGORY[type]!;
+}

@@ -1,0 +1,23 @@
+/******************************************************************************
+ * CellRound
+ * information d une cellule, qui change a chaque tour
+ ******************************************************************************/
+class CellRound extends Objects {
+  
+  public Cell cell;
+  public LeekRound|null leekOnCell = null;
+  
+  public Round roundObj;
+  
+  /**
+   * constructor
+   * @param roundObj : le round liee a la cellule
+   * @param cell : la cell liee a la cellule
+   **/
+  public constructor(Round roundObj, Cell cell) {
+    id = cell.id;
+    this.cell = cell;
+    this.roundObj = roundObj;
+  }
+  
+}

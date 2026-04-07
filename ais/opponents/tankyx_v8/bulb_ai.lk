@@ -1,0 +1,134 @@
+
+
+function savantBulbAI() {
+    var me = getEntity()
+    var summoner = getSummoner()
+    var myCell = getCell()
+    var summonerCell = getCell(summoner)
+    var myTP = getTP()
+
+    var distToSummoner = getCellDistance(myCell, summonerCell)
+    if (distToSummoner > 3) {
+        moveToward(summoner)
+        myCell = getCell()
+    }
+
+    if (myTP >= 1 && getCooldown(CHIP_ADRENALINE, me) == 0) {
+        var summonerTP = getTP(summoner)
+        if (summonerTP < 10) {
+            var dist = getCellDistance(myCell, summonerCell)
+            if (dist != null && dist >= 0 && dist <= 3 && lineOfSight(myCell, summonerCell)) {
+                useChip(CHIP_ADRENALINE, summoner)
+                myTP = getTP()
+            }
+        }
+    }
+
+    if (myTP >= 7 && getCooldown(CHIP_MUTATION, me) == 0) {
+        var dist = getCellDistance(myCell, summonerCell)
+        if (dist != null && dist >= 0 && dist <= 8 && lineOfSight(myCell, summonerCell)) {
+            useChip(CHIP_MUTATION, summoner)
+            myTP = getTP()
+        }
+    }
+
+    if (myTP >= 3 && getCooldown(CHIP_ALTERATION, me) == 0) {
+        var enemies = getAliveEnemies()
+        var bestTarget = null
+        var bestHP = 999999
+
+        for (var eid in enemies) {
+            if (isDead(eid)) continue
+            var enemyCell = getCell(eid)
+            var dist = getCellDistance(myCell, enemyCell)
+            if (dist != null && dist >= 6 && dist <= 12 && lineOfSight(myCell, enemyCell)) {
+                var hp = getLife(eid)
+                if (hp < bestHP) {
+                    bestHP = hp
+                    bestTarget = eid
+                }
+            }
+        }
+
+        if (bestTarget != null) {
+            useChip(CHIP_ALTERATION, bestTarget)
+            myTP = getTP()
+        }
+    }
+
+    if (myTP >= 4 && getCooldown(CHIP_THORN, me) == 0) {
+        var enemies = getAliveEnemies()
+        var nearbyEnemy = false
+        for (var eid in enemies) {
+            if (isDead(eid)) continue
+            var dist = getCellDistance(myCell, getCell(eid))
+            if (dist != null && dist <= 5) {
+                nearbyEnemy = true
+                break
+            }
+        }
+
+        if (nearbyEnemy) {
+            useChip(CHIP_THORN, me)
+            myTP = getTP()
+        }
+    }
+}
+
+function metallicBulbAI() {
+    var me = getEntity()
+    var summoner = getSummoner()
+    var myCell = getCell()
+    var summonerCell = getCell(summoner)
+    var myTP = getTP()
+
+    var distToSummoner = getCellDistance(myCell, summonerCell)
+    if (distToSummoner > 2) {
+        moveToward(summoner)
+        myCell = getCell()
+    }
+
+    if (myTP >= 6 && getCooldown(CHIP_ARMOR, me) == 0) {
+        var dist = getCellDistance(myCell, summonerCell)
+        if (dist != null && dist >= 0 && dist <= 4 && lineOfSight(myCell, summonerCell)) {
+            useChip(CHIP_ARMOR, summoner)
+            myTP = getTP()
+        }
+    }
+
+    if (myTP >= 4 && getCooldown(CHIP_SHIELD, me) == 0) {
+        var dist = getCellDistance(myCell, summonerCell)
+        if (dist != null && dist >= 0 && dist <= 4 && lineOfSight(myCell, summonerCell)) {
+            useChip(CHIP_SHIELD, summoner)
+            myTP = getTP()
+        }
+    }
+
+    if (myTP >= 3 && getCooldown(CHIP_WALL, me) == 0) {
+        var dist = getCellDistance(myCell, summonerCell)
+        if (dist != null && dist >= 0 && dist <= 3 && lineOfSight(myCell, summonerCell)) {
+            useChip(CHIP_WALL, summoner)
+            myTP = getTP()
+        }
+    }
+
+    if (myTP >= 6 && getCooldown(CHIP_WINGED_BOOTS, me) == 0) {
+        var enemies = getAliveEnemies()
+        var nearestEnemyDist = 999
+        for (var eid in enemies) {
+            if (isDead(eid)) continue
+            var dist = getCellDistance(summonerCell, getCell(eid))
+            if (dist != null && dist < nearestEnemyDist) {
+                nearestEnemyDist = dist
+            }
+        }
+
+        if (nearestEnemyDist > 5) {
+            var dist = getCellDistance(myCell, summonerCell)
+            if (dist != null && dist >= 0 && dist <= 2 && lineOfSight(myCell, summonerCell)) {
+                useChip(CHIP_WINGED_BOOTS, summoner)
+                myTP = getTP()
+            }
+        }
+    }
+}

@@ -1,0 +1,518 @@
+include('game_entity.lk')
+
+class Cell {
+    _id
+    _isObstacle = false
+    _entityID = -1
+    _weaponDamage = 0
+    _chipDamage = 0
+    _totalDamage = 0
+    _directDamage = 0 
+    _dotDamage = 0 
+    _bestType = -1
+    _hasLOS = false
+    _highestDamageWeapon = -1
+    _highestDamageChip = -1
+    _weaponsList = [] 
+    _chipsList = []   
+
+    _totalAoEDamage = 0          
+    _enemiesHit = []             
+    _enemiesHitCount = 0         
+    _multiHitBonus = 0           
+
+    _weaponOptimalAims = [:]     
+    _chipOptimalAims = [:]       
+
+    _isOTKOCell = false          
+    _otkoDamage = 0              
+    _otkoKillProbability = 0.0   
+    _otkoTPRequired = 0          
+
+    constructor(id, isObstacle, entityID, weaponDamage, chipDamage, hasLOS, highestDamageWeapon, highestDamageChip) {
+        this._id = id
+        this._isObstacle = isObstacle
+        this._entityID = entityID
+        this._weaponDamage = weaponDamage
+        this._chipDamage = chipDamage
+        this._hasLOS = hasLOS
+        this._highestDamageWeapon = highestDamageWeapon
+        this._highestDamageChip = highestDamageChip
+        this._totalDamage = weaponDamage + chipDamage
+        if (weaponDamage >= chipDamage && weaponDamage > 0) this._bestType = 0
+        else if (chipDamage > weaponDamage) this._bestType = 1
+    }
+}
+
+class Color {
+    _r = 0
+    _g = 0
+    _b = 0
+
+    constructor(r, g, b) {
+        this._r = r
+        this._g = g
+        this._b = b
+    }
+
+    getIntColor() {
+        return getColor(this._r, this._g, this._b)
+    }
+}
+
+class FieldMapCore {
+    cells = [:]
+    entities = [:]
+    wColors = [:]
+    cColors = [:]
+
+    // Per-turn cache: enemy submap + materialized array.
+    // Invalidated in updateMapEntities() each turn via _cachedEnemyValid flag.
+    _cachedEnemySubMap = [:]
+    _cachedEnemyArray = []
+    _cachedEnemyValid = false
+
+    static x_offset = 18
+    static y_offset = 17
+    static base_cell = 308
+    static board_cell_count = 613
+
+    constructor() {
+        var playerID = getEntity()
+
+        var k = 1
+        for (var wid in mapKeys(arsenal.playerEquippedWeapons)) {
+            var wObj = arsenal.playerEquippedWeapons[wid]
+            mapPut(this.wColors, wid, new Color((k * 50) % 255, (k * 80) % 255, (k * 110) % 255))
+            k++
+        }
+
+        var kc = 1
+        for (var cid in mapKeys(arsenal.playerEquippedChips)) {
+            var cObj = arsenal.playerEquippedChips[cid]
+            mapPut(this.cColors, cid, new Color((kc * 70) % 255, (kc * 40) % 255, (kc * 95) % 255))
+            kc++
+        }
+
+        for (var i = 0; i < FieldMapCore.board_cell_count; i++) {
+            var isObs = isObstacle(i)
+            var entID = -1
+
+            if (isEntity(i)) {
+                entID = getEntityOnCell(i)
+
+                var entityType = getType(entID)
+
+                if (entityType == ENTITY_CHEST) {
+                    mapPut(this.entities, entID, new Chest(i))
+                }
+                else if (isAlly(entID)) {
+                    if (entID == playerID) {
+                        mapPut(this.entities, entID, new Player(i))
+                    } else {
+                        mapPut(this.entities, entID, new Player(i)) 
+                    }
+                }
+                else {
+
+                    var entityName = getName(entID)
+
+                    if (entityName == "graal") {
+                        mapPut(this.entities, entID, new Enemy(i))
+                    }
+                    else if (entityName == "red_crystal" || entityName == "green_crystal" || entityName == "blue_crystal" || entityName == "yellow_crystal") {
+                        mapPut(this.entities, entID, new Enemy(i))
+                    }
+                    else {
+                        mapPut(this.entities, entID, new Enemy(i))
+                    }
+                }
+            }
+
+            mapPut(this.cells, i, new Cell(i, isObs, entID, 0, 0, false, -1, -1))
+        }
+    }
+
+    updateMapEntities() {
+
+        // Invalidate per-turn enemy caches (entities may have died)
+        this._cachedEnemyValid = false
+
+        var aliveEnemies = getAliveEnemies()
+        for (var enemyId in aliveEnemies) {
+            if (!mapContainsKey(this.entities, enemyId)) {
+                var cellId = getCell(enemyId)
+                mapPut(this.entities, enemyId, new Enemy(cellId))
+            }
+        }
+
+        var aliveAllies = getAliveAllies()
+        for (var allyId in aliveAllies) {
+            if (allyId == getEntity()) continue
+            if (!mapContainsKey(this.entities, allyId)) {
+                var cellId = getCell(allyId)
+                mapPut(this.entities, allyId, new Player(cellId))
+            }
+        }
+
+        for (var cellId = 0; cellId < 613; cellId++) {
+            if (isEntity(cellId)) {
+                var entID = getEntityOnCell(cellId)
+                var entityType = getType(entID)
+
+                if (entityType == ENTITY_CHEST && !mapContainsKey(this.entities, entID)) {
+                    mapPut(this.entities, entID, new Chest(cellId))
+                }
+            }
+        }
+
+        for (var entity in mapValues(this.entities)) {
+            if (entity != null) {
+                entity.updateEntity()
+            }
+        }
+    }
+
+    getAlliesSubMap() {
+        return mapFilter(this.entities, function(value, key, entities) {
+            return (value instanceof Player) && key != getEntity()
+        })
+    }
+
+    getEnemySubMap() {
+        if (!this._cachedEnemyValid) {
+            this._cachedEnemySubMap = mapFilter(this.entities, function(value, key, entities) {
+                return (value instanceof Enemy)
+            })
+            this._cachedEnemyArray = mapValues(this._cachedEnemySubMap)
+            this._cachedEnemyValid = true
+        }
+        return this._cachedEnemySubMap
+    }
+
+    // Returns the materialized enemy array (avoids repeated mapValues() calls)
+    getEnemyArray() {
+        if (!this._cachedEnemyValid) {
+            this.getEnemySubMap()
+        }
+        return this._cachedEnemyArray
+    }
+
+    getChestSubMap() {
+        return mapFilter(this.entities, function(value, key, entities) {
+            return (value instanceof Chest)
+        })
+    }
+
+    getClosestEnemy() {
+        var playerPos = player._cellPos
+        var closestEnemy = null
+        var closestDist = 999
+
+        var enemies = this.getEnemySubMap()
+        for (var e in enemies) {
+
+            if (isDead(e._id)) continue
+
+            var dist = getCellDistance(playerPos, e._cellPos)
+
+            if (dist < closestDist) {
+                closestDist = dist
+                closestEnemy = e
+            }
+        }
+        return closestEnemy
+    }
+
+    selectOptimalTarget(criteria = null) {
+        var enemyMap = this.getEnemySubMap()
+        var enemies = mapValues(enemyMap)
+        if (count(enemies) == 0) return null
+        if (count(enemies) == 1) return enemies[0]
+
+        var priorityMode = criteria != null && mapContainsKey(criteria, 'prioritizeLowest') ? criteria['prioritizeLowest'] : "hp"
+        var penalizeBuffed = criteria != null && mapContainsKey(criteria, 'penalizeBuffed') ? criteria['penalizeBuffed'] : false
+        var bonusForDebuffed = criteria != null && mapContainsKey(criteria, 'bonusForDebuffed') ? criteria['bonusForDebuffed'] : false
+
+        var isBattleRoyale = (getFightType() == FIGHT_TYPE_BATTLE_ROYALE)
+
+        var bestTarget = null
+        var bestScore = -99999
+        var playerPos = player._cellPos
+
+        for (var e in enemies) {
+            if (isDead(e._id)) continue
+
+            var score = 0
+            var dist = getCellDistance(playerPos, e._cellPos)
+            if (dist == null) continue
+
+            var entityType = getType(e._id)
+
+            var enemyHP = getLife(e._id)
+            var enemyMaxHP = getTotalLife(e._id)
+            var hpPercent = (enemyHP * 100) / enemyMaxHP
+
+            if (isBattleRoyale) {
+                score += (100 - hpPercent) * 2
+                score += (200 - dist * 10)
+
+                var threatAtEnemy = this.getThreatAtCell(e._cellPos)
+                var threatPenalty = threatAtEnemy * 0.5
+                score -= threatPenalty
+
+            } else if (priorityMode == "hp") {
+
+                score += (100 - hpPercent) * 2
+
+                score -= dist * 5
+            } else {
+
+                score -= dist * 10
+
+                score += (100 - hpPercent)
+            }
+
+            if (entityType == ENTITY_BULB) {
+                if (dist <= 6) {
+                    score += 200
+                } else if (dist <= 10) {
+                    score += 100
+                } else {
+                    score += 30
+                }
+            }
+
+            if (bonusForDebuffed) {
+                var effects = getEffects(e._id)
+                if (effects != null) {
+                    for (var eff in effects) {
+                        if (eff[0] == EFFECT_POISON) score += 30  
+                        if (eff[0] == EFFECT_SHACKLE_TP) score += 20  
+                        if (eff[0] == EFFECT_SHACKLE_MP) score += 15  
+                    }
+                }
+            }
+
+            if (penalizeBuffed) {
+                if (e._absShield > 50 || e._relShield > 20) score -= 25  
+                var effsBuff = getEffects(e._id)
+                if (effsBuff != null) {
+                    for (var effB in effsBuff) {
+                        if (effB[0] == EFFECT_BUFF_STRENGTH) score -= 20  
+                        if (effB[0] == EFFECT_DAMAGE_RETURN) score -= 15  
+                    }
+                }
+            }
+
+            if (score > bestScore) {
+                bestScore = score
+                bestTarget = e
+            }
+        }
+
+        return bestTarget
+    }
+
+    getClosestChest() {
+        var playerPos = player._cellPos
+        var closestChest = null
+        var closestDist = 999
+
+        var chests = this.getChestSubMap()
+        for (var c in chests) {
+
+            if (isDead(c._id)) continue
+
+            var dist = getCellDistance(playerPos, c._cellPos)
+
+            if (dist < closestDist) {
+                closestDist = dist
+                closestChest = c
+            }
+        }
+        return closestChest
+    }
+
+    getCellID(x, y) {
+        return FieldMapCore.base_cell + FieldMapCore.x_offset * x + FieldMapCore.y_offset * y
+    }
+
+    getPlayerPos() {
+        return player._cellPos
+    }
+
+    isDamageItem(item) {
+        return mapContainsKey(item._effects, EFFECT_DAMAGE) || mapContainsKey(item._effects, EFFECT_POISON)
+    }
+
+    getCellsInLine(fromCell, toCell) {
+        var cells = []
+
+        var x1 = getCellX(fromCell)
+        var y1 = getCellY(fromCell)
+        var x2 = getCellX(toCell)
+        var y2 = getCellY(toCell)
+
+        var dx = x2 - x1
+        var dy = y2 - y1
+        var steps = max(abs(dx), abs(dy))
+
+        if (steps == 0) {
+            push(cells, fromCell)
+            return cells
+        }
+
+        for (var i = 0; i <= steps; i++) {
+            var x = x1 + floor((dx * i) / steps)
+            var y = y1 + floor((dy * i) / steps)
+            var cellId = getCellFromXY(x, y)
+            if (cellId != null && cellId >= 0 && cellId < FieldMapCore.board_cell_count) {
+                push(cells, cellId)
+            }
+        }
+
+        return cells
+    }
+
+    wouldAoEHitCell(centerCell, aoeType, shooterCell, checkCell) {
+        if (aoeType == AREA_POINT) return checkCell == centerCell
+        if (checkCell == centerCell) return true
+
+        var dist = getCellDistance(centerCell, checkCell)
+        if (dist == null) return false
+
+        if (aoeType == AREA_CIRCLE_1 || aoeType == AREA_PLUS_1) return dist <= 1
+        if (aoeType == AREA_CIRCLE_2) return dist <= 2
+        if (aoeType == AREA_CIRCLE_3) return dist <= 3
+
+        if (aoeType == AREA_PLUS_2) return dist <= 2
+        if (aoeType == AREA_PLUS_3) return dist <= 3
+
+        if (aoeType == AREA_X_1) return dist <= 1
+        if (aoeType == AREA_X_2) return dist <= 2
+        if (aoeType == AREA_X_3) return dist <= 3
+
+        if (aoeType == AREA_SQUARE_1) return dist <= 1
+        if (aoeType == AREA_SQUARE_2) return dist <= 2
+
+        if (aoeType == AREA_LASER_LINE) return false
+
+        return false
+    }
+
+    getAoEAffectedCells(centerCell, aoeType, shooterCell = -1) {
+        var affected = []
+
+        if (aoeType == AREA_POINT) {
+            push(affected, centerCell)
+            return affected
+        }
+
+        push(affected, centerCell)
+
+        if (aoeType == AREA_CIRCLE_1 || aoeType == AREA_CIRCLE_2 || aoeType == AREA_CIRCLE_3) {
+            var radius = (aoeType == AREA_CIRCLE_1) ? 1 : ((aoeType == AREA_CIRCLE_2) ? 2 : 3)
+            for (var dx = -radius; dx <= radius; dx++) {
+                for (var dy = -radius; dy <= radius; dy++) {
+                    var dist = abs(dx) + abs(dy)
+                    if (dist > 0 && dist <= radius) {
+                        var cellId = centerCell + FieldMapCore.x_offset * dx + FieldMapCore.y_offset * dy
+                        if (cellId >= 0 && cellId < FieldMapCore.board_cell_count) {
+                            push(affected, cellId)
+                        }
+                    }
+                }
+            }
+        }
+
+        else if (aoeType == AREA_PLUS_1 || aoeType == AREA_PLUS_2 || aoeType == AREA_PLUS_3) {
+            var radius = (aoeType == AREA_PLUS_1) ? 1 : ((aoeType == AREA_PLUS_2) ? 2 : 3)
+            for (var d = 1; d <= radius; d++) {
+                var cells = [
+                    centerCell + FieldMapCore.x_offset * d,  
+                    centerCell - FieldMapCore.x_offset * d,  
+                    centerCell + FieldMapCore.y_offset * d,  
+                    centerCell - FieldMapCore.y_offset * d   
+                ]
+                for (var c in cells) {
+                    if (c >= 0 && c < FieldMapCore.board_cell_count) push(affected, c)
+                }
+            }
+        }
+
+        else if (aoeType == AREA_X_1 || aoeType == AREA_X_2 || aoeType == AREA_X_3) {
+            var radius = (aoeType == AREA_X_1) ? 1 : ((aoeType == AREA_X_2) ? 2 : 3)
+            var up_right_offset = FieldMapCore.x_offset - FieldMapCore.y_offset
+            var down_right_offset = FieldMapCore.x_offset + FieldMapCore.y_offset
+            var down_left_offset = -1 * (FieldMapCore.x_offset - FieldMapCore.y_offset)
+            var up_left_offset = -1 * (FieldMapCore.x_offset + FieldMapCore.y_offset)
+            for (var d = 1; d <= radius; d++) {
+                var cells = [
+                    centerCell + up_right_offset * d,
+                    centerCell + down_right_offset * d,
+                    centerCell + down_left_offset * d,
+                    centerCell + up_left_offset * d
+                ]
+                for (var c in cells) {
+                    if (c >= 0 && c < FieldMapCore.board_cell_count) push(affected, c)
+                }
+            }
+        }
+
+        else if (aoeType == AREA_SQUARE_1 || aoeType == AREA_SQUARE_2) {
+            var radius = (aoeType == AREA_SQUARE_1) ? 1 : 2
+            for (var dx = -radius; dx <= radius; dx++) {
+                for (var dy = -radius; dy <= radius; dy++) {
+                    if (dx == 0 && dy == 0) continue 
+                    var cellId = centerCell + FieldMapCore.x_offset * dx + FieldMapCore.y_offset * dy
+                    if (cellId >= 0 && cellId < FieldMapCore.board_cell_count) {
+                        push(affected, cellId)
+                    }
+                }
+            }
+        }
+
+        else if (aoeType == AREA_LASER_LINE) {
+            if (shooterCell != -1 && shooterCell != centerCell) {
+
+                var lineCells = this.getCellsInLine(shooterCell, centerCell)
+                if (lineCells != null) {
+                    for (var i = 0; i < count(lineCells); i++) {
+                        var c = lineCells[i]
+
+                        if (c != shooterCell && c != centerCell) {
+                            push(affected, c)
+                        }
+                    }
+                }
+            }
+
+        }
+
+        return affected
+    }
+
+    getEnemiesInAoE(shooterCell, targetCell, aoeType) {
+        var aoeCells = this.getAoEAffectedCells(targetCell, aoeType, shooterCell)
+        var hitEnemies = []
+
+        var enemies = this.getEnemySubMap()
+        for (var e in enemies) {
+            if (isDead(e._id)) continue
+
+            for (var i = 0; i < count(aoeCells); i++) {
+                if (aoeCells[i] == e._cellPos) {
+                    push(hitEnemies, e)
+                    break
+                }
+            }
+        }
+
+        return hitEnemies
+    }
+
+    getThreatAtCell(cellId) {
+        return 0
+    }
+}

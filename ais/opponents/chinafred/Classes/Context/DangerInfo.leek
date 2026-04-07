@@ -1,0 +1,78 @@
+include("/Classes/Leek")
+include("/Classes/Context/World")
+include("/Toolbox/Constants")
+
+/**
+ * Represents information about danger.
+ */
+class DangerInfo {
+    /**
+     * The key identifying the danger. 
+     */
+    integer key = 0
+
+
+
+    /**
+     * The weight of the danger.
+     */
+    real weight = 0.0 
+
+    /**
+     * The distance of the danger.
+     */
+    integer distance = 0 
+
+    /**
+     * The length of the path.
+     */
+    integer pathLength = 0 
+
+    /**
+     * The distance to the obstacle.
+     */
+    integer distanceToObstacle = 100000
+
+    /**
+     * Constructor to initialize the DangerInfo object.
+     * @param {real} w - The weight of the danger.
+     * @param {integer} d - The distance of the danger.
+     * @param {integer} p - The length of the path.
+     * @param {integer} o - The distance to the obstacle.
+     */
+    constructor(integer k, real w, integer d, integer p, integer o) {
+        key = k
+        weight = w 
+        distance = d 
+        pathLength = p
+        distanceToObstacle = o 
+    }
+
+    /**
+     * Constructor to initialize the DangerInfo object.
+     * @param {integer} k - The key of the danger.
+     */
+    constructor(integer k) {
+        key = k
+        weight = 0 
+        distance = 0 
+        pathLength = 0
+        distanceToObstacle = 10000 
+    }
+
+    /**
+     * Adds two DangerInfo objects and returns the result.
+     * @param {DangerInfo} one - The first DangerInfo object.
+     * @param {DangerInfo} two - The second DangerInfo object.
+     * @returns {DangerInfo} - The sum of the two DangerInfo objects.
+     */
+    DangerInfo add(DangerInfo one, DangerInfo two) {
+        return new DangerInfo(
+			one.key,
+            one.weight + two.weight, 
+            one.distance,
+            one.pathLength,
+            one.distanceToObstacle
+        )
+    }
+}

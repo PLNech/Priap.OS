@@ -1,0 +1,142 @@
+/****************************************************************************
+ * Unit test
+ ****************************************************************************/
+class UnitTest extends Strategy {
+  
+  static MeRound meRound;       // MeRound
+  static EnemyRound enemyRound;    // EnemyRound
+  static RealRound currentRound;  // Round
+  
+  /**
+   * isValide
+   **/
+  static boolean isValide() {
+    return UNIT_TEST_DEBUG && (getFightContext() == FIGHT_CONTEXT_TEST);
+  }
+  
+  /**
+   * apply
+   **/
+  boolean apply() {
+    
+    currentRound = Board.currentRound;
+    meRound = currentRound.meRound;
+    enemyRound = currentRound.enemiesRound[0];
+    GameDebug.addOperation(true, "round init");
+    
+    if(gFirstRound) {
+      Talk.text = "UnitTest mode";
+      if(meRound.weaponsRound[0]) {
+        meRound.addSetWeaponAction(meRound.weaponsRound[0].id);
+        meRound.execute();
+      }
+      else debugC("no weapon", COLOR_RED);
+      board();
+      cell();
+      effect();
+      leek();
+      moveTowardCell(meRound.getRelativeCenter());
+      return true;
+    }
+    roundTest();
+    toolRound();
+    return true;
+  }
+  
+  /**
+   * board
+   **/
+  boolean board() {
+    debug("Board.maxAOERange:"+Board.maxAOERange);
+    debug("Legend: deadend = brown");
+    for(Cell cell in Board.cells) {
+      GameDebug.addBackground(cell.isDeadEnd, cell,COLOR_BROWN); // marron
+    }
+    if(Board.cells[306].right.id == 324 && Board.cells[10].rightTop.id == 11) debugC("Board OK",COLOR_GREEN);
+    else debugC("Board KO", COLOR_RED);
+    return true;
+  }
+  
+  /**
+   * cell
+   **/
+  boolean cell() {
+    integer TEST_CELL = 303;
+    integer TEST_CELL_RANGE = 6;
+    InterCellInfo inter = Board.cells[306].interCellInfo[TEST_CELL];
+    if(inter.range == TEST_CELL_RANGE && inter.isDiag && !inter.isInline || Board.cells[306].isWall && inter.range == (Board.maxAOERange+1) || Board.cells[TEST_CELL].isWall && inter.range == (Board.maxAOERange+1)) 
+      debugC("Cell OK",COLOR_GREEN);
+    else {
+      if(inter.range != TEST_CELL_RANGE) debugC("Cell KO: "+TEST_CELL+"-306 range("+TEST_CELL_RANGE+") = "+ inter.range, COLOR_RED);
+      if(!inter.isDiag) debugC("Cell KO: "+TEST_CELL+"-306 not is diag", COLOR_RED);
+      if(inter.isInline) debugC("Cell KO: "+TEST_CELL+"-306 is inline", COLOR_RED);
+    }
+    debug("Legend: "+TEST_CELL+" and 306 = blue");
+    GameDebug.addBackground(true, 306, COLOR_BLUE);
+    GameDebug.addBackground(true, TEST_CELL, COLOR_BLUE);
+    debug("Legend: trajectory 306-> 241, 288->163, 305->531 = green");
+    GameDebug.addOperation(true);
+    Array<integer> listCells = Board.cells[306].getTrajectory(Board.cells[241]);
+    GameDebug.addOperation(true,"getTrajectory");
+    GameDebug.addBackground(true, listCells, COLOR_GREEN);
+    GameDebug.addBackground(true, Board.cells[288].getTrajectory(Board.cells[163]), COLOR_GREEN);
+    GameDebug.addBackground(true, Board.cells[305].getTrajectory(Board.cells[531]), COLOR_GREEN);
+    return true;
+  }
+
+  /**
+   * effect
+   **/
+  boolean effect() {
+    if(meRound.weapon!.tool.effects[0].owner.shortString() == "Weapon(magnum)(8)" && meRound.weapon!.tool.effects[0].minEffect == 25) 
+      debugC("Effect OK", COLOR_GREEN);
+    else 
+      debugC("Effect on setWepon (magnum) KO: "+ meRound.weapon!.tool.shortString() + "- (25) "+meRound.weapon!.tool.effects[0].minEffect, COLOR_RED);
+    //GameDebug.add(true, meRound.weapon!.tool.effects,"current weapon effects",2);
+    return true;
+  }
+  
+  /**
+   * leek
+   **/
+  boolean leek() {
+    //GameDebug.add(true, Board.me,"me",2);
+    if(Board.me.categories[CATEGORY_DAMAGE]![1].shortString() == "Chip(chip ice)(8)" && Board.me.categories[CATEGORY_PROTECTION]![0].shortString() == "Chip(chip helmet)(4)")
+      debugC("Leek OK", COLOR_GREEN);
+    else 
+      debugC("Leek me KO: " + Board.me.categories[CATEGORY_DAMAGE]![1].shortString() + " - " + Board.me.categories[CATEGORY_PROTECTION]![0].shortString(), COLOR_RED);
+    return true;
+  }
+  
+  /**
+   * roundTest
+   **/
+  boolean roundTest() {
+    GameDebug.addOperation(true, "avant clonage");
+    SimulatedRound newRound = new SimulatedRound(currentRound);
+    GameDebug.addOperation(true,"cout clonage");
+    currentRound.update();
+    GameDebug.addOperation(true,"cout update");
+    return true;
+  }
+  
+  /**
+   * toolRound
+   **/
+  boolean toolRound() {
+    moveTowardCell(enemyRound.currentCellId);
+    currentRound.update();
+    if(canUseWeaponOnCell(enemyRound.currentCellId)) {
+      Round simulation = new SimulatedRound(currentRound);
+      Round oldRound = new SimulatedRound(currentRound);
+      MeRound meSim = simulation.meRound;
+      if(meSim.toolsRound[CHIP_PROTEIN]) meSim.addToolAction(CHIP_PROTEIN,meSim.currentCellId)
+      meSim.addToolAction(meSim.weaponId!,enemyRound.currentCellId);
+      GameDebug.add(true, enemyRound.maxLife + "/" + enemyRound.midLife + "/" + enemyRound.minLife, "vie simulee")
+      meSim.execute()
+      GameDebug.add(true, enemyRound.minLife, "vie reel")
+    }
+    return true;
+  }
+  
+}

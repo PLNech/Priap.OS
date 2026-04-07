@@ -1,0 +1,38 @@
+/**
+ * Classe contenant les constantes pour les comparaisons.
+ */
+class CONST_COMPARISON {
+    // Constante pour une égalité.
+    static integer EQUAL = 0
+    // Constante pour une supériorité ou une égalité.
+    static integer MIN_OR_EQUAL = 1
+    // Constante pour une infériorité ou une égalité.
+    static integer SUP_OR_EQUAL = 2 
+    // Constante pour une infériorité stricte.
+    static integer MIN = 3
+    // Constante pour une supériorité stricte.
+    static integer SUP = 4
+}
+
+class DANGER{
+	static integer NO_SAFE_PLACE = -20000
+	static integer INITIAL_DANGER = 100
+}
+
+class COLORS{
+    static integer HIT = getColor(250, 51, 153)
+	static integer SUCCESS = getColor(0, 255, 20)
+	static integer WARNING = getColor(255, 128, 0)
+	static integer PURPLE = getColor(152, 51, 255)
+	static integer SALMON = getColor(255, 229, 204)
+	static integer LIGHT_GREEN = getColor(204, 255, 229)
+	static integer BROWN = getColor(152, 76, 0)
+	static integer YELLOW = getColor(255, 255, 102)
+	static integer DEBUG = getColor(198, 131, 74)
+}
+
+
+class ITEM_TYPE{
+	static string CHIP  = "Chip"
+	static string WEAPON = "Weapon"
+}
