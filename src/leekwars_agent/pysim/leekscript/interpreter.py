@@ -392,6 +392,18 @@ class Interpreter:
             "trim": lambda s: str(s).strip() if s is not None else "",
             "startsWith": lambda s, p: str(s).startswith(str(p)) if s is not None else False,
             "endsWith": lambda s, p: str(s).endswith(str(p)) if s is not None else False,
+            # yaelMagnier builtins
+            "pushAll": lambda arr, other: (arr.extend(other) or arr) if isinstance(arr, list) and isinstance(other, list) else arr,
+            "removeKey": lambda arr, key: (arr.pop(int(key)) if isinstance(arr, list) and 0 <= int(key) < len(arr) else arr.pop(key, None) if isinstance(arr, dict) else None),
+            "fill": lambda arr, val, n=None: [val] * int(n) if n is not None else arr,
+            "getKeys": lambda m: list(m.keys()) if isinstance(m, dict) else list(range(len(m))) if isinstance(m, list) else [],
+            "getValues": lambda m: list(m.values()) if isinstance(m, dict) else list(m) if isinstance(m, list) else [],
+            "arraySort": _sort,
+            "isArray": lambda x: isinstance(x, list),
+            "isMap": lambda x: isinstance(x, dict),
+            "isNumber": lambda x: isinstance(x, (int, float)),
+            "isString": lambda x: isinstance(x, str),
+            "arrayReverse": lambda arr: (arr.reverse() or arr) if isinstance(arr, list) else arr,
         }
 
     def _charge_ops(self, cost: int) -> None:
@@ -851,7 +863,7 @@ class Interpreter:
         # Equality (v4: strict, no type coercion)
         if expr.op == "==" or expr.op == "===":
             return _ls_equal(left, right)
-        if expr.op == "!=":
+        if expr.op == "!=" or expr.op == "!==":
             return not _ls_equal(left, right)
 
         # Numeric operations
@@ -870,6 +882,12 @@ class Interpreter:
             return l % r if r != 0 else 0
         if expr.op == "**":
             return l ** r
+        if expr.op == "|":
+            return int(l) | int(r)
+        if expr.op == "&":
+            return int(l) & int(r)
+        if expr.op == "^":
+            return int(l) ^ int(r)
         if expr.op == "<":
             return l < r
         if expr.op == ">":

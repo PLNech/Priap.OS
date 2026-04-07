@@ -266,8 +266,11 @@ class FightEngine:
                 return None
             return t.current_weapon["id"]
 
-        def getWeapons():
-            return [w["id"] for w in me.weapons]
+        def getWeapons(target=None):
+            if target is None:
+                return [w["id"] for w in me.weapons]
+            t = engine.entities.get(_safe_int(target))
+            return [w["id"] for w in t.weapons] if t else []
 
         def getWeaponCost(w_id=None):
             w = _find_weapon(w_id)
@@ -301,8 +304,11 @@ class FightEngine:
 
         # ── Chip queries ────────────────────────────────────────────
 
-        def getChips():
-            return [c["id"] for c in me.chips]
+        def getChips(target=None):
+            if target is None:
+                return [c["id"] for c in me.chips]
+            t = engine.entities.get(_safe_int(target))
+            return [c["id"] for c in t.chips] if t else []
 
         def getChipName(chip_id):
             chip_id = _safe_int(chip_id)
@@ -556,11 +562,17 @@ class FightEngine:
         def getLeek():
             return me.id
 
-        def getFarmerID():
-            return me.farmer
+        def getFarmerID(target=None):
+            if target is None:
+                return me.farmer
+            t = engine.entities.get(_safe_int(target))
+            return t.farmer if t else 0
 
-        def getFarmerName():
-            return me.name  # no farmer name in sim, use leek name
+        def getFarmerName(target=None):
+            if target is None:
+                return me.name
+            t = engine.entities.get(_safe_int(target))
+            return t.name if t else ""
 
         def getType(target=None):
             if target is None:
@@ -985,6 +997,182 @@ class FightEngine:
         def getMapType():
             return 0  # standard
 
+        # ── yaelMagnier-required API additions ──────────────────────
+
+        def getFightContext():
+            return 2  # matchmaking (1=garden, 2=matchmaking, 3=tournament)
+
+        def getFightType():
+            return 0  # solo (0=solo, 1=farmer, 2=team)
+
+        def isEnemy(target=None):
+            if target is None:
+                return False
+            tid = _safe_int(target)
+            t = engine.entities.get(tid)
+            return t is not None and t.team != me.team
+
+        def getLeeks():
+            return [eid for eid, e in engine.entities.items() if not e.dead]
+
+        def getLeekID(target=None):
+            if target is None:
+                return me.id
+            return _safe_int(target)  # sim IDs are global IDs
+
+        def getTotalTP(target=None):
+            if target is None:
+                return me.base_tp
+            t = engine.entities.get(_safe_int(target))
+            return t.base_tp if t else 0
+
+        def getTotalMP(target=None):
+            if target is None:
+                return me.base_mp
+            t = engine.entities.get(_safe_int(target))
+            return t.base_mp if t else 0
+
+        def getScience(target=None):
+            # Science maps to strength in sim (same scaling, different name)
+            if target is None:
+                return me.strength
+            t = engine.entities.get(_safe_int(target))
+            return t.strength if t else 0
+
+        def getAbsoluteShield(target=None):
+            if target is None:
+                return me.abs_shield
+            t = engine.entities.get(_safe_int(target))
+            return t.abs_shield if t else 0
+
+        def getRelativeShield(target=None):
+            if target is None:
+                return me.rel_shield
+            t = engine.entities.get(_safe_int(target))
+            return t.rel_shield if t else 0
+
+        def getDamageReturn(target=None):
+            # Not implemented yet (task #83), return 0
+            return 0
+
+        def getSummoner(target=None):
+            return None  # no summoning in sim
+
+        def getTeamID(target=None):
+            if target is None:
+                return me.team
+            t = engine.entities.get(_safe_int(target))
+            return t.team if t else 0
+
+        def getTeamName(target=None):
+            return ""  # sim doesn't have team names
+
+        def getFarmerCountry(target=None):
+            return "fr"  # default
+
+        def isChip(item_id):
+            item_id = _safe_int(item_id)
+            for c in me.chips:
+                if c["template"] == item_id or c["id"] == item_id:
+                    return True
+            return False
+
+        def isInlineChip(chip_id):
+            c = _find_chip(chip_id)
+            return (c["launch_type"] & 1) == 1 if c else False
+
+        def getChipArea(chip_id):
+            c = _find_chip(chip_id)
+            return c.get("area", 0) if c else 0
+
+        def getWeaponArea(w_id=None):
+            w = _find_weapon(w_id)
+            return w.get("area", 0) if w else 0
+
+        def getChipCooldown_full(chip_id):
+            c = _find_chip(chip_id)
+            return c["cooldown"] if c else 0
+
+        # getItem* functions — polymorphic (work for both chips and weapons)
+        def _find_item(item_id):
+            item_id = _safe_int(item_id)
+            for c in me.chips:
+                if c["template"] == item_id or c["id"] == item_id:
+                    return c
+            for w in me.weapons:
+                if w["template"] == item_id or w["id"] == item_id:
+                    return w
+            return None
+
+        def getItemMaxRange(item_id):
+            item = _find_item(item_id)
+            return item["max_range"] if item else 0
+
+        def getItemMinRange(item_id):
+            item = _find_item(item_id)
+            return item["min_range"] if item else 0
+
+        def getItemArea(item_id):
+            item = _find_item(item_id)
+            return item.get("area", 0) if item else 0
+
+        def getItemCost(item_id):
+            item = _find_item(item_id)
+            return item["cost"] if item else 0
+
+        def getItemCooldown(item_id):
+            item = _find_item(item_id)
+            return item.get("cooldown", 0) if item else 0
+
+        def getItemEffects(item_id):
+            item = _find_item(item_id)
+            if not item:
+                return []
+            return [[e["type"], e["value1"], e["value2"], e["turns"], e["targets"], e["modifiers"]]
+                    for e in item.get("effects", [])]
+
+        def getGameItems():
+            """Return all equipped items (chips + weapons) as template IDs."""
+            items = [c["template"] for c in me.chips]
+            items.extend(w["template"] for w in me.weapons)
+            return items
+
+        def useWeaponOnCell(cell):
+            """Use weapon on a cell. Find target on that cell."""
+            cell = _safe_int(cell)
+            for e in engine.entities.values():
+                if not e.dead and e.cell == cell:
+                    return useWeapon(e.id)
+            return USE_INVALID_TARGET
+
+        def getAccessibleCells(target=None, mp=None):
+            """Get cells reachable from entity's position with available MP."""
+            if target is None:
+                start = me.cell
+                avail_mp = me.mp
+            else:
+                tid = _safe_int(target)
+                t = engine.entities.get(tid)
+                if t is None:
+                    return []
+                start = t.cell
+                avail_mp = t.mp
+            if mp is not None:
+                avail_mp = _safe_int(mp)
+            # BFS from start, up to avail_mp steps
+            blocked = engine._entity_cells(exclude=me.id)
+            visited = {start}
+            frontier = [start]
+            for _ in range(avail_mp):
+                next_frontier = []
+                for cell in frontier:
+                    for nb in engine.grid.neighbors(cell):
+                        if nb not in visited and nb not in blocked:
+                            visited.add(nb)
+                            next_frontier.append(nb)
+                frontier = next_frontier
+            return list(visited)
+
         # ── Build API dict ──────────────────────────────────────────
 
         api = {
@@ -1018,6 +1206,7 @@ class FightEngine:
             "isSummon": isSummon,
             "isDead": isDead,
             "isAlive": isAlive,
+            "isEnemy": isEnemy,
             "getAliveEnemies": getAliveEnemies,
             "getAliveAllies": getAliveAllies,
             "getAliveEnemiesCount": getAliveEnemiesCount,
@@ -1045,6 +1234,10 @@ class FightEngine:
             "getChipEffects": getChipEffects,
             "chipNeedLos": chipNeedLos,
             "getChipLaunchType": getChipLaunchType,
+            "isChip": isChip,
+            "isInlineChip": isInlineChip,
+            "getChipArea": getChipArea,
+            "getWeaponArea": getWeaponArea,
             # Composite can-use checks
             "canUseWeapon": canUseWeapon,
             "canUseWeaponOnCell": canUseWeaponOnCell,
@@ -1096,6 +1289,33 @@ class FightEngine:
             "summon": summon,
             "getBulbChips": getBulbChips,
             "getMapType": getMapType,
+            # yaelMagnier additions — entity/stat queries
+            "getFightContext": getFightContext,
+            "getFightType": getFightType,
+            "getLeeks": getLeeks,
+            "getLeekID": getLeekID,
+            "getTotalTP": getTotalTP,
+            "getTotalMP": getTotalMP,
+            "getScience": getScience,
+            "getAbsoluteShield": getAbsoluteShield,
+            "getRelativeShield": getRelativeShield,
+            "getDamageReturn": getDamageReturn,
+            "getSummoner": getSummoner,
+            "getTeamID": getTeamID,
+            "getTeamName": getTeamName,
+            "getFarmerCountry": getFarmerCountry,
+            "isEnemy": isEnemy,
+            # yaelMagnier additions — item polymorphic queries
+            "getGameItems": getGameItems,
+            "getItemMaxRange": getItemMaxRange,
+            "getItemMinRange": getItemMinRange,
+            "getItemArea": getItemArea,
+            "getItemCost": getItemCost,
+            "getItemCooldown": getItemCooldown,
+            "getItemEffects": getItemEffects,
+            # yaelMagnier additions — actions / spatial
+            "useWeaponOnCell": useWeaponOnCell,
+            "getAccessibleCells": getAccessibleCells,
             # Constants
             "CELL_EMPTY": CELL_EMPTY,
             "CELL_OBSTACLE": CELL_OBSTACLE,

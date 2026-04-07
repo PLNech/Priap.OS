@@ -59,13 +59,20 @@ class TokenType(Enum):
     POWER = auto()
     POWER_ASSIGN = auto()
     STRICT_EQ = auto()
+    STRICT_NEQ = auto()
     PERCENT_ASSIGN = auto()
     QUESTION = auto()
     COLON = auto()
 
+    # Bitwise operators
+    BITWISE_OR = auto()   # |
+    BITWISE_AND = auto()  # &
+    BITWISE_XOR = auto()  # ^
+
     # Keyword-based operators
     XOR = auto()
     IS = auto()
+    AT = auto()  # @ reference operator
 
     # Delimiters
     LPAREN = auto()
@@ -260,6 +267,9 @@ def tokenize(source: str) -> list[Token]:
             if three == "===":
                 tokens.append(Token(TokenType.STRICT_EQ, three, line, start_col))
                 i += 3; col += 3; continue
+            if three == "!==":
+                tokens.append(Token(TokenType.STRICT_NEQ, three, line, start_col))
+                i += 3; col += 3; continue
 
         # Two-character operators (check BEFORE single-character)
         if i + 1 < length:
@@ -308,6 +318,10 @@ def tokenize(source: str) -> list[Token]:
             ",": TokenType.COMMA,
             ";": TokenType.SEMICOLON,
             ".": TokenType.DOT,
+            "@": TokenType.AT,
+            "|": TokenType.BITWISE_OR,
+            "&": TokenType.BITWISE_AND,
+            "^": TokenType.BITWISE_XOR,
         }.get(ch)
 
         if tt1 is not None:

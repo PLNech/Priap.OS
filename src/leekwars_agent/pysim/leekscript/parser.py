@@ -215,8 +215,10 @@ PRECEDENCE = {
     "||": 2,
     "xor": 2,
     "&&": 3,
+    # Bitwise
+    "|": 4, "^": 5, "&": 6,
     # Equality
-    "==": 7, "!=": 7, "===": 7, "is": 7, "is not": 7,
+    "==": 7, "!=": 7, "===": 7, "!==": 7, "is": 7, "is not": 7,
     # Relational + membership
     "in": 8, "<": 8, ">": 8, "<=": 8, ">=": 8,
     # Arithmetic
@@ -245,6 +247,7 @@ BINARY_OPS = {
     TokenType.EQ: "==",
     TokenType.NEQ: "!=",
     TokenType.STRICT_EQ: "===",
+    TokenType.STRICT_NEQ: "!==",
     TokenType.LT: "<",
     TokenType.GT: ">",
     TokenType.LTE: "<=",
@@ -253,6 +256,10 @@ BINARY_OPS = {
     TokenType.AND: "&&",
     TokenType.OR: "||",
     TokenType.XOR: "xor",
+    # Bitwise
+    TokenType.BITWISE_OR: "|",
+    TokenType.BITWISE_AND: "&",
+    TokenType.BITWISE_XOR: "^",
     # Identity + membership
     TokenType.IS: "is",
     TokenType.IN: "in",
@@ -362,6 +369,11 @@ class Parser:
             return expr
         return ExprStmt(expr)
 
+    def _parse_param_name(self) -> str:
+        """Parse a parameter name, skipping optional @ prefix (pass-by-reference no-op)."""
+        self._match(TokenType.AT)  # skip @ if present
+        return self._expect(TokenType.IDENTIFIER, "Expected parameter name").value
+
     def _parse_function_decl(self) -> FunctionDecl:
         tok = self._advance()  # 'function'
         name_tok = self._expect(TokenType.IDENTIFIER, "Expected function name")
@@ -369,9 +381,9 @@ class Parser:
 
         params = []
         if not self._check(TokenType.RPAREN):
-            params.append(self._expect(TokenType.IDENTIFIER, "Expected parameter name").value)
+            params.append(self._parse_param_name())
             while self._match(TokenType.COMMA):
-                params.append(self._expect(TokenType.IDENTIFIER, "Expected parameter name").value)
+                params.append(self._parse_param_name())
 
         self._expect(TokenType.RPAREN, "Expected ')' after parameters")
         body = self._parse_block()
@@ -384,9 +396,9 @@ class Parser:
 
         params = []
         if not self._check(TokenType.RPAREN):
-            params.append(self._expect(TokenType.IDENTIFIER, "Expected parameter name").value)
+            params.append(self._parse_param_name())
             while self._match(TokenType.COMMA):
-                params.append(self._expect(TokenType.IDENTIFIER, "Expected parameter name").value)
+                params.append(self._parse_param_name())
 
         self._expect(TokenType.RPAREN, "Expected ')' after parameters")
         body = self._parse_block()
@@ -711,6 +723,11 @@ class Parser:
         if tok.type == TokenType.NULL:
             self._advance()
             return NullLit()
+
+        # @ reference operator — no-op in Python (lists/dicts already pass by ref)
+        if tok.type == TokenType.AT:
+            self._advance()
+            return self._parse_primary()
 
         # Anonymous function: function(params) { body }
         if tok.type == TokenType.FUNCTION:

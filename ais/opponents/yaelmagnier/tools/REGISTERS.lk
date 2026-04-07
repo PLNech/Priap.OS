@@ -1,0 +1,3 @@
+// REGISTERS.lk — stub for missing file (not in original repo)
+// yaelMagnier's INCLUDER references this but it wasn't included in the GitHub repo.
+// The SETTER.lk file likely handles all registration via getGameItems() iteration.
