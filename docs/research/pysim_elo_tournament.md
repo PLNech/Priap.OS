@@ -1,71 +1,68 @@
 # PySim ELO Tournament Results
 
 **Date**: 2026-04-07 (S42)
-**Participants**: 9
-**Fights per matchup**: 100 (50/side)
-**Total fights**: 3600
+**Participants**: 18
+**Fights per matchup**: 40 (20/side)
+**Total fights**: 6120
 
 ## ELO Rankings
 
 | Rank | AI | ELO | WR% | W | L | D |
 |------|-----|-----|-----|---|---|---|
-| 1 | pbondoer | 2057 | 85.2 | 682 | 106 | 12 |
-| 2 | v14 | 1924 | 86.0 | 688 | 2 | 110 |
-| 3 | arch_rusher | 1468 | 15.5 | 124 | 157 | 519 |
-| 4 | arch_tank | 1468 | 30.8 | 246 | 302 | 252 |
-| 5 | arch_burst | 1423 | 6.0 | 48 | 212 | 540 |
-| 6 | shup1_pata | 1348 | 0.0 | 0 | 398 | 402 |
-| 7 | arch_kiter | 1301 | 18.1 | 145 | 407 | 248 |
-| 8 | shup1_main | 1283 | 0.0 | 0 | 396 | 404 |
-| 9 | arch_balanced | 1229 | 41.5 | 332 | 285 | 183 |
+| 1 | pbondoer | 2153 | 86.0 | 585 | 89 | 6 |
+| 2 | ck_magnum1 | 2080 | 77.6 | 528 | 146 | 6 |
+| 3 | ck_flamethrower | 2048 | 79.9 | 543 | 131 | 6 |
+| 4 | v14 | 1887 | 90.7 | 617 | 3 | 60 |
+| 5 | ck_magnum12 | 1845 | 80.0 | 544 | 123 | 13 |
+| 6 | ck_pistol_sg | 1698 | 53.5 | 364 | 200 | 116 |
+| 7 | ck_pistol1 | 1426 | 55.4 | 377 | 292 | 11 |
+| 8 | ck_magnum_sword | 1384 | 22.1 | 150 | 143 | 387 |
+| 9 | shup1_main | 1374 | 0.0 | 0 | 351 | 329 |
+| 10 | arch_rusher | 1359 | 17.2 | 117 | 200 | 363 |
+| 11 | arch_tank | 1346 | 30.4 | 207 | 314 | 159 |
+| 12 | arch_burst | 1337 | 9.0 | 61 | 216 | 403 |
+| 13 | shup1_pata | 1334 | 0.0 | 0 | 360 | 320 |
+| 14 | arch_balanced | 1222 | 36.8 | 250 | 306 | 124 |
+| 15 | yaelmagnier | 1207 | 0.0 | 0 | 358 | 322 |
+| 16 | arch_kiter | 1204 | 14.0 | 95 | 372 | 213 |
+| 17 | galiroe_main | 1102 | 0.0 | 0 | 361 | 319 |
+| 18 | ck_venom_sg | 994 | 0.0 | 0 | 473 | 207 |
 
 ## Head-to-Head Matrix (wins)
 
-| | v14 | pbondoer | shup1_main | shup1_pata | arch_balanced | arch_burst | arch_kiter | arch_rusher | arch_tank |
-|---|---|---|---|---|---|---|---|---|---|
-| **v14** | - | 98-0-2 | 100-0-0 | 99-1-0 | 100-0-0 | 50-50-0 | 100-0-0 | 42-58-0 | 99-1-0 |
-| **pbondoer** | 2-0-98 | - | 100-0-0 | 100-0-0 | 100-0-0 | 89-9-2 | 98-1-1 | 93-2-5 | 100-0-0 |
-| **shup1_main** | 0-0-100 | 0-0-100 | - | 0-100-0 | 0-4-96 | 0-100-0 | 0-100-0 | 0-87-13 | 0-13-87 |
-| **shup1_pata** | 0-1-99 | 0-0-100 | 0-100-0 | - | 0-2-98 | 0-100-0 | 0-100-0 | 0-84-16 | 0-15-85 |
-| **arch_balanced** | 0-0-100 | 0-0-100 | 96-4-0 | 98-2-0 | - | 7-77-16 | 69-3-28 | 0-97-3 | 62-0-38 |
-| **arch_burst** | 0-50-50 | 2-9-89 | 0-100-0 | 0-100-0 | 16-77-7 | - | 30-4-66 | 0-100-0 | 0-100-0 |
-| **arch_kiter** | 0-0-100 | 1-1-98 | 0-100-0 | 0-100-0 | 28-3-69 | 66-4-30 | - | 22-4-74 | 28-36-36 |
-| **arch_rusher** | 0-58-42 | 5-2-93 | 13-87-0 | 16-84-0 | 3-97-0 | 0-100-0 | 74-4-22 | - | 13-87-0 |
-| **arch_tank** | 0-1-99 | 0-0-100 | 87-13-0 | 85-15-0 | 38-0-62 | 0-100-0 | 36-36-28 | 0-87-13 | - |
+| | v14 | pbondoer | shup1_main | shup1_pata | ck_magnum1 | ck_magnum12 | ck_magnum_sword | ck_pistol1 | ck_pistol_sg | ck_flamethrower | ck_venom_sg | galiroe_main | yaelmagnier | arch_balanced | arch_burst | arch_kiter | arch_rusher | arch_tank |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **v14** | - | 39-0-1 | 40-0-0 | 39-1-0 | 39-0-1 | 39-0-1 | 26-14-0 | 40-0-0 | 40-0-0 | 40-0-0 | 40-0-0 | 40-0-0 | 40-0-0 | 40-0-0 | 19-21-0 | 40-0-0 | 17-23-0 | 39-1-0 |
+| **pbondoer** | 1-0-39 | - | 40-0-0 | 40-0-0 | 32-0-8 | 27-0-13 | 28-2-10 | 40-0-0 | 38-0-2 | 24-0-16 | 40-0-0 | 40-0-0 | 40-0-0 | 40-0-0 | 36-4-0 | 40-0-0 | 39-0-1 | 40-0-0 |
+| **shup1_main** | 0-0-40 | 0-0-40 | - | 0-40-0 | 0-0-40 | 0-0-40 | 0-39-1 | 0-0-40 | 0-0-40 | 0-0-40 | 0-40-0 | 0-40-0 | 0-40-0 | 0-4-36 | 0-40-0 | 0-40-0 | 0-36-4 | 0-10-30 |
+| **shup1_pata** | 0-1-39 | 0-0-40 | 0-40-0 | - | 0-0-40 | 0-0-40 | 0-37-3 | 0-0-40 | 0-0-40 | 0-0-40 | 0-40-0 | 0-40-0 | 0-40-0 | 0-2-38 | 0-40-0 | 0-40-0 | 0-35-5 | 0-5-35 |
+| **ck_magnum1** | 1-0-39 | 8-0-32 | 40-0-0 | 40-0-0 | - | 15-0-25 | 24-4-12 | 35-0-5 | 36-0-4 | 11-0-29 | 40-0-0 | 40-0-0 | 40-0-0 | 40-0-0 | 39-1-0 | 40-0-0 | 39-1-0 | 40-0-0 |
+| **ck_magnum12** | 1-0-39 | 13-0-27 | 40-0-0 | 40-0-0 | 25-0-15 | - | 27-4-9 | 39-0-1 | 36-0-4 | 20-0-20 | 40-0-0 | 40-0-0 | 40-0-0 | 40-0-0 | 31-9-0 | 40-0-0 | 32-0-8 | 40-0-0 |
+| **ck_magnum_sword** | 0-14-26 | 10-2-28 | 1-39-0 | 3-37-0 | 12-4-24 | 9-4-27 | - | 34-3-3 | 0-40-0 | 19-3-18 | 35-5-0 | 4-36-0 | 3-37-0 | 0-40-0 | 0-40-0 | 17-6-17 | 0-40-0 | 3-37-0 |
+| **ck_pistol1** | 0-0-40 | 0-0-40 | 40-0-0 | 40-0-0 | 5-0-35 | 1-0-39 | 3-3-34 | - | 17-0-23 | 8-0-32 | 40-0-0 | 40-0-0 | 40-0-0 | 26-0-14 | 25-4-11 | 35-0-5 | 23-4-13 | 34-0-6 |
+| **ck_pistol_sg** | 0-0-40 | 2-0-38 | 40-0-0 | 40-0-0 | 4-0-36 | 4-0-36 | 0-40-0 | 23-0-17 | - | 8-0-32 | 40-0-0 | 40-0-0 | 40-0-0 | 40-0-0 | 3-37-0 | 39-0-1 | 1-39-0 | 40-0-0 |
+| **ck_flamethrower** | 0-0-40 | 16-0-24 | 40-0-0 | 40-0-0 | 29-0-11 | 20-0-20 | 18-3-19 | 32-0-8 | 32-0-8 | - | 40-0-0 | 40-0-0 | 40-0-0 | 40-0-0 | 37-3-0 | 40-0-0 | 39-0-1 | 40-0-0 |
+| **ck_venom_sg** | 0-0-40 | 0-0-40 | 0-40-0 | 0-40-0 | 0-0-40 | 0-0-40 | 0-5-35 | 0-0-40 | 0-0-40 | 0-0-40 | - | 0-40-0 | 0-40-0 | 0-0-40 | 0-6-34 | 0-26-14 | 0-0-40 | 0-10-30 |
+| **galiroe_main** | 0-0-40 | 0-0-40 | 0-40-0 | 0-40-0 | 0-0-40 | 0-0-40 | 0-36-4 | 0-0-40 | 0-0-40 | 0-0-40 | 0-40-0 | - | 0-40-0 | 0-4-36 | 0-40-0 | 0-40-0 | 0-37-3 | 0-2-38 |
+| **yaelmagnier** | 0-0-40 | 0-0-40 | 0-40-0 | 0-40-0 | 0-0-40 | 0-0-40 | 0-37-3 | 0-0-40 | 0-0-40 | 0-0-40 | 0-40-0 | 0-40-0 | - | 0-3-37 | 0-40-0 | 0-40-0 | 0-36-4 | 0-6-34 |
+| **arch_balanced** | 0-0-40 | 0-0-40 | 36-4-0 | 38-2-0 | 0-0-40 | 0-0-40 | 0-40-0 | 14-0-26 | 0-0-40 | 0-0-40 | 40-0-0 | 36-4-0 | 37-3-0 | - | 3-33-4 | 26-0-14 | 0-38-2 | 20-0-20 |
+| **arch_burst** | 0-21-19 | 0-4-36 | 0-40-0 | 0-40-0 | 0-1-39 | 0-9-31 | 0-40-0 | 11-4-25 | 0-37-3 | 0-3-37 | 34-6-0 | 0-40-0 | 0-40-0 | 4-33-3 | - | 12-5-23 | 0-40-0 | 0-40-0 |
+| **arch_kiter** | 0-0-40 | 0-0-40 | 0-40-0 | 0-40-0 | 0-0-40 | 0-0-40 | 17-6-17 | 5-0-35 | 1-0-39 | 0-0-40 | 14-26-0 | 0-40-0 | 0-40-0 | 14-0-26 | 23-5-12 | - | 10-1-29 | 11-15-14 |
+| **arch_rusher** | 0-23-17 | 1-0-39 | 4-36-0 | 5-35-0 | 0-1-39 | 8-0-32 | 0-40-0 | 13-4-23 | 0-39-1 | 1-0-39 | 40-0-0 | 3-37-0 | 4-36-0 | 2-38-0 | 0-40-0 | 29-1-10 | - | 7-33-0 |
+| **arch_tank** | 0-1-39 | 0-0-40 | 30-10-0 | 35-5-0 | 0-0-40 | 0-0-40 | 0-37-3 | 6-0-34 | 0-0-40 | 0-0-40 | 30-10-0 | 38-2-0 | 34-6-0 | 20-0-20 | 0-40-0 | 14-15-11 | 0-33-7 | - |
+
+## Runtime Errors
+
+### yaelmagnier
+- `AI ERROR: Invalid assignment target: Ternary`
+- `AI ERROR: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'`
+
 
 ## Analysis
 
-### Expected vs Actual Tier Order
-
-| Expected | Actual | ELO | Notes |
-|----------|--------|-----|-------|
-| 1. v14 | **2. v14** | 1924 | Loses ELO to draws (58 draws vs rusher, 50 vs burst) |
-| 2. pbondoer | **1. pbondoer** | 2057 | Consistent winner, fewer draws |
-| 3. shup1_main | **8. shup1_main** | 1283 | 0% WR — spatial queries may be buggy |
-| 4. shup1_pata | **6. shup1_pata** | 1348 | 0% WR — depends on shup1 framework |
-| 5. Archetypes | **3-9** | 1229-1468 | Varied performance, expected |
-
-### Key Findings
-
-**v14 vs pbondoer: v14 wins head-to-head (98-2) but lower ELO.**
-pbondoer beats every archetype 89-100%, while v14 has a massive draw problem: 58 draws vs arch_rusher, 50 draws vs arch_burst. These draws drag v14's ELO down despite dominating h2h.
-
-**The draw problem is real.** v14 draws 110 out of 800 fights (13.75%). This matches our online experience (12% draw rate in S39-S40). The stalemate occurs when v14 shields up against aggressive opponents — both entities survive to turn 64. This is the #1 problem to solve for v15.
-
-**shup1 at 0% WR needs investigation.** shup1 has sophisticated spatial logic (danger maps, getCellsToUseChip positioning) that may not work correctly with our sim. The 100-draw results vs each other suggest they fail to attack. However, the tournament gate (pbondoer vs shup1 = decisive) still passed — pbondoer kills shup1 cleanly.
-
-**Archetype rock-paper-scissors:**
-- arch_rusher > arch_kiter (74-22) — rushers overwhelm kiters before kiting matters
-- arch_kiter > arch_burst (66-30) — kiters avoid burst damage windows
-- arch_tank > arch_rusher (87-13) — tanks survive rushes
-- arch_balanced beats kiter/tank but loses to rusher/burst — jack of all trades
-
-### Simulator Validity
-
-The ELO gradient confirms the simulator produces **meaningful, differentiated outcomes**:
-- Top tier (v14, pbondoer): 1900-2057 ELO, 85%+ WR
-- Mid tier (archetypes): 1229-1468, varied WR
-- Bottom tier (shup1): 1283-1348, 0% WR
-
-The archetype RPS dynamics and v14's stalemate problem match real game patterns.
-**The sim is valid for A/B testing**, though shup1's complete failure warrants follow-up.
+**Expected tier order** (from code analysis):
+1. v14 (multi-weapon, chips, BFS pathfinding, dynamic strategy)
+2. pbondoer (weapon selection + heal + shield logic)
+3. shup1_main (danger map, position optimization)
+4. shup1_pata (delegating to shared framework)
+5. Archetypes (pistol-only, single strategy)

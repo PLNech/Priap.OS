@@ -35,6 +35,8 @@ PARTICIPANTS = [
     ("ck_venom_sg", "ais/opponents/cktang88_venom-shotgun.leek"),
     # galiroe — French modular AIs
     ("galiroe_main", "ais/opponents/galiroe_Main.leek"),
+    # yaelMagnier — DamageMap AI (modular, 13 files)
+    ("yaelmagnier", "ais/opponents/yaelmagnier/main/MAIN.lk"),
     # Archetypes (calibration)
     ("arch_balanced", "ais/archetype_balanced.leek"),
     ("arch_burst", "ais/archetype_burst.leek"),
@@ -43,7 +45,7 @@ PARTICIPANTS = [
     ("arch_tank", "ais/archetype_tank.leek"),
 ]
 
-FIGHTS_PER_SIDE = 30  # 30 per side = 60 per matchup (136 matchups × 60 = 8160 fights)
+FIGHTS_PER_SIDE = 20  # 20 per side = 40 per matchup
 
 
 # ── ELO computation ─────────────────────────────────────────────────
