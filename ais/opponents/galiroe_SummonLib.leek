@@ -1,0 +1,22 @@
+include("ChipLib");
+
+function summonPunyBulbFunc () {
+  var enemy = getNearestEnemy();
+  var me = getLeek();
+  var isHurt = getLife() < getTotalLife();
+  summon(CHIP_PUNY_BULB, (getCell() - 1), function() {
+
+		// On avance vers l'invocateur
+		moveToward(me);
+
+		if (isHurt) {
+		  tryAndUseChip(CHIP_BANDAGE, me);
+		}
+
+		tryAndUseChip(CHIP_PROTEIN, me);
+
+		tryAndUseChip(CHIP_HELMET, me);
+
+		useMaxChip_(CHIP_PEBBLE,enemy);
+	});
+}

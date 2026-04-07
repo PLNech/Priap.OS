@@ -1,0 +1,37 @@
+include("states_lib");
+include("actions_lib");
+
+var self = getLeek();
+var enemy = getNearestEnemy();
+
+var self_health = getLife() / g_totalLife;
+
+var self_weapon = getWeapon();
+var enemy_weapon = getWeapon(enemy);
+
+var self_pos = getCell();
+var self_pos_x = getCellX(self_pos);
+var self_pos_y = getCellY(self_pos);
+var enemy_pos = getCell(enemy);
+var enemy_pos_x = getCellX(enemy_pos);
+var enemy_pos_y = getCellY(enemy_pos);
+
+var distance = getCellDistance(self_pos, enemy_pos);
+
+var self_isAligned = isAligned(self_pos_x, self_pos_y, enemy_pos_x, enemy_pos_y);
+var self_canShoot = canShoot(self_pos, enemy_pos, distance, self_weapon);
+var self_isHidden = isHidden(self_pos,  enemy_pos,  distance,  enemy_weapon);
+var self_isHealthy = isHealthy(self_health);
+
+equip(WEAPON_PISTOL);
+var willMove = true;
+var willDo = true;
+while (willMove or willDo)
+{
+	willMove = move(self_isHidden, self_canShoot, self_isHealthy, self_isAligned, enemy, distance);
+	attack(distance, self_isAligned, self_isHidden, enemy);
+	heal(self, g_turn, self_isHealthy);
+	willDo = getTP() > 0;
+}
+
+g_turn += 1;

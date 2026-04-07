@@ -1,0 +1,154 @@
+//-----------------------------------------
+//---------- Librairie des armes ----------
+//-----------------------------------------
+
+//Attribution dynamique des armes
+global weaponPrefered;
+global weaponSecondary;
+global weaponTertiary;
+global orderedWeapons;
+if (orderedWeapons == null) {
+	orderedWeapons = awardWeapon();
+	weaponPrefered = orderedWeapons[0];
+	weaponSecondary = orderedWeapons[1];
+	weaponTertiary = orderedWeapons[2];
+}
+
+//Retourne le classement des armes du poireaux, de la plus forte à la moins forte
+function awardWeapon() {
+	var myWeapons = getWeapons();
+	var weaponsData = [];
+
+	//Construction du tableau de comparaison [[arme],[dmg_mini]]
+	for (var i = 0; i < count(myWeapons); i++) {
+		push(weaponsData, [myWeapons[i], getDmg(myWeapons[i])[1]]);
+	}
+	//trie du tableau de l'arme la plus puissante à la moins puissante
+	for (var i = 0; i < count(weaponsData); i++) {
+		if (weaponsData[i][1] < weaponsData[i + 1][1]) {
+			insert(weaponsData, weaponsData[i], i + 2);
+			remove(weaponsData, i);
+		}
+	}
+	//Creation du tableau d'armes a retourer
+	var weaponsRank = [];
+	for (var i = 0; i < count(weaponsData); i++) {
+		push(weaponsRank, weaponsData[i][0]);
+	}
+	return weaponsRank;
+}
+
+//Retourne le nombre de tire maximum possible avec l'arme avec TP-1 si besoin de setWeapon
+function getNbMaxTire(weapon) {
+	var currentTP = (weapon == getWeapon()) ? getTP() : getTP() - 1;
+	var nbTire = floor(currentTP / getWeaponCost(weapon));
+	return nbTire;
+}
+
+//Fonction qui retourne le tableau a deux dimensions des degats min/max/tours d'une arme ou d'une puce. Le degats peuvent etre repartis sur plusieurs effets successifs.
+function getDmg (stuff) {
+	//Attention, une valeur erroné de stuff peu obtenir le meme ID qu'une arme ou une puce
+	var allEffects;
+	var dmg = [];
+	if (isWeapon(stuff)) {
+		allEffects = getWeaponEffects (stuff);
+	}
+	else if (isChip(stuff)){
+		allEffects = getChipEffects (stuff);	
+	}
+	
+	for (var i=0;allEffects [i][0] == EFFECT_DAMAGE;i++){
+		var dmgMinMaxTurns = [allEffects[i][1],allEffects[i][2],allEffects[i][3]];
+		push(dmg, dmgMinMaxTurns);
+	}
+	return dmg;
+}
+
+//Tableau [min,max] des degats reels infligés à la cible par l'arme ou la puce en fonction de la force et des boucliers (relatif et absolu)
+function effectiveDmg(stuff, cible) {
+	var dmgMini = 0;
+	var dmgMaxi = 0;
+	var dmgAverage = 0;
+	var allDmg = getDmg(stuff);
+		
+		//Addition de tout les degats d'une arme/puce
+		for (var i=0;i<count(allDmg);i++) {
+			dmgMini += round((allDmg[i][0] * (1 + getStrength() / 100)) * (1 - getRelativeShield(cible) / 100) - getAbsoluteShield(cible));
+			dmgMaxi += round((allDmg[i][1] * (1 + getStrength() / 100)) * (1 - getRelativeShield(cible) / 100) - getAbsoluteShield(cible));
+		}
+		dmgAverage = (dmgMini+dmgMaxi)/2;
+	return [dmgMini, dmgMaxi, dmgAverage];
+}
+
+//Recherche l'arme avec laquelle achever la cible, equipe et tire (multiples) si possibilité de coup de grace
+function deathBlow(target) {
+	var myWeapons = awardWeapon();
+	var deadTarget = isDead(target);
+	var i = 0;
+	while (!deadTarget and i < count(myWeapons)) {
+		if (getLife(target) <= ((effectiveDmg(myWeapons[i], target)[0]) * getNbMaxTire(myWeapons[i]))) {
+			debugW("COUP DE GRACE possible avec " + getWeaponName(myWeapons[i]) + " avec " + effectiveDmg(myWeapons[i], target)[0] + " * " + getNbMaxTire(myWeapons[i]) + " tires");
+			UseAllWeaponLoop(myWeapons[i], target);
+			if (isDead(target)) {
+				deadTarget = true;
+			}
+		}
+		i++;
+	}
+	return deadTarget;
+}
+
+
+// Code Flo :
+
+
+// Equipe et utilise une arme sur un ennemi
+function setAndUseWeapon_(weapon, enemy, doMax) {
+	if (canUseWeapon(weapon, enemy)) {
+		if (getWeapon() != weapon) {
+			setWeapon(weapon);
+		}// On essaye de lui tirer dessus !
+		useWeapon(enemy);
+		var lastTP = getTP();
+		while (doMax && lastTP >= getWeaponCost()) {
+		  useWeapon(enemy);
+		  if (getTP() == lastTP) {
+		  	break;
+		  }
+		  lastTP = getTP();
+		}
+		return true;
+	}
+}
+
+//retourne le tableau [min,max] des degats de l'arme (lvl 9)
+function getWeaponDmg(arme) {
+	var weaponEffects_ = getWeaponEffects(arme);
+    var weaponMindmg = weaponEffects_[0][1];
+    var weaponMaxDmg = weaponEffects_[0][2];
+    return [weaponMindmg, weaponMaxDmg];
+}
+
+//Retourne le classement des armes du poireaux, de la plus forte à la moins forte
+function getWeaponsOrderByDmgMin() {
+    var myWeapons = getWeapons();
+    var weaponsData = [];
+
+    //Construction du tableau de comparaison [[arme],[dmg_mini]]
+    for (var i = 0; i < count(myWeapons); i++) {
+        push(weaponsData, [myWeapons[i], getWeaponDmg(myWeapons[i])[0]]);
+    }
+    //tri du tableau de l'arme la plus puissante à la moins puissante
+    for (var i = 0; i < count(weaponsData); i++) {
+        if (weaponsData[i][1] < weaponsData[i + 1][1]) {
+            insert(weaponsData, weaponsData[i], i + 2);
+            remove(weaponsData, i);
+        }
+    }
+    //Creation du tableau d'armes a retourner
+    var weaponsRank = [];
+    for (var i = 0; i < count(weaponsData); i++) {
+        push(weaponsRank, weaponsData[i][0]);
+    }
+    return weaponsRank;
+}

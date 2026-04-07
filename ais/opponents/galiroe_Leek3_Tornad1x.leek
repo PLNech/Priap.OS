@@ -1,0 +1,45 @@
+include("Main");
+
+// Leek 3 - lvl 24
+
+if (getTurn() % 4 === 1) {
+//  tryAndUseChip(CHIP_FORTRESS, me);
+  tryAndUseChip(CHIP_HELMET, me);
+}
+if (getTurn() % 4 === 2) {
+    tryAndUseChip(CHIP_SHIELD, me);
+}
+if (getTurn() % 4 === 3) {
+    tryAndUseChip(CHIP_WALL, me);
+}
+
+// On prend le pistolet
+if (getWeapon() == null)
+setWeapon(WEAPON_DOUBLE_GUN); // Attention : coûte 1 PT
+
+// On avance vers l'ennemi
+moveToward(enemy);
+
+if (!setAndUseWeapon_(WEAPON_SHOTGUN, enemy, true)){
+	setAndUseWeapon_(WEAPON_DOUBLE_GUN, enemy, true);
+}
+
+
+if (getTurn() >= 2) {
+  //tryAndUseChip(CHIP_ARMOR, me);
+ // tryAndUseChip(CHIP_RAMPART, me);
+  if (getTurn() >= 3) {
+    tryAndUseChip(CHIP_SHIELD, me);
+    tryAndUseChip(CHIP_WALL, me);
+  }
+  tryAndUseChip(CHIP_HELMET, me);
+}
+
+if (isHurt) {
+  tryAndUseChip(CHIP_CURE, me);
+  tryAndUseChip(CHIP_BANDAGE, me);
+}
+
+useMaxChip_(CHIP_ROCK, enemy);
+//useMaxChip_(CHIP_ICE, enemy);
+useMaxChip_(CHIP_SPARK,enemy);

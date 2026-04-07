@@ -12,7 +12,7 @@ from typing import Any, Callable
 
 from .leekscript.lexer import tokenize
 from .leekscript.parser import Parser, Program
-from .leekscript.interpreter import Interpreter
+from .leekscript.interpreter import Interpreter, OpsLimitExceeded, MAX_OPS
 from .grid import Grid
 from .entity import Entity, ActiveEffect
 from .effects import (
@@ -35,6 +35,64 @@ CELL_OBSTACLE = -2
 
 SET_WEAPON_COST = 1
 MAX_TURNS = 64
+
+
+def _safe_int(val, default=0):
+    """Convert value to int, handling None and non-numeric gracefully."""
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return default
+
+
+# Operations costs per API function (from FightFunctions.java)
+# Maps function name → ops cost. Unlisted functions default to 15.
+API_OPS_COSTS: dict[str, int] = {
+    # Cheap queries (5)
+    "getCell": 5, "getEntity": 5, "getLeek": 5, "getCellX": 5, "getCellY": 5,
+    "getCellFromXY": 5, "getMapType": 5, "getFightID": 5, "getSide": 5,
+    # Standard queries (10-15)
+    "getLife": 15, "getTotalLife": 15, "getTP": 15, "getMP": 15,
+    "getStrength": 15, "getAgility": 15, "getResistance": 15,
+    "getWisdom": 15, "getMagic": 15, "getFrequency": 15, "getLevel": 15,
+    "getName": 15, "getWeapon": 15, "getCellDistance": 15, "getDistance": 15,
+    "getFarmerID": 15, "getFarmerName": 15, "getType": 15, "getWeaponCost": 15,
+    "getWeaponMinRange": 15, "getWeaponMaxRange": 15, "getWeaponName": 15,
+    "getWeaponLaunchType": 15, "getChipName": 15, "getChipCost": 15,
+    "getChipMinRange": 15, "getChipMaxRange": 15, "getChipCooldown": 15,
+    "getChipLaunchType": 15, "isWeapon": 15, "isObstacle": 10,
+    "isEmptyCell": 10, "isOnSameLine": 15, "isInlineWeapon": 10,
+    "weaponNeedLos": 10, "chipNeedLos": 10, "isSummon": 10,
+    "isDead": 15, "isAlive": 15, "isLeek": 10, "isEntity": 10,
+    "getLeekOnCell": 15, "getEntityOnCell": 15, "getCellContent": 6,
+    "getTurn": 15, "getOperations": 5,
+    # Medium queries (25-50)
+    "getNearestEnemy": 25, "getAliveEnemiesCount": 25, "getAliveAlliesCount": 25,
+    "getCooldown": 30, "getEffects": 25, "getEntityTurnOrder": 30,
+    "lineOfSight": 31, "say": 30,
+    # Expensive queries (40-125)
+    "getWeapons": 50, "getChips": 40, "getWeaponEffects": 125,
+    "getChipEffects": 125, "canUseWeapon": 45, "canUseWeaponOnCell": 45,
+    "canUseChip": 45, "canUseChipOnCell": 45, "getWeaponTargets": 40,
+    "getChipTargets": 40,
+    "getEnemies": 100, "getAllies": 100, "getAliveEnemies": 100,
+    "getAliveAllies": 100,
+    # Movement (500 each)
+    "moveToward": 500, "moveTowardCell": 500, "moveAwayFrom": 500,
+    "moveAwayFromCell": 500, "moveTowardLine": 500,
+    # Combat (3000 each)
+    "useWeapon": 3000, "useChip": 3000,
+    # Spatial queries (very expensive)
+    "getCellsToUseWeapon": 25834, "getCellsToUseWeaponOnCell": 25834,
+    "getCellsToUseChip": 25834, "getCellsToUseChipOnCell": 25834,
+    "getCellToUseWeapon": 38080, "getCellToUseChip": 38080,
+    # Mark/visual (164)
+    "mark": 164, "markText": 164,
+    # getPathLength: base 100, plus distance²×20 (charged dynamically)
+    "getPathLength": 100, "getPath": 100,
+}
 
 
 class FightEngine:
@@ -102,66 +160,62 @@ class FightEngine:
         def getLife(target=None):
             if target is None:
                 return me.life
-            t = engine.entities.get(target if isinstance(target, int) else int(target))
+            t = engine.entities.get(_safe_int(target))
             return t.life if t else 0
 
         def getTotalLife(target=None):
             if target is None:
                 return me.max_life
-            t = engine.entities.get(target if isinstance(target, int) else int(target))
+            t = engine.entities.get(_safe_int(target))
             return t.max_life if t else 0
 
         def getTP(target=None):
             if target is None:
                 return me.tp
-            t = engine.entities.get(target if isinstance(target, int) else int(target))
+            t = engine.entities.get(_safe_int(target))
             return t.tp if t else 0
 
         def getMP(target=None):
             if target is None:
                 return me.mp
-            t = engine.entities.get(target if isinstance(target, int) else int(target))
+            t = engine.entities.get(_safe_int(target))
             return t.mp if t else 0
 
         def getCell(target=None):
             if target is None:
                 return me.cell
-            t = engine.entities.get(target if isinstance(target, int) else int(target))
+            t = engine.entities.get(_safe_int(target))
             return t.cell if t else -1
 
         def getCellDistance(c1, c2):
             if c1 is None or c2 is None:
                 return 999
-            return engine.grid.distance(int(c1), int(c2))
+            return engine.grid.distance(_safe_int(c1), _safe_int(c2))
 
         def getEntity():
             return me.id
 
-        def getStrength():
-            return me.strength
+        def _stat_getter(attr):
+            """Factory for stat getters with optional target param."""
+            def getter(target=None):
+                if target is None:
+                    return getattr(me, attr)
+                t = engine.entities.get(target if isinstance(target, int) else _safe_int(target))
+                return getattr(t, attr, 0) if t else 0
+            return getter
 
-        def getAgility():
-            return me.agility
-
-        def getResistance():
-            return me.resistance
-
-        def getWisdom():
-            return me.wisdom
-
-        def getMagic():
-            return me.magic
-
-        def getFrequency():
-            return me.frequency
-
-        def getLevel():
-            return me.level
+        getStrength = _stat_getter("strength")
+        getAgility = _stat_getter("agility")
+        getResistance = _stat_getter("resistance")
+        getWisdom = _stat_getter("wisdom")
+        getMagic = _stat_getter("magic")
+        getFrequency = _stat_getter("frequency")
+        getLevel = _stat_getter("level")
 
         def getName(target=None):
             if target is None:
                 return me.name
-            t = engine.entities.get(target if isinstance(target, int) else int(target))
+            t = engine.entities.get(target if isinstance(target, int) else _safe_int(target))
             return t.name if t else ""
 
         def getOperations():
@@ -188,13 +242,13 @@ class FightEngine:
         def isSummon(target=None):
             if target is None:
                 return me.is_summon
-            t = engine.entities.get(target if isinstance(target, int) else int(target))
+            t = engine.entities.get(target if isinstance(target, int) else _safe_int(target))
             return t.is_summon if t else False
 
         def isDead(target=None):
             if target is None:
                 return me.dead
-            t = engine.entities.get(target if isinstance(target, int) else int(target))
+            t = engine.entities.get(target if isinstance(target, int) else _safe_int(target))
             return t.dead if t else True
 
         def isAlive(target=None):
@@ -207,7 +261,7 @@ class FightEngine:
                 if me.current_weapon is None:
                     return None
                 return me.current_weapon["id"]
-            t = engine.entities.get(target if isinstance(target, int) else int(target))
+            t = engine.entities.get(target if isinstance(target, int) else _safe_int(target))
             if t is None or t.current_weapon is None:
                 return None
             return t.current_weapon["id"]
@@ -238,7 +292,7 @@ class FightEngine:
         def _find_weapon(w_id=None):
             if w_id is None:
                 return me.current_weapon
-            w_id = int(w_id)
+            w_id = _safe_int(w_id)
             for w in me.weapons:
                 # LS constants use template IDs; also match on id for compat
                 if w["template"] == w_id or w["id"] == w_id:
@@ -251,7 +305,7 @@ class FightEngine:
             return [c["id"] for c in me.chips]
 
         def getChipName(chip_id):
-            chip_id = int(chip_id)
+            chip_id = _safe_int(chip_id)
             for c in me.chips:
                 if c["id"] == chip_id:
                     return c["name"]
@@ -262,7 +316,7 @@ class FightEngine:
             return c["cost"] if c else 0
 
         def getCooldown(chip_id):
-            chip_id = int(chip_id)
+            chip_id = _safe_int(chip_id)
             return me.cooldowns.get(chip_id, 0)
 
         def getChipMinRange(chip_id):
@@ -283,7 +337,7 @@ class FightEngine:
         def _find_chip(chip_id):
             if chip_id is None:
                 return None
-            chip_id = int(chip_id)
+            chip_id = _safe_int(chip_id)
             for c in me.chips:
                 # LS constants use template IDs; also match on id for compat
                 if c["template"] == chip_id or c["id"] == chip_id:
@@ -293,7 +347,7 @@ class FightEngine:
         # ── Map queries ─────────────────────────────────────────────
 
         def isEmptyCell(cell):
-            cell = int(cell)
+            cell = _safe_int(cell)
             if cell < 0 or cell >= Grid.CELLS:
                 return False
             if cell in engine.grid.obstacles:
@@ -305,7 +359,7 @@ class FightEngine:
             return True
 
         def getCellContent(cell):
-            cell = int(cell)
+            cell = _safe_int(cell)
             if cell < 0 or cell >= Grid.CELLS:
                 return CELL_OBSTACLE
             if cell in engine.grid.obstacles:
@@ -320,7 +374,7 @@ class FightEngine:
                 # lineOfSight(target) — from my cell
                 c2 = c1
                 c1 = me.cell
-            c1, c2 = int(c1), int(c2)
+            c1, c2 = _safe_int(c1), _safe_int(c2)
             blocking = engine._entity_cells(exclude=me.id)
             # Don't block on start/end cells
             blocking.discard(c1)
@@ -330,7 +384,7 @@ class FightEngine:
         # ── Actions ─────────────────────────────────────────────────
 
         def setWeapon(w_id):
-            w_id = int(w_id)
+            w_id = _safe_int(w_id)
             w = _find_weapon(w_id)
             if w is None:
                 return USE_FAILED
@@ -342,7 +396,7 @@ class FightEngine:
             return USE_SUCCESS
 
         def useWeapon(target_id):
-            target_id = int(target_id)
+            target_id = _safe_int(target_id)
             target = engine.entities.get(target_id)
             if target is None or target.dead:
                 return USE_INVALID_TARGET
@@ -374,8 +428,8 @@ class FightEngine:
             return USE_SUCCESS
 
         def useChip(chip_id, target_id):
-            chip_id = int(chip_id)
-            target_id = int(target_id)
+            chip_id = _safe_int(chip_id)
+            target_id = _safe_int(target_id)
             target = engine.entities.get(target_id)
             if target is None or target.dead:
                 return USE_INVALID_TARGET
@@ -421,12 +475,15 @@ class FightEngine:
 
         def moveToward(target, steps=None):
             """Move toward entity or cell. 1 MP per cell."""
-            if isinstance(target, int) and target in engine.entities:
+            if target is None:
+                return 0
+            target = _safe_int(target)
+            if target in engine.entities:
                 target_cell = engine.entities[target].cell
             else:
-                target_cell = int(target)
+                target_cell = target
 
-            max_steps = me.mp if steps is None else min(int(steps), me.mp)
+            max_steps = me.mp if steps is None else min(_safe_int(steps), me.mp)
             if max_steps <= 0:
                 return 0
 
@@ -441,8 +498,10 @@ class FightEngine:
             return len(path)
 
         def moveTowardCell(cell, steps=None):
-            cell = int(cell)
-            max_steps = me.mp if steps is None else min(int(steps), me.mp)
+            if cell is None:
+                return 0
+            cell = _safe_int(cell)
+            max_steps = me.mp if steps is None else min(_safe_int(steps), me.mp)
             if max_steps <= 0:
                 return 0
 
@@ -457,12 +516,15 @@ class FightEngine:
             return len(path)
 
         def moveAwayFrom(target, steps=None):
-            if isinstance(target, int) and target in engine.entities:
+            if target is None:
+                return 0
+            target = _safe_int(target)
+            if target in engine.entities:
                 target_cell = engine.entities[target].cell
             else:
-                target_cell = int(target)
+                target_cell = target
 
-            max_steps = me.mp if steps is None else min(int(steps), me.mp)
+            max_steps = me.mp if steps is None else min(_safe_int(steps), me.mp)
             if max_steps <= 0:
                 return 0
 
@@ -477,7 +539,9 @@ class FightEngine:
             return len(path)
 
         def moveAwayFromCell(cell, steps=None):
-            return moveAwayFrom(int(cell), steps)
+            if cell is None:
+                return 0
+            return moveAwayFrom(_safe_int(cell), steps)
 
         def say(msg):
             engine._emit(203, me.id, str(msg))
@@ -501,7 +565,7 @@ class FightEngine:
         def getType(target=None):
             if target is None:
                 return 2 if me.is_summon else 1  # ENTITY_LEEK=1, ENTITY_BULB=2
-            t = engine.entities.get(target if isinstance(target, int) else int(target))
+            t = engine.entities.get(target if isinstance(target, int) else _safe_int(target))
             if t is None:
                 return 0
             return 2 if t.is_summon else 1
@@ -523,32 +587,32 @@ class FightEngine:
         # ── Grid coordinate helpers ─────────────────────────────────
 
         def getCellX(cell):
-            cell = int(cell)
+            cell = _safe_int(cell)
             if cell < 0 or cell >= engine.grid.nb_cells:
                 return None
             # Java: cell.getX() - map.getWidth() + 1
             return engine.grid._x[cell] - engine.grid.width + 1
 
         def getCellY(cell):
-            cell = int(cell)
+            cell = _safe_int(cell)
             if cell < 0 or cell >= engine.grid.nb_cells:
                 return None
             return engine.grid._y[cell]
 
         def getCellFromXY(x, y):
             # Java: getCell(x + width - 1, y) — converts user coords to internal
-            x_internal = int(x) + engine.grid.width - 1
-            cell = engine.grid._xy_to_cell(x_internal, int(y))
+            x_internal = _safe_int(x) + engine.grid.width - 1
+            cell = engine.grid._xy_to_cell(x_internal, _safe_int(y))
             return cell  # None if invalid
 
         def isObstacle(cell):
-            cell = int(cell)
+            cell = _safe_int(cell)
             if cell < 0 or cell >= engine.grid.nb_cells:
                 return True
             return cell in engine.grid.obstacles
 
         def isOnSameLine(c1, c2):
-            return engine.grid.is_on_same_line(int(c1), int(c2))
+            return engine.grid.is_on_same_line(_safe_int(c1), _safe_int(c2))
 
         # ── Weapon introspection ────────────────────────────────────
 
@@ -572,7 +636,7 @@ class FightEngine:
             """Check if a template ID belongs to a weapon (not a chip)."""
             if tool_id is None:
                 return False
-            tool_id = int(tool_id)
+            tool_id = _safe_int(tool_id)
             return WEAPON_REGISTRY.by_template(tool_id) is not None
 
         def getWeaponLaunchType(w_id=None):
@@ -605,11 +669,11 @@ class FightEngine:
         def canUseWeapon(value1, value2=None):
             """canUseWeapon(target) or canUseWeapon(weapon, target)."""
             if value2 is None:
-                target_id = int(value1)
+                target_id = _safe_int(value1)
                 weapon = me.current_weapon
             else:
-                weapon = _find_weapon(int(value1))
-                target_id = int(value2)
+                weapon = _find_weapon(_safe_int(value1))
+                target_id = _safe_int(value2)
             if weapon is None:
                 return False
             target = engine.entities.get(target_id)
@@ -626,11 +690,11 @@ class FightEngine:
         def canUseWeaponOnCell(value1, value2=None):
             """canUseWeaponOnCell(cell) or canUseWeaponOnCell(weapon, cell)."""
             if value2 is None:
-                target_cell = int(value1)
+                target_cell = _safe_int(value1)
                 weapon = me.current_weapon
             else:
-                weapon = _find_weapon(int(value1))
-                target_cell = int(value2)
+                weapon = _find_weapon(_safe_int(value1))
+                target_cell = _safe_int(value2)
             if weapon is None:
                 return False
             if target_cell < 0 or target_cell >= engine.grid.nb_cells:
@@ -645,9 +709,9 @@ class FightEngine:
 
         def canUseChip(chip_id, target_id):
             c = _find_chip(chip_id)
-            if c is None:
+            if c is None or target_id is None:
                 return False
-            target = engine.entities.get(int(target_id))
+            target = engine.entities.get(_safe_int(target_id))
             if target is None or target.dead:
                 return False
             blocking = engine._entity_cells(exclude=me.id) - {target.cell}
@@ -662,7 +726,7 @@ class FightEngine:
             c = _find_chip(chip_id)
             if c is None:
                 return False
-            cell = int(cell)
+            cell = _safe_int(cell)
             if cell < 0 or cell >= engine.grid.nb_cells:
                 return False
             blocking = engine._entity_cells(exclude=me.id) - {cell}
@@ -678,11 +742,11 @@ class FightEngine:
         def getCellsToUseWeapon(value1, value2=None, value3=None):
             """getCellsToUseWeapon(target) or getCellsToUseWeapon(weapon, target)."""
             if value2 is None:
-                target_id = int(value1)
+                target_id = _safe_int(value1)
                 weapon = me.current_weapon
             else:
-                weapon = _find_weapon(int(value1))
-                target_id = int(value2)
+                weapon = _find_weapon(_safe_int(value1))
+                target_id = _safe_int(value2)
             if weapon is None:
                 return None
             target = engine.entities.get(target_id)
@@ -691,7 +755,7 @@ class FightEngine:
 
             ignore = {me.cell}
             if isinstance(value3, list):
-                ignore = set(int(c) for c in value3)
+                ignore = set(_safe_int(c) for c in value3)
 
             blocking = engine._entity_cells(exclude=me.id) - {target.cell}
             return engine.grid.get_possible_cast_cells(
@@ -703,11 +767,11 @@ class FightEngine:
 
         def getCellsToUseWeaponOnCell(value1, value2=None, value3=None):
             if value2 is None:
-                target_cell = int(value1)
+                target_cell = _safe_int(value1)
                 weapon = me.current_weapon
             else:
-                weapon = _find_weapon(int(value1))
-                target_cell = int(value2)
+                weapon = _find_weapon(_safe_int(value1))
+                target_cell = _safe_int(value2)
             if weapon is None:
                 return None
             if target_cell < 0 or target_cell >= engine.grid.nb_cells:
@@ -715,7 +779,7 @@ class FightEngine:
 
             ignore = {me.cell}
             if isinstance(value3, list):
-                ignore = set(int(c) for c in value3)
+                ignore = set(_safe_int(c) for c in value3)
 
             blocking = engine._entity_cells(exclude=me.id)
             return engine.grid.get_possible_cast_cells(
@@ -729,13 +793,13 @@ class FightEngine:
             c = _find_chip(chip_id)
             if c is None:
                 return None
-            target = engine.entities.get(int(target_id))
+            target = engine.entities.get(_safe_int(target_id))
             if target is None or target.dead:
                 return None
 
             ignore = {me.cell}
             if isinstance(value3, list):
-                ignore = set(int(v) for v in value3)
+                ignore = set(_safe_int(v) for v in value3)
 
             blocking = engine._entity_cells(exclude=me.id) - {target.cell}
             return engine.grid.get_possible_cast_cells(
@@ -749,13 +813,13 @@ class FightEngine:
             c = _find_chip(chip_id)
             if c is None:
                 return None
-            cell = int(cell)
+            cell = _safe_int(cell)
             if cell < 0 or cell >= engine.grid.nb_cells:
                 return None
 
             ignore = {me.cell}
             if isinstance(value3, list):
-                ignore = set(int(v) for v in value3)
+                ignore = set(_safe_int(v) for v in value3)
 
             blocking = engine._entity_cells(exclude=me.id)
             return engine.grid.get_possible_cast_cells(
@@ -768,13 +832,13 @@ class FightEngine:
         # ── Pathfinding queries ─────────────────────────────────────
 
         def getPathLength(c1, c2, leeks_to_ignore=None):
-            c1, c2 = int(c1), int(c2)
+            c1, c2 = _safe_int(c1), _safe_int(c2)
             if c1 == c2:
                 return 0
             ignore: set[int] = set()
             if isinstance(leeks_to_ignore, list):
                 for lid in leeks_to_ignore:
-                    e = engine.entities.get(int(lid))
+                    e = engine.entities.get(_safe_int(lid))
                     if e and not e.dead:
                         ignore.add(e.cell)
             blocked = engine._entity_cells(exclude=me.id) - ignore
@@ -784,13 +848,13 @@ class FightEngine:
             return len(path)
 
         def getPath(c1, c2, leeks_to_ignore=None):
-            c1, c2 = int(c1), int(c2)
+            c1, c2 = _safe_int(c1), _safe_int(c2)
             if c1 == c2:
                 return []
             ignore: set[int] = set()
             if isinstance(leeks_to_ignore, list):
                 for lid in leeks_to_ignore:
-                    e = engine.entities.get(int(lid))
+                    e = engine.entities.get(_safe_int(lid))
                     if e and not e.dead:
                         ignore.add(e.cell)
             blocked = engine._entity_cells(exclude=me.id) - ignore
@@ -806,8 +870,8 @@ class FightEngine:
         # ── Movement ────────────────────────────────────────────────
 
         def moveTowardLine(cell1, cell2, steps=None):
-            cell1, cell2 = int(cell1), int(cell2)
-            max_steps = me.mp if steps is None or int(steps) == -1 else min(int(steps), me.mp)
+            cell1, cell2 = _safe_int(cell1), _safe_int(cell2)
+            max_steps = me.mp if steps is None or _safe_int(steps) == -1 else min(_safe_int(steps), me.mp)
             if max_steps <= 0:
                 return 0
 
@@ -835,7 +899,7 @@ class FightEngine:
             """Return active effects as array of [type, value, remaining_turns, caster, target]."""
             ent = me
             if target is not None:
-                ent = engine.entities.get(int(target))
+                ent = engine.entities.get(_safe_int(target))
                 if ent is None:
                     return []
             result = []
@@ -854,7 +918,7 @@ class FightEngine:
         # ── Cell content queries ────────────────────────────────────
 
         def getLeekOnCell(cell):
-            cell = int(cell)
+            cell = _safe_int(cell)
             for e in engine.entities.values():
                 if not e.dead and e.cell == cell:
                     return e.id
@@ -864,7 +928,7 @@ class FightEngine:
             return getLeekOnCell(cell)
 
         def isLeek(cell):
-            return getLeekOnCell(int(cell)) != -1
+            return getLeekOnCell(_safe_int(cell)) != -1
 
         def isEntity(cell):
             return isLeek(cell)
@@ -877,7 +941,7 @@ class FightEngine:
                 if me.current_weapon is None:
                     return None
                 return me.current_weapon.get("template", me.current_weapon.get("id"))
-            t = engine.entities.get(int(target_id))
+            t = engine.entities.get(_safe_int(target_id))
             if t is None or t.current_weapon is None:
                 return None
             return t.current_weapon.get("template", t.current_weapon.get("id"))
@@ -886,8 +950,8 @@ class FightEngine:
 
         def getColor(r, g, b=None):
             if b is None:
-                return int(r)  # single-arg form: getColor(rgb_int)
-            return (int(r) << 16) | (int(g) << 8) | int(b)
+                return _safe_int(r)  # single-arg form: getColor(rgb_int)
+            return (_safe_int(r) << 16) | (_safe_int(g) << 8) | _safe_int(b)
 
         def mark(cell, color=None):
             return None  # visual only
@@ -1078,7 +1142,26 @@ class FightEngine:
         }
         # Inject chip/weapon template constants (CHIP_SPARK, WEAPON_PISTOL, etc.)
         api.update(self._get_equipment_constants())
-        return api
+
+        # Wrap callable API functions with ops charging
+        interp_ref = engine.interpreters  # will be populated by load_ai
+        def _make_ops_wrapper(name, fn, eid=entity_id):
+            cost = API_OPS_COSTS.get(name, 15)
+            def wrapper(*args, **kwargs):
+                interp = interp_ref.get(eid)
+                if interp:
+                    interp.charge_ops(cost)
+                return fn(*args, **kwargs)
+            return wrapper
+
+        wrapped_api = {}
+        for name, val in api.items():
+            if callable(val):
+                wrapped_api[name] = _make_ops_wrapper(name, val)
+            else:
+                wrapped_api[name] = val  # constants pass through
+
+        return wrapped_api
 
     _equipment_constants_cache: dict[str, int] | None = None
 
@@ -1201,6 +1284,11 @@ class FightEngine:
                     if interp and program:
                         try:
                             interp.run(program)
+                        except OpsLimitExceeded:
+                            # Operations limit reached — turn ends (normal game behavior)
+                            self.debug_logs[eid].append(
+                                f"[ops] Turn ended: {interp.ops:,} ops (limit {MAX_OPS:,})"
+                            )
                         except Exception as exc:
                             # AI crashed — log and continue
                             self.debug_logs[eid].append(f"AI ERROR: {exc}")

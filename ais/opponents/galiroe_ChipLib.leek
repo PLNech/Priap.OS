@@ -1,0 +1,48 @@
+//-----------------------------------------
+//---------- Librairie des puces ----------
+//-----------------------------------------
+
+//Cherche si la puce est équipé sur le poireaux puis la lance en boucle sur la cible
+function UseChipLoop(chip, target) {
+	var myChips = getChips();
+
+	if (search(myChips, chip) != null) {
+		var pt_chip = getChipCost(chip);
+		for (var i = getTP(); i >= pt_chip; i -= pt_chip) {
+			if (isAlive(target)) {
+				useChip(chip, target);
+			} else if (getNearestEnemy() != -1) {
+				useChip(chip, getNearestEnemy());
+			}
+		}
+	} else {
+		debugW("La puce " + getChipName(chip) + " n'est pas équipée sur le poireau " + getName());
+	}
+}
+
+// ICI Flo 
+
+// Utilise un sort si possible un max defois
+function useMaxChip_(chip, enemy) {
+	if (!canUseChip(chip, enemy)) {
+		return false;
+	}
+	var lastTP = getTP();
+	while (lastTP >= getChipCost(chip)) {
+		useChip(chip, enemy);
+		if (lastTP == getTP()) {
+			break;
+		}
+		lastTP = getTP();
+	}
+	return true;
+}
+
+// Utilise un sort une fois si possible
+function tryAndUseChip(chip, leek) {
+	if (canUseChip(chip, leek)) {
+		useChip(chip,leek);
+		return true;
+	}
+	return false;
+}

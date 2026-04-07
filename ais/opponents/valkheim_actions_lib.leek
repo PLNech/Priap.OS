@@ -1,0 +1,74 @@
+include("states_lib");
+
+function equip(weapon)
+{
+	debug("equip " + weapon);
+	if (getWeapon() != weapon)
+		setWeapon(weapon);
+}
+
+function _attack(enemy, weapon)
+{
+	equip(weapon);
+	return useWeapon(enemy);
+}
+
+function attack(distance, self_isAligned, self_isHidden, enemy)
+{
+	debug("attack: distance " + distance + ", self_isAligned " + self_isAligned);
+	if (distance >= 9 and distance <= 10)
+		useChip(CHIP_SPARK, enemy);
+
+	if (distance > 7 and self_isAligned)
+		useChip(CHIP_FLASH, enemy);
+
+	if (distance >= 7 and distance <= 8 and not self_isAligned)
+		useChip(CHIP_ICE, enemy);
+
+	if (distance == 6 and not self_isAligned)
+		useChip(CHIP_ROCK, enemy);
+
+	if (self_isAligned and distance <= 6)
+		_attack(enemy, WEAPON_MACHINE_GUN);
+	else
+		_attack(enemy, WEAPON_PISTOL);
+}
+
+function heal(self, turn, self_isHealthy)
+{
+	debug("heal" + turn);
+	if (turn === 1)
+		useChip(CHIP_HELMET, self);
+
+	if (self_isHealthy)
+		return;
+		
+	if (turn % 3 === 0)
+		useChip(CHIP_HELMET, self);
+
+	useChip(CHIP_CURE, self);
+	return useChip(CHIP_BANDAGE, self);
+}
+
+function move(self_isHidden, self_canShoot, self_isHealthy, self_isAligned, enemy, distance)
+{
+	debug("move");
+	if (not self_isHealthy)
+		moveAwayFrom(enemy);
+
+	if (self_isHidden and self_canShoot)
+	{
+		debug("stay hidden");
+		return false;
+	}
+	
+	// move away if too close and opponent has katana
+	
+	if (not self_canShoot and self_isHealthy)
+	{
+		debug("move toward enemy");
+		moveToward(enemy);
+	}
+	
+	return getMP() > 0;
+}

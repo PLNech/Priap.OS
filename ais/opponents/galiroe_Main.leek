@@ -1,0 +1,16 @@
+//--------------------------------
+//------- Code de base -----------
+//--------------------------------
+
+// MAJ Flo
+
+include("WeaponLib");
+include("ChipLib");
+include("MoveLib");
+include("SummonLib");
+
+// On récupère l'ennemi le plus proche
+var enemy = getNearestEnemy();
+var me = getLeek();
+
+var isHurt = getLife() < getTotalLife();

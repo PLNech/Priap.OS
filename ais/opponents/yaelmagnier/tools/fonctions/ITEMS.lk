@@ -1,0 +1,180 @@
+include('../../main/INCLUDER') ;
+
+//--------------------------------
+//----------- ITEMS --------------
+//--------------------------------
+
+// Recuperer tous les items de la partie
+function getGameItems(){
+	
+	var items = [] ;
+	
+	// Parcourir tous les poireaux
+	for(var leek in getLeeks()){
+		
+		// Parcourir tous les items des poireaux
+		for(var item in getWeapons(leek) + getChips(leek)){
+			
+			// Si il n'est pas encore dans la liste
+			if(!inArray(items, item)){
+			
+				// Ajouter l'item dans la liste
+				push(items, item) ;
+				
+				// Si l'item est un bulb
+				if(inArray(__BULBS, item)){
+
+					// Ajouter tous les items de ce bulb
+					pushAll(items, __BULBS_ITEMS[item]) ;
+
+				}
+			} 
+			
+		}
+		
+	}
+	
+	return items ;
+	
+}
+
+// Renvoie la portée maximale de l'item
+function getItemMaxRange(item){
+	return _ITEMS[item] === 1 ? getWeaponMaxRange(item) : getChipMaxRange(item);
+}
+
+// Renvoie la portée minimale de l'item
+function getItemMinRange(item){
+	return _ITEMS[item] === 1 ? getWeaponMaxRange(item) : getChipMaxRange(item);
+}
+
+// Renvoie le type de zone d'effet de l'item
+function getItemArea(item){
+	return _ITEMS[item] === 1 ? getWeaponArea(item) : getChipArea(item);
+}
+
+// Renvoie le coût en PT de l'item
+function getItemCost(item){
+	return _ITEMS[item] === 1 ? getWeaponCost(item) : getChipCost(item);
+}
+
+// Renvoie le temps de récupération de l'item
+function getItemCooldown(item){
+	return _ITEMS[item] === 1 ? 0 : getChipCooldown(item);
+}
+
+// Détermine si l'item peut être utlisé uniquement en ligne
+function isInlineItem(item){
+	return _ITEMS[item] === 1 ? isInlineWeapon(item) : isInlineChip(item);
+}
+
+// Renvoie si l'item a besoin d'une ligne de vue pour être utilisé
+function itemNeedLos(item){
+	return _ITEMS[item] === 1 ? weaponNeedLos(item) : chipNeedLos(item);
+}
+
+// Renvoie les effets de l'item
+function getItemEffects(item){
+	return _ITEMS[item] === 1 ? getWeaponEffects(item) : getChipEffects(item);
+}
+
+function getItemTrueDamage(item,leek1,leek2) {
+	var damage = 0;
+	var areEnemy = _LEEK_IS_ENEMY[leek1] == _LEEK_IS_ENEMY[leek2];
+	var needToTarget = (areEnemy ? EFFECT_TARGET_ALLIES : EFFECT_TARGET_ENEMIES) 
+	| (_LEEK_IS_BULB[leek2] ? EFFECT_TARGET_SUMMONS : EFFECT_TARGET_NON_SUMMONS);
+
+	for (var effectDamage in _ITEM_EFFECT_DAMAGE[item]) {
+		if (effectDamage != [] and effectDamage[3] & needToTarget != 0) {
+			damage += ((effectDamage[0] + effectDamage[1]) / 2 * 
+	(1+ (_LEEK_STRENGTH[leek1] > 0 ? _LEEK_STRENGTH[leek1]/100 : 0)) *
+	(1+(_LEEK_RELATIVE_SHIELD[leek2]>0 ? _LEEK_RELATIVE_SHIELD[leek2]/100 : 0)) -
+	_LEEK_ABSOLUTE_SHIELD[leek2]);
+		}
+	}
+	for (var effectPoison in _ITEM_EFFECT_POISON[item]) {
+		if (effectPoison != [] and effectPoison[3] & needToTarget != 0) {
+			damage += ((effectPoison[0] + effectPoison[1] )/ 2 * (1 + (_LEEK_MAGIC[leek1] > 0 ? _LEEK_MAGIC[leek1] / 100 : 0)));
+		}
+	}
+	for (var effectHeal in _ITEM_EFFECT_HEAL[item]) {
+		if (effectHeal != [] and effectHeal[3] & needToTarget != 0) {
+			damage -= ((effectHeal[0] + effectHeal[1]) / 2 * (1 + (_LEEK_WISDOM[leek1] > 0 ? _LEEK_WISDOM[leek1] / 100 : 0)));
+		}
+	}
+	return damage;
+}
+
+// Retourne les cellules touchable depuis la cellule avec l'item
+function getTargetableCells(@item,@cell){
+	var in_cache = @MAP_CACHE[item][cell] ;
+	if(in_cache != null) return in_cache ;
+	
+	var max_range = _ITEM_MAX_RANGE[item] ;
+			
+	var inline = _ITEM_IS_INLINE[item] ;
+			
+	var need_los = _ITEM_NEED_LOS[item] ;
+	
+	var targetable_cells = [] ;
+		
+	var x = _CELL_X[cell] ;
+	var y = _CELL_Y[cell] ;
+			
+	for(var x1 = x-max_range; x1 <= x+max_range; x1++){
+		for(var y1 = y-max_range; y1 <= y+max_range; y1++){
+			// Calcul de la distance entre ma position et la position autour
+			if(((x-x1)<0?x1-x:x-x1)+(y-y1<0?y1-y:y-y1) <= max_range){
+				var shooted_cell = getCellFromXY(x1,y1) ;
+				if(shooted_cell and !_KEY_OBSTACLES[shooted_cell]
+				and (!inline or isOnSameLine(shooted_cell,cell))
+				and (!need_los or lineOfSight(cell, shooted_cell))){
+					targetable_cells[shooted_cell] = 0 ;
+				}
+				
+			}
+		}
+	}
+	
+	if(!@MAP_CACHE[item]) MAP_CACHE[item] = [] ;
+	
+	MAP_CACHE[item][cell] = getKeys(targetable_cells) ;
+	
+	return @MAP_CACHE[item][cell] ;	
+}
+
+// Retourne les cellules touchables via AOE sous le format [cell: [cell, cell_to_shoot, dist]]
+function getTargetableCellsWithAOE(@item,@cell){
+
+	var AOE = abs(_ITEM_AREA[item]-2) ;
+	
+	var x = _CELL_X[cell] ;
+	var y = _CELL_Y[cell] ;
+	
+	var cells_with_AOE = [] ;
+	
+	for(var cell_with_AOE in getTargetableCells(item, cell)){
+		cells_with_AOE[cell_with_AOE] = [cell_with_AOE, cell, 0] ;
+	}
+	
+	for(var x1 = x-AOE; x1 <= x+AOE; x1++){
+		for(var y1 = y-AOE; y1 <= y+AOE; y1++){
+			if(((x-x1)<0?x1-x:x-x1)+(y-y1<0?y1-y:y-y1) <= AOE){
+				var cell_to_shoot = getCellFromXY(x1, y1) ;
+				if(!cell_to_shoot) continue ;
+				for(var cell_with_AOE in getTargetableCells(item, cell_to_shoot)){
+					var dist = getCellDistance(cell_to_shoot, cell);
+					if(!cells_with_AOE[cell_with_AOE] or dist < cells_with_AOE[cell_with_AOE][2]){
+						cells_with_AOE[cell_with_AOE] = [cell_with_AOE, cell_to_shoot, dist] ;
+					}
+				}
+			}
+		}
+	}
+	
+	return cells_with_AOE ;
+
+}
+
+
+

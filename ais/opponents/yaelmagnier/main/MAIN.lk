@@ -1,0 +1,17 @@
+include("INCLUDER");
+
+//--------------------------------
+//------------ MAIN --------------
+//--------------------------------
+
+// Met à jour _TURN
+_TURN = getTurn() ;
+
+global is_fight = true ;
+if (_TURN === 1) init();
+update();
+
+if(is_fight) applyStrat(WEAPON_GAZOR) ;
+else{
+	say('Nop. I\'m not playing against you, you\'re a spammer.') ;
+}

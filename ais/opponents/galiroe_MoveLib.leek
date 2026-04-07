@@ -1,0 +1,85 @@
+//-------------------------------------------
+//---------- Code des déplacements ----------
+//-------------------------------------------
+
+//Sortir de l'alignement d'une arme tirant en ligne
+function NoAlign(target) {
+	if (isInlineWeapon(getWeapon(target)) and isOnSameLine(getCell(), getCell(target))) {
+		if (!isOnSameLine((getCell() + 18), getCell(target)) and!isObstacle(getCell() + 18)) {
+			moveTowardCell(getCell() + 18);
+		}
+		//on tentre l'autre coté
+		else if (!isOnSameLine((getCell() - 18), getCell(target)) and!isObstacle(getCell() - 18)) {
+			moveTowardCell(getCell() - 18);
+		} else if (!isOnSameLine(getCell(), (getCell(target) + 17)) and!isObstacle(getCell(target) + 17)) {
+			moveTowardCell(getCell() + 17);
+		}
+		//on tentre l'autre coté
+		else if (!isOnSameLine(getCell(), (getCell(target) - 17)) and!isObstacle(getCell(target) - 17)) {
+			moveTowardCell(getCell() - 17);
+		}
+	}
+}
+
+/*
+Gere le tire, l'équipement de l'arme et le deplacement pour tirer
+    Utiliser de preference les fonctions suivantes :
+        - UseAllWeapon(arme, cible)
+        - UseAllWeaponLoop(arme, cible)
+*/
+function UseAllWeaponBase(arme, cible, loop) {
+    //Verifie si un allié se trouve dans la zone d'effet de l'arme et exclus le tireur
+    var secureShoot = true;
+    if (getLevel() >= 39) {
+        var allTargets = getWeaponTargets(getCell(cible));
+        for (var i = count(allTargets) - 1; i >= 0; i--) {
+            if (isAlly(allTargets[i]) and allTargets[i] != getLeek()) secureShoot = false; //break pour economie de calcul?
+        }
+    }
+
+    if (secureShoot) {
+        //Si on ne peut pas utilisé l'arme, on se deplace sur la bonne cellule
+        if (!canUseWeapon(arme, cible) and getAliveEnemiesCount() > 0) {
+            //On recupere le tableaux des cellules d'ou on peut tirer
+            var cellules_valide = getCellsToUseWeapon(arme, cible);
+            var destination = null;
+            var taille_tableau = count(cellules_valide);
+            for (var i = 0; i < taille_tableau; i++) {
+                if (destination == null) {
+                    destination = cellules_valide[i];
+                    //On recupere la cellule la plus proche depuis laquelle on peut tirer
+                } else if (getPathLength(getCell(), cellules_valide[i]) < getPathLength(getCell(), destination)) {
+                    destination = cellules_valide[i];
+                }
+            }
+            mark(destination, COLOR_RED);
+debug("destination = " + destination);
+            //Deplacement uniquement si une destination a été trouvée
+            if (destination != null)
+            moveTowardCell(destination);
+        }
+
+        //On verifie si on peut tirer sur la cible avec l'arme
+        if (canUseWeapon(arme, cible)) {
+            //Prend l'arme demandé si ce n'est pas deja le cas
+            if (getWeapon() != arme) {
+                setWeapon(arme);
+            }
+            //On tire le maximum de fois possible
+            if (loop == true) {
+                for (var i = getTP(); i >= getWeaponCost(arme); i -= getWeaponCost(arme)) {
+                    useWeapon(cible);
+                }
+            } else {
+                //On fait feu normalement
+                useWeapon(cible);
+            }
+        }
+    } else {
+        debugW("Allier en danger, tire interdit");
+        /*
+        var othersWeapons = orderedWeapons;
+        remove(othersWeapons, search(othersWeapons, arme));
+        if (count(othersWeapons)>0)    UseAllWeaponBase(othersWeapons[0], cible,loop);*/
+	}
+}

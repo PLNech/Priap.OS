@@ -72,9 +72,15 @@ class LSRuntimeError(Exception):
     pass
 
 
-# Max iterations to prevent infinite loops
-MAX_LOOP_ITERATIONS = 100_000
-MAX_OPS = 10_000_000
+class OpsLimitExceeded(Exception):
+    """Raised when entity exceeds operations budget. Turn ends immediately."""
+    pass
+
+
+# Max loop iterations — high enough that ops limit catches real issues.
+# Real game relies on ops limit, not loop count. We keep this as safety net only.
+MAX_LOOP_ITERATIONS = 500_000
+MAX_OPS = 20_000_000  # matches OPERATIONS_LIMIT constant in real game
 
 
 class Interpreter:
@@ -391,6 +397,12 @@ class Interpreter:
             "endsWith": lambda s, p: str(s).endswith(str(p)) if s is not None else False,
         }
 
+    def charge_ops(self, cost: int) -> None:
+        """Charge operations from external caller (engine API functions)."""
+        self.ops += cost
+        if self.ops > MAX_OPS:
+            raise OpsLimitExceeded("too_much_ops")
+
     def run(self, program: Program) -> Any:
         """Execute a parsed program. Called once per turn.
 
@@ -421,7 +433,7 @@ class Interpreter:
     def _exec_stmt(self, stmt: Any, env: Environment) -> Any:
         self.ops += 1
         if self.ops > MAX_OPS:
-            raise LSRuntimeError("Operation limit exceeded")
+            raise OpsLimitExceeded("too_much_ops")
 
         if isinstance(stmt, VarDecl):
             return self._exec_var_decl(stmt, env)
@@ -674,7 +686,7 @@ class Interpreter:
 
         self.ops += 1
         if self.ops > MAX_OPS:
-            raise LSRuntimeError("Operation limit exceeded")
+            raise OpsLimitExceeded("too_much_ops")
 
         if isinstance(expr, NumberLit):
             return expr.value

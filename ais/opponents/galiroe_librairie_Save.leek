@@ -1,0 +1,317 @@
+//--------------------------------
+//---------- Librairie -----------
+//--------------------------------
+
+//Ameliorer caclul degats armes en prenant en compte les doubles effets et autres !
+
+
+//initialisation du teamPlay (On regarde si on a des alliers avec qui cooperer)
+global teamPlay;
+if (teamPlay == null and getLevel() >= 14) {
+	(getNearestAlly() != -1) ? teamPlay = true : teamPlay = false;
+}
+//Ennemie le plus proche
+global enemy;
+
+//Attribution dynamique des armes
+global weaponPrefered;
+global weaponSecondary;
+global weaponTertiary;
+global orderedWeapons;
+if (orderedWeapons == null) {
+	orderedWeapons = awardWeapon();
+	weaponPrefered = orderedWeapons[0];
+	weaponSecondary = orderedWeapons[1];
+	weaponTertiary = orderedWeapons[2];
+}
+
+//Derniere position de l'enemy
+global LastEnemyPosition;
+//on recupere la distance de l'ennemi
+global distance_ennemy;
+//initialisation de la distance de securité
+global distance_securite;
+//initialisation de la porté maximum de l'enemi
+global enemyMaxRange;
+
+//Retourne le nombre de tire maximum possible avec l'arme avec TP-1 si besoin de setWeapon
+function getNbMaxTire(arme) {
+	var currentTP = (arme == getWeapon()) ? getTP() : getTP() - 1;
+	var nbTire = floor(currentTP / getWeaponCost(arme));
+	return nbTire;
+}
+
+//retourne le tableau des degats et effets des degats de l'arme ou puce "stuff"
+function getDmg(stuff) {
+	if (isWeapon(stuff)){
+		var type = getWeaponEffects(stuff)[0][0];
+		var weaponMindmg = getWeaponEffects(stuff)[0][1];
+		var weaponMaxDmg = getWeaponEffects(stuff)[0][2];
+		var turn = getWeaponEffects(stuff)[0][3];
+		var target = getWeaponEffects(stuff)[0][4];
+		var cumul =  = getWeaponEffects(stuff)[0][5];
+		
+		return [type,weaponMindmg,weaponMaxDmg,turn,target,cumul];
+	}
+	else if (isChip(stuff)) {
+		var type = getChipEffects(stuff)[0][0];
+		var chipMindmg = getChipEffects(stuff)[0][1];
+		var chipMaxDmg = getChipEffects(stuff)[0][2];
+		var turn = getChipEffects(stuff)[0][3];
+		var target = getChipEffects(stuff)[0][4];
+		var cumul =  = getChipEffects(stuff)[0][5];
+		
+		return [type,chipMindmg,chipMaxDmg,turn,target,cumul];
+	}
+	else {
+		debugW ("Fonction getDmg : la valeur entrée en parametre n'est ni une arme ni une puce !");
+	}
+}
+
+//Tableau [min,max] des degats reels infligé a la cible par l'arme suivant la force et les boucliers
+function effectiveDmg(stuff, cible) {
+	var dmgMini = 0;
+	var dmgMaxi = 0;
+		dmgMini = round((getDmg(stuff)[1] * (1 + getStrength() / 100)) * (1 - getRelativeShield(cible) / 100) - getAbsoluteShield(cible));
+		dmgMaxi = round((getDmg(stuff)[2] * (1 + getStrength() / 100)) * (1 - getRelativeShield(cible) / 100) - getAbsoluteShield(cible));
+	return [dmgMini, dmgMaxi];
+}
+
+//Retourne le classement des armes du poireaux, de la plus forte à la moins forte
+function awardWeapon() {
+	var myWeapons = getWeapons();
+	var weaponsData = [];
+
+	//Construction du tableau de comparaison [[arme],[dmg_mini]]
+	for (var i = 0; i < count(myWeapons); i++) {
+		push(weaponsData, [myWeapons[i], getDmg(myWeapons[i])[1]]);
+	}
+	//trie du tableau de l'arme la plus puissante à la moins puissante
+	for (var i = 0; i < count(weaponsData); i++) {
+		if (weaponsData[i][1] < weaponsData[i + 1][1]) {
+			insert(weaponsData, weaponsData[i], i + 2);
+			remove(weaponsData, i);
+		}
+	}
+	//Creation du tableau d'armes a retourer
+	var weaponsRank = [];
+	for (var i = 0; i < count(weaponsData); i++) {
+		push(weaponsRank, weaponsData[i][0]);
+	}
+	return weaponsRank;
+}
+
+//Recherche l'arme avec laquelle achever la cible, equipe et tire (multiples) si possibilité de coup de grace
+function deathBlow(cible) {
+	var myWeapons = awardWeapon();
+	var willDie = isDead(cible);
+	var i = 0;
+	while (!willDie and i < count(myWeapons)) {
+		if (getLife(cible) <= ((effectiveDmg(myWeapons[i], cible)[0]) * getNbMaxTire(myWeapons[i]))) {
+			debugW("COUP DE GRACE avec " + getWeaponName(myWeapons[i]) + " avec " + effectiveDmg(myWeapons[i], cible)[0] + " * " + getNbMaxTire(myWeapons[i]) + " tires");
+			UseAllWeaponLoop(myWeapons[i], cible);
+			if (isDead(cible)) {
+				willDie = true;
+			}
+		}
+		debug("Impossible de l'achever avec " + getWeaponName(myWeapons[i]));
+		i++;
+		debug("nombre d'arme = " + count(myWeapons));
+		debug("i = " + i);
+	}
+	return willDie;
+}
+
+/*
+Gere le tire, l'équipement de l'arme et le deplacement pour tirer
+	Utiliser de preference les fonctions suivantes :
+		- UseAllWeapon(arme, cible)
+		- UseAllWeaponLoop(arme, cible) 
+*/
+function UseAllWeaponBase(arme, cible, loop) {
+	//Verifie si un allié se trouve dans la zone d'effet de l'arme et exclus le tireur
+	var secureShoot = true;
+	if (getLevel() >= 39) {
+		var allTargets = getWeaponTargets(getCell(cible));
+		for (var i = count(allTargets) - 1; i >= 0; i--) {
+			if (isAlly(allTargets[i]) and allTargets[i] != getLeek()) secureShoot = false; //break pour economie de calcul?
+		}
+	}
+
+	if (secureShoot) {
+		//Si on ne peut pas utilisé l'arme, on se deplace sur la bonne cellule
+		if (!canUseWeapon(arme, cible) and getAliveEnemiesCount() > 0) {
+			//On recupere le tableaux des cellules d'ou on peut tirer
+			var cellules_valide = getCellsToUseWeapon(arme, cible);
+			var destination = null;
+			var taille_tableau = count(cellules_valide);
+			for (var i = 0; i < taille_tableau; i++) {
+				if (destination == null) {
+					destination = cellules_valide[i];
+					//On recupere la cellule la plus proche depuis laquelle on peut tirer
+				} else if (getPathLength(getCell(), cellules_valide[i]) < getPathLength(getCell(), destination)) {
+					destination = cellules_valide[i];
+				}
+			}
+			mark(destination, COLOR_RED);
+debug("destination = " + destination);
+			//Deplacement uniquement si une destination a été trouvée
+			if (destination != null)
+			moveTowardCell(destination);
+		}
+
+		//On verifie si on peut tirer sur la cible avec l'arme
+		if (canUseWeapon(arme, cible)) {
+			//Prend l'arme demandé si ce n'est pas deja le cas
+			if (getWeapon() != arme) {
+				setWeapon(arme);
+			}
+			//On tire le maximum de fois possible
+			if (loop == true) {
+				for (var i = getTP(); i >= getWeaponCost(arme); i -= getWeaponCost(arme)) {
+					useWeapon(cible);
+				}
+			} else {
+				//On fait feu normalement
+				useWeapon(cible);
+			}
+		}
+	} else {
+		debugW("Allier en danger, tire interdit");
+		/*
+		var othersWeapons = orderedWeapons;
+		remove(othersWeapons, search(othersWeapons, arme));
+		for (var i = 0; i < count(othersWeapons)-1; i++) {
+			UseAllWeaponBase(othersWeapons[0], cible,loop);
+			remove(othersWeapons, search(othersWeapons, othersWeapons[0]));
+		}
+		*/
+		/*
+		var othersWeapons = orderedWeapons;
+		remove(othersWeapons, search(othersWeapons, arme));
+		if (count(othersWeapons)>0)	UseAllWeaponBase(othersWeapons[0], cible,loop);
+		*/
+	}
+}
+
+function UseAllWeapon(arme, cible) {
+	UseAllWeaponBase(arme, cible, false);
+}
+
+function UseAllWeaponLoop(arme, cible) {
+	UseAllWeaponBase(arme, cible, true);
+}
+
+//Sortir de l'alignement d'une arme tirant en ligne
+function NoAlign(cible) {
+	if (isInlineWeapon(getWeapon(cible)) and isOnSameLine(getCell(), getCell(cible))) {
+		if (!isOnSameLine((getCell() + 18), getCell(cible)) and!isObstacle(getCell() + 18)) {
+			moveTowardCell(getCell() + 18);
+		}
+		//on tentre l'autre coté
+		else if (!isOnSameLine((getCell() - 18), getCell(cible)) and!isObstacle(getCell() - 18)) {
+			moveTowardCell(getCell() - 18);
+		} else if (!isOnSameLine(getCell(), (getCell(cible) + 17)) and!isObstacle(getCell(cible) + 17)) {
+			moveTowardCell(getCell() + 17);
+		}
+		//on tentre l'autre coté
+		else if (!isOnSameLine(getCell(), (getCell(cible) - 17)) and!isObstacle(getCell(cible) - 17)) {
+			moveTowardCell(getCell() - 17);
+		}
+	}
+}
+
+//Focus un ennemi en team
+function bestFocus() {
+	//Tableau des enemis vivants
+	var enemy_alive = getAliveEnemies();
+	var focus = -1;
+	var vie_focus;
+
+	//Selection de l'enemie avec le moins de vie
+	for (var i = 0; i < (count(enemy_alive)); i++) {
+		if (vie_focus == null) {
+			vie_focus = getLife(enemy_alive[i]);
+			focus = enemy_alive[i];
+		} else if (vie_focus > getLife(enemy_alive[i])) {
+			vie_focus = getLife(enemy_alive[i]);
+			focus = enemy_alive[i];
+		} else if (vie_focus == getLife(enemy_alive[i])) {
+			//Si vie egale, on focus le plus proche
+			if ((getCellDistance(getCell(), getCell(enemy_alive[i]))) <= (getCellDistance(getCell(), getCell(focus)))) {
+				vie_focus = getLife(enemy_alive[i]);
+				focus = enemy_alive[i];
+			}
+		}
+	}
+	return focus;
+}
+
+//Fonction temporaire, a retravailler
+function teamMove(cible) {
+	//Deplacement en verifiant si un ennemi est a porté
+	moveToward(cible, 1);
+	var adversaires = getAliveEnemies();
+	if (!canUseWeapon(cible)) {
+		var nb_enemy = getAliveEnemiesCount();
+		for (var i = 0; i <= nb_enemy; i++) {
+			if (canUseWeapon(adversaires[i])) {
+				debug("interception: " + adversaires[i]);
+				var adv = adversaires[i];
+				for (var j = getTP(); j >= getWeaponCost(getWeapon());
+				j -= getWeaponCost(getWeapon())) {
+					debug("TP :" + j); //mais j bouge pas
+					useWeapon(adv);
+				}
+			}
+			moveToward(cible, 1);
+		}
+	}
+}
+
+//Retourne la porté maximal des sorts de degats et armes du poireaux
+function getMaxRange(target) {
+	var allCips = getChips(target);
+	var allWeapon = getWeapons(target);
+	var allRange = [];
+	var maxRange = 0;
+
+	//Accepte la porté de la puce si la puce a des effet de degats, exlu les autres
+	for (var i = 0; i < count(allCips); i++) {
+		//On recupere les effet de la puce
+		var chipEffect = getChipEffects(allCips[i])[0][0];
+		if (chipEffect == EFFECT_DAMAGE) {
+			push(allRange, getChipMaxRange(allCips[i]));
+		}
+	}
+	//Inclu la porté des armes
+	for (var i = 0; i < count(allWeapon); i++) {
+		push(allRange, getWeaponMaxRange(allWeapon[i]));
+	}
+	maxRange = arrayMax(allRange);
+	return maxRange;
+}
+
+//Cherche si la puce est équipé sur le poireaux puis la lance sur la cible
+function UseChipLoop(puce, target) {
+	var mes_puces = getChips();
+
+	if (search(mes_puces, puce) != null) {
+		var cout_puce = getChipCost(puce);
+		for (var i = getTP(); i >= cout_puce; i -= cout_puce) {
+			if (isAlive(target)) {
+				useChip(puce, target);
+			} else if (getNearestEnemy() != -1) {
+				useChip(puce, getNearestEnemy());
+			}
+		}
+	} else {
+		debugW("La puce " + getChipName(puce) + " n'est pas équipée sur le poireau " + getName());
+	}
+}
+
+function operationsRatio () {
+	var operationCount = getOperations ();
+	var operationPercentage = round(operationCount/OPERATIONS_LIMIT*100);
+	debug("Nombre d'opérations = "+getOperations()+" sur "+OPERATIONS_LIMIT+" soit "+operationPercentage+"%");
+}

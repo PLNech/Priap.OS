@@ -19,10 +19,23 @@ from src.leekwars_agent.pysim.runner import PySimRunner
 # ── Tournament participants ─────────────────────────────────────────
 
 PARTICIPANTS = [
+    # Our AI
     ("v14", "ais/fighter_v14_flat.leek"),
+    # External opponents (from GitHub)
     ("pbondoer", "ais/opponents/pbondoer_silly_lemon.leek"),
     ("shup1_main", "ais/opponents/shup1_main.leek"),
     ("shup1_pata", "ais/opponents/shup1_pata.leek"),
+    # cktang88 — weapon-specialized AIs
+    ("ck_magnum1", "ais/opponents/cktang88_magnum1.leek"),
+    ("ck_magnum12", "ais/opponents/cktang88_magnum-12.leek"),
+    ("ck_magnum_sword", "ais/opponents/cktang88_magnum-sword.leek"),
+    ("ck_pistol1", "ais/opponents/cktang88_pistol1.leek"),
+    ("ck_pistol_sg", "ais/opponents/cktang88_pistol-shotgun.leek"),
+    ("ck_flamethrower", "ais/opponents/cktang88_flamethrower-destroyer.leek"),
+    ("ck_venom_sg", "ais/opponents/cktang88_venom-shotgun.leek"),
+    # galiroe — French modular AIs
+    ("galiroe_main", "ais/opponents/galiroe_Main.leek"),
+    # Archetypes (calibration)
     ("arch_balanced", "ais/archetype_balanced.leek"),
     ("arch_burst", "ais/archetype_burst.leek"),
     ("arch_kiter", "ais/archetype_kiter.leek"),
@@ -30,7 +43,7 @@ PARTICIPANTS = [
     ("arch_tank", "ais/archetype_tank.leek"),
 ]
 
-FIGHTS_PER_SIDE = 50  # 50 as team 1 + 50 as team 2 = 100 per matchup
+FIGHTS_PER_SIDE = 30  # 30 per side = 60 per matchup (136 matchups × 60 = 8160 fights)
 
 
 # ── ELO computation ─────────────────────────────────────────────────

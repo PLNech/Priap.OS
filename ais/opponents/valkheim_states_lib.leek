@@ -1,0 +1,46 @@
+global g_totalLife = getTotalLife();
+global g_turn = 0;
+
+function isVulnerableToIndirectWeapons(self_pos, enemy_pos, distance, weapon)
+{
+	return 	lineOfSight(self_pos, enemy_pos) === false and
+			distance <= getWeaponMaxRange(weapon);
+}
+
+function isVulnerableToDirectWeapons(self_pos, enemy_pos, distance, weapon)
+{
+	return 	lineOfSight(self_pos, enemy_pos) and
+			distance <= getWeaponMaxRange(weapon);
+}
+
+function isAligned(self_pos_x, self_pos_y, enemy_pos_x, enemy_pos_y)
+{
+	return self_pos_x == enemy_pos_x or self_pos_y == enemy_pos_y;
+}
+
+
+function isHidden(self_pos, enemy_pos, distance, enemy_weapon)
+{
+	return distance <= getWeaponMaxRange(enemy_weapon);
+	/*var can_be_shot_indirect = isVulnerableToIndirectWeapons(self_pos, enemy_pos, distance, enemy_weapon);
+	var can_be_shot_direct = isVulnerableToIndirectWeapons(self_pos, enemy_pos, distance, enemy_weapon);
+
+	return can_be_shot_indirect === false and can_be_shot_direct === false;*/
+}
+
+function isHealthy(self_health)
+{
+	return self_health > 0.5;
+}
+
+function canShoot(self_pos, enemy_pos, distance, self_weapon)
+{
+	var can_shoot_indirect = isVulnerableToIndirectWeapons(self_pos, enemy_pos, distance, self_weapon);
+	var can_shoot_direct = isVulnerableToDirectWeapons(self_pos, enemy_pos, distance, self_weapon);
+	
+	return can_shoot_indirect === true or can_shoot_direct === true;
+}
+
+
+
+
