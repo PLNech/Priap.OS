@@ -234,7 +234,8 @@ class FightEngine:
                 return me.current_weapon
             w_id = int(w_id)
             for w in me.weapons:
-                if w["id"] == w_id:
+                # LS constants use template IDs; also match on id for compat
+                if w["template"] == w_id or w["id"] == w_id:
                     return w
             return None
 
@@ -276,7 +277,8 @@ class FightEngine:
         def _find_chip(chip_id):
             chip_id = int(chip_id)
             for c in me.chips:
-                if c["id"] == chip_id:
+                # LS constants use template IDs; also match on id for compat
+                if c["template"] == chip_id or c["id"] == chip_id:
                     return c
             return None
 
@@ -476,7 +478,7 @@ class FightEngine:
 
         # ── Build API dict ──────────────────────────────────────────
 
-        return {
+        api = {
             # State
             "getLife": getLife,
             "getTotalLife": getTotalLife,
@@ -539,7 +541,41 @@ class FightEngine:
             "USE_INVALID_POSITION": USE_INVALID_POSITION,
             "USE_TOO_FAR": USE_TOO_FAR,
             "USE_INVALID_COOLDOWN": USE_INVALID_COOLDOWN,
+            # Effect type constants
+            "EFFECT_DAMAGE": 1,
+            "EFFECT_HEAL": 2,
+            "EFFECT_ABSOLUTE_SHIELD": 4,
+            "EFFECT_BUFF_TP": 5,
+            "EFFECT_RELATIVE_SHIELD": 6,
+            "EFFECT_SHACKLE_TP": 15,
+            # Entity type constants
+            "ENTITY_LEEK": 1,
+            "ENTITY_BULB": 2,
         }
+        # Inject chip/weapon template constants (CHIP_SPARK, WEAPON_PISTOL, etc.)
+        api.update(self._get_equipment_constants())
+        return api
+
+    _equipment_constants_cache: dict[str, int] | None = None
+
+    @classmethod
+    def _get_equipment_constants(cls) -> dict[str, int]:
+        """Generate CHIP_* and WEAPON_* constants from equipment registry."""
+        if cls._equipment_constants_cache is not None:
+            return cls._equipment_constants_cache
+
+        from leekwars_agent.models.equipment import CHIP_REGISTRY, WEAPON_REGISTRY
+
+        constants: dict[str, int] = {}
+        for chip in CHIP_REGISTRY._items:
+            name = "CHIP_" + chip.name.upper().replace("-", "_").replace(" ", "_")
+            constants[name] = chip.template
+        for weapon in WEAPON_REGISTRY._items:
+            name = "WEAPON_" + weapon.name.upper().replace("-", "_").replace(" ", "_")
+            constants[name] = weapon.template
+
+        cls._equipment_constants_cache = constants
+        return constants
 
     # ── Effect application ──────────────────────────────────────────
 
