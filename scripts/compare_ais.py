@@ -64,6 +64,7 @@ def compare_ais(
     # First-mover control
     attacker: int = 0,  # 0=random, 1=AI1 always first, 2=AI2 always first
     verbose: bool = False,
+    engine: str = "java",  # "java" or "pysim"
 ) -> dict:
     """Run N fights between two AIs and return stats."""
 
@@ -74,11 +75,6 @@ def compare_ais(
         ai1_path = Path.cwd() / ai1_path
     if not ai2_path.is_absolute():
         ai2_path = Path.cwd() / ai2_path
-
-    # Copy AI files (and includes) to generator directory
-    ai1_name, ai1_files = copy_ai_to_generator(ai1_path, f"test_ai1_{ai1_path.name}")
-    ai2_name, ai2_files = copy_ai_to_generator(ai2_path, f"test_ai2_{ai2_path.name}")
-    all_copied_files = ai1_files + ai2_files
 
     # Default equipment
     weapons1 = weapons1 if weapons1 is not None else DEFAULT_WEAPONS
@@ -94,9 +90,23 @@ def compare_ais(
     print(f"  Stats: L{level} STR={strength2} AGI={agility2} LIFE={life2} TP={tp2} MP={mp2}")
     print(f"  Weapons={weapons2} Chips={chips2}")
     attacker_str = {0: "random", 1: "AI1", 2: "AI2"}.get(attacker, "random")
-    print(f"First mover: {attacker_str} | Fights: {n_fights}")
+    print(f"Engine: {engine} | First mover: {attacker_str} | Fights: {n_fights}")
     print()
 
+    if engine == "pysim":
+        return _run_pysim(
+            ai1_path, ai2_path, n_fights,
+            level=level, life=life1, tp=tp1, mp=mp1,
+            strength=strength1, agility=agility1, frequency=frequency1,
+            wisdom=wisdom1, resistance=resistance1, magic=magic1,
+            weapons1=weapons1, weapons2=weapons2,
+            chips1=chips1, chips2=chips2,
+        )
+
+    # ── Java engine path ───────────────────────────────────────────
+    ai1_name, ai1_files = copy_ai_to_generator(ai1_path, f"test_ai1_{ai1_path.name}")
+    ai2_name, ai2_files = copy_ai_to_generator(ai2_path, f"test_ai2_{ai2_path.name}")
+    all_copied_files = ai1_files + ai2_files
     sim = Simulator()
     wins1 = 0
     wins2 = 0
@@ -210,6 +220,73 @@ def compare_ais(
     }
 
 
+def _run_pysim(
+    ai1_path: Path, ai2_path: Path, n_fights: int, *,
+    level, life, tp, mp, strength, agility, frequency, wisdom, resistance, magic,
+    weapons1, weapons2, chips1, chips2,
+) -> dict:
+    """Run fights using PySim (Python LeekScript interpreter)."""
+    import time
+    from leekwars_agent.pysim.runner import PySimRunner
+
+    runner = PySimRunner()
+    wins1 = wins2 = draws = 0
+    t0 = time.time()
+
+    for i in range(n_fights):
+        seed = i
+        swap = (i % 2 == 1)
+
+        a1, a2 = (ai2_path, ai1_path) if swap else (ai1_path, ai2_path)
+        w1, w2 = (weapons2, weapons1) if swap else (weapons1, weapons2)
+        c1, c2 = (chips2, chips1) if swap else (chips1, chips2)
+
+        result = runner.run_1v1(
+            str(a1), str(a2), seed=seed,
+            level=level, life=life, tp=tp, mp=mp,
+            strength=strength, agility=agility, frequency=frequency,
+            wisdom=wisdom, resistance=resistance, magic=magic,
+            weapon_ids=w1, chip_ids=c1,
+            weapon_ids_2=w2, chip_ids_2=c2,
+        )
+
+        winner = result["winner"]
+        if winner == 0:
+            draws += 1
+        elif (winner == 1 and not swap) or (winner == 2 and swap):
+            wins1 += 1
+        else:
+            wins2 += 1
+
+        if (i + 1) % 100 == 0:
+            elapsed = time.time() - t0
+            print(f"Progress: {i+1}/{n_fights} ({wins1}W-{wins2}L-{draws}D) "
+                  f"[{(i+1)/elapsed:.1f} fights/sec]")
+
+    elapsed = time.time() - t0
+    total = wins1 + wins2 + draws
+    wr1 = (wins1 / total * 100) if total > 0 else 0
+    wr2 = (wins2 / total * 100) if total > 0 else 0
+
+    print(f"\n=== Results ({total} fights, {elapsed:.1f}s, {total/elapsed:.1f} fights/sec) ===")
+    print(f"{ai1_path.name}: {wins1}W ({wr1:.1f}%)")
+    print(f"{ai2_path.name}: {wins2}W ({wr2:.1f}%)")
+    print(f"Draws: {draws}")
+
+    if wins1 > wins2:
+        print(f"\n> {ai1_path.name} wins by {wr1 - wr2:.1f}%")
+    elif wins2 > wins1:
+        print(f"\n> {ai2_path.name} wins by {wr2 - wr1:.1f}%")
+    else:
+        print(f"\n= Tie!")
+
+    return {
+        "ai1": ai1_path.name, "ai2": ai2_path.name,
+        "wins1": wins1, "wins2": wins2, "draws": draws,
+        "win_rate1": wr1, "win_rate2": wr2,
+    }
+
+
 def _parse_id_list(arg: str | None, default: list[int]) -> list[int] | None:
     """Parse comma-separated int list. None=use default, 'none'=empty."""
     if arg is None:
@@ -262,6 +339,9 @@ def main():
     # First-mover
     parser.add_argument("--attacker", type=int, default=0, choices=[0, 1, 2])
     parser.add_argument("-v", "--verbose", action="store_true")
+    # Engine
+    parser.add_argument("--engine", choices=["java", "pysim"], default="java",
+                        help="Fight engine: java (generator) or pysim (Python interpreter)")
 
     args = parser.parse_args()
 
@@ -287,6 +367,7 @@ def main():
         chips1=_parse_id_list(args.chips1, DEFAULT_CHIPS),
         chips2=_parse_id_list(args.chips2, DEFAULT_CHIPS),
         attacker=args.attacker, verbose=args.verbose,
+        engine=args.engine,
     )
 
 
