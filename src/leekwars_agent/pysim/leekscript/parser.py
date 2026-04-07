@@ -192,6 +192,12 @@ class Increment:
     op: str  # '++' or '--'
 
 
+@dataclass
+class AnonFunction:
+    params: list[str]
+    body: list
+
+
 # ── Parser ──────────────────────────────────────────────────────────────
 
 class ParseError(Exception):
@@ -203,36 +209,60 @@ class ParseError(Exception):
 
 # Operator precedence (Pratt) — lower number = lower precedence = binds looser
 PRECEDENCE = {
+    # Assignment (right-assoc)
+    "=": 0, "+=": 0, "-=": 0, "*=": 0, "/=": 0, "%=": 0, "**=": 0,
+    # Logical
     "||": 2,
+    "xor": 2,
     "&&": 3,
-    "==": 7,
-    "!=": 7,
-    "<": 8,
-    ">": 8,
-    "<=": 8,
-    ">=": 8,
-    "+": 10,
-    "-": 10,
-    "*": 11,
-    "/": 11,
-    "%": 11,
+    # Equality
+    "==": 7, "!=": 7, "===": 7, "is": 7, "is not": 7,
+    # Relational + membership
+    "in": 8, "<": 8, ">": 8, "<=": 8, ">=": 8,
+    # Arithmetic
+    "+": 10, "-": 10,
+    "*": 11, "/": 11, "%": 11,
+    "**": 12,
 }
 
 BINARY_OPS = {
+    # Assignment
+    TokenType.ASSIGN: "=",
+    TokenType.PLUS_ASSIGN: "+=",
+    TokenType.MINUS_ASSIGN: "-=",
+    TokenType.STAR_ASSIGN: "*=",
+    TokenType.SLASH_ASSIGN: "/=",
+    TokenType.PERCENT_ASSIGN: "%=",
+    TokenType.POWER_ASSIGN: "**=",
+    # Arithmetic
     TokenType.PLUS: "+",
     TokenType.MINUS: "-",
     TokenType.STAR: "*",
     TokenType.SLASH: "/",
     TokenType.PERCENT: "%",
+    TokenType.POWER: "**",
+    # Comparison
     TokenType.EQ: "==",
     TokenType.NEQ: "!=",
+    TokenType.STRICT_EQ: "===",
     TokenType.LT: "<",
     TokenType.GT: ">",
     TokenType.LTE: "<=",
     TokenType.GTE: ">=",
+    # Logical
     TokenType.AND: "&&",
     TokenType.OR: "||",
+    TokenType.XOR: "xor",
+    # Identity + membership
+    TokenType.IS: "is",
+    TokenType.IN: "in",
 }
+
+# Right-associative operators
+RIGHT_ASSOC = {"**", "=", "+=", "-=", "*=", "/=", "%=", "**="}
+
+# Assignment operators (produce Assignment node, not BinaryOp)
+ASSIGN_OPS = {"=", "+=", "-=", "*=", "/=", "%=", "**="}
 
 
 class Parser:
@@ -245,7 +275,10 @@ class Parser:
         while not self._at_end():
             stmt = self._parse_statement()
             if stmt is not None:
-                stmts.append(stmt)
+                if isinstance(stmt, list):
+                    stmts.extend(stmt)
+                else:
+                    stmts.append(stmt)
         return Program(stmts)
 
     # ── Token helpers ───────────────────────────────────────────────
@@ -291,7 +324,12 @@ class Parser:
         tok = self._peek()
 
         if tok.type == TokenType.FUNCTION:
-            return self._parse_function_decl()
+            # Named function decl: function NAME(...) { }
+            # Anonymous: function(...) { } — handled as expression below
+            next_tok = self.tokens[self.pos + 1] if self.pos + 1 < len(self.tokens) else None
+            if next_tok and next_tok.type == TokenType.IDENTIFIER:
+                return self._parse_function_decl()
+            # Fall through to expression statement (anonymous function)
         if tok.type in (TokenType.VAR, TokenType.GLOBAL):
             return self._parse_var_decl()
         if tok.type == TokenType.IF:
@@ -316,17 +354,12 @@ class Parser:
             return self._parse_block_as_stmts()
 
         # Expression statement (function call, assignment, increment)
+        # Assignment is now handled inside _parse_expression as an operator
         expr = self._parse_expression(0)
-
-        # Check for assignment operators
-        if self._check(TokenType.ASSIGN, TokenType.PLUS_ASSIGN, TokenType.MINUS_ASSIGN,
-                       TokenType.STAR_ASSIGN, TokenType.SLASH_ASSIGN):
-            op_tok = self._advance()
-            value = self._parse_expression(0)
-            self._match(TokenType.SEMICOLON)
-            return Assignment(expr, op_tok.value, value)
-
         self._match(TokenType.SEMICOLON)
+        # Unwrap: if expression is an Assignment, return it directly as a statement
+        if isinstance(expr, Assignment):
+            return expr
         return ExprStmt(expr)
 
     def _parse_function_decl(self) -> FunctionDecl:
@@ -344,15 +377,38 @@ class Parser:
         body = self._parse_block()
         return FunctionDecl(name_tok.value, params, body, line=tok.line)
 
-    def _parse_var_decl(self) -> VarDecl:
+    def _parse_anon_function(self) -> AnonFunction:
+        """Parse anonymous function expression: function(params) { body }"""
+        self._advance()  # 'function'
+        self._expect(TokenType.LPAREN, "Expected '(' after 'function'")
+
+        params = []
+        if not self._check(TokenType.RPAREN):
+            params.append(self._expect(TokenType.IDENTIFIER, "Expected parameter name").value)
+            while self._match(TokenType.COMMA):
+                params.append(self._expect(TokenType.IDENTIFIER, "Expected parameter name").value)
+
+        self._expect(TokenType.RPAREN, "Expected ')' after parameters")
+        body = self._parse_block()
+        return AnonFunction(params, body)
+
+    def _parse_var_decl(self) -> VarDecl | list:
+        """Parse var/global declaration. Returns single VarDecl or list for multi-var."""
         tok = self._advance()  # 'var' or 'global'
         is_global = tok.type == TokenType.GLOBAL
-        name = self._expect(TokenType.IDENTIFIER, "Expected variable name").value
-        init = None
-        if self._match(TokenType.ASSIGN):
-            init = self._parse_expression(0)
+
+        decls = []
+        while True:
+            name = self._expect(TokenType.IDENTIFIER, "Expected variable name").value
+            init = None
+            if self._match(TokenType.ASSIGN):
+                init = self._parse_expression(0)
+            decls.append(VarDecl(name, init, is_global))
+            if not self._match(TokenType.COMMA):
+                break
+
         self._match(TokenType.SEMICOLON)
-        return VarDecl(name, init, is_global)
+        return decls[0] if len(decls) == 1 else decls
 
     def _parse_if(self) -> IfStmt:
         self._advance()  # 'if'
@@ -471,7 +527,7 @@ class Parser:
             # Check if next token could start an expression
             if not self._at_end() and self._peek().type not in (
                 TokenType.SEMICOLON, TokenType.RBRACE, TokenType.EOF,
-                TokenType.ELSE, TokenType.FUNCTION,
+                TokenType.ELSE,
             ):
                 value = self._parse_expression(0)
         self._match(TokenType.SEMICOLON)
@@ -484,7 +540,10 @@ class Parser:
         while not self._check(TokenType.RBRACE) and not self._at_end():
             stmt = self._parse_statement()
             if stmt is not None:
-                stmts.append(stmt)
+                if isinstance(stmt, list):
+                    stmts.extend(stmt)
+                else:
+                    stmts.append(stmt)
         self._expect(TokenType.RBRACE, "Expected '}'")
         return stmts
 
@@ -498,7 +557,12 @@ class Parser:
         """Parse either a block or a single statement."""
         if self._check(TokenType.LBRACE):
             return self._parse_block()
+        # Empty body: while(cond); or for(...);
+        if self._match(TokenType.SEMICOLON):
+            return []
         stmt = self._parse_statement()
+        if isinstance(stmt, list):
+            return stmt
         return [stmt] if stmt else []
 
     # ── Expressions (Pratt precedence climbing) ─────────────────────
@@ -525,8 +589,23 @@ class Parser:
                 if prec < min_prec:
                     break
                 self._advance()
-                right = self._parse_expression(prec + 1)
-                left = BinaryOp(left, op_str, right)
+
+                # Handle "is not" compound operator
+                if op_str == "is" and self._check(TokenType.NOT, TokenType.NOT_KEYWORD):
+                    self._advance()
+                    op_str = "is not"
+
+                # Right-associative vs left-associative
+                if op_str in RIGHT_ASSOC:
+                    right = self._parse_expression(prec)
+                else:
+                    right = self._parse_expression(prec + 1)
+
+                # Assignment ops produce Assignment node
+                if op_str in ASSIGN_OPS:
+                    left = Assignment(left, op_str, right)
+                else:
+                    left = BinaryOp(left, op_str, right)
                 continue
 
             break
@@ -632,6 +711,10 @@ class Parser:
         if tok.type == TokenType.NULL:
             self._advance()
             return NullLit()
+
+        # Anonymous function: function(params) { body }
+        if tok.type == TokenType.FUNCTION:
+            return self._parse_anon_function()
 
         # Identifier (variable or function name — call handled in postfix)
         if tok.type == TokenType.IDENTIFIER:

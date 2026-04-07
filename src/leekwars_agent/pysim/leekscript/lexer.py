@@ -56,8 +56,16 @@ class TokenType(Enum):
     AND = auto()
     OR = auto()
     NOT = auto()
+    POWER = auto()
+    POWER_ASSIGN = auto()
+    STRICT_EQ = auto()
+    PERCENT_ASSIGN = auto()
     QUESTION = auto()
     COLON = auto()
+
+    # Keyword-based operators
+    XOR = auto()
+    IS = auto()
 
     # Delimiters
     LPAREN = auto()
@@ -89,6 +97,10 @@ KEYWORDS = {
     "false": TokenType.FALSE,
     "null": TokenType.NULL,
     "not": TokenType.NOT_KEYWORD,
+    "and": TokenType.AND,
+    "or": TokenType.OR,
+    "xor": TokenType.XOR,
+    "is": TokenType.IS,
 }
 
 
@@ -239,6 +251,16 @@ def tokenize(source: str) -> list[Token]:
                 tokens.append(Token(tt, word, line, start_col))
             continue
 
+        # Three-character operators (check BEFORE two-char)
+        if i + 2 < length:
+            three = source[i : i + 3]
+            if three == "**=":
+                tokens.append(Token(TokenType.POWER_ASSIGN, three, line, start_col))
+                i += 3; col += 3; continue
+            if three == "===":
+                tokens.append(Token(TokenType.STRICT_EQ, three, line, start_col))
+                i += 3; col += 3; continue
+
         # Two-character operators (check BEFORE single-character)
         if i + 1 < length:
             two = source[i : i + 2]
@@ -249,6 +271,8 @@ def tokenize(source: str) -> list[Token]:
                 "-=": TokenType.MINUS_ASSIGN,
                 "*=": TokenType.STAR_ASSIGN,
                 "/=": TokenType.SLASH_ASSIGN,
+                "%=": TokenType.PERCENT_ASSIGN,
+                "**": TokenType.POWER,
                 "==": TokenType.EQ,
                 "!=": TokenType.NEQ,
                 "<=": TokenType.LTE,

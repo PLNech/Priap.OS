@@ -7,7 +7,9 @@ functions are injected as a dict by the fight engine.
 
 from __future__ import annotations
 
+import copy
 import math
+from pathlib import Path
 from typing import Any, Callable
 
 from .parser import (
@@ -16,7 +18,7 @@ from .parser import (
     ReturnStmt, BreakStmt, ContinueStmt, ExprStmt,
     BinaryOp, UnaryOp, Ternary, FunctionCall, MethodCall, Subscript,
     PropertyAccess, Identifier, NumberLit, StringLit, BoolLit, NullLit,
-    ArrayLit, MapLit, Increment,
+    ArrayLit, MapLit, Increment, AnonFunction,
 )
 
 
@@ -72,7 +74,7 @@ class LSRuntimeError(Exception):
 
 # Max iterations to prevent infinite loops
 MAX_LOOP_ITERATIONS = 100_000
-MAX_OPS = 1_000_000
+MAX_OPS = 10_000_000
 
 
 class Interpreter:
@@ -82,13 +84,16 @@ class Interpreter:
     run() calls (turns), matching LeekScript's `global` keyword semantics.
     """
 
-    def __init__(self, game_api: dict[str, Any] | None = None):
+    def __init__(self, game_api: dict[str, Any] | None = None,
+                 source_path: str | Path | None = None):
         self.global_env = Environment()
         self.functions: dict[str, FunctionDecl] = {}
         self.game_api: dict[str, Any] = game_api or {}
         self.debug_log: list[str] = []
         self.ops = 0
         self._initialized = False
+        self.source_path = Path(source_path) if source_path else None
+        self._included_files: set[str] = set()  # resolved paths
         self._setup_builtins()
 
     def _setup_builtins(self):
@@ -128,7 +133,7 @@ class Interpreter:
             return abs(_to_num(x))
 
         def _debug(*args):
-            msg = " ".join(_to_str(a) for a in args)
+            msg = " ".join(_to_ls_string(a) for a in args)
             self.debug_log.append(msg)
             return None
 
@@ -223,6 +228,33 @@ class Interpreter:
                 return val in arr
             return False
 
+        def _mapKeys(m):
+            if isinstance(m, dict):
+                return list(m.keys())
+            return []
+
+        def _mapValues(m):
+            if isinstance(m, dict):
+                return list(m.values())
+            return []
+
+        def _mapIsEmpty(m):
+            if isinstance(m, dict):
+                return len(m) == 0
+            return True
+
+        def _clone(val):
+            if isinstance(val, list):
+                return list(val)
+            if isinstance(val, dict):
+                return dict(val)
+            return val
+
+        def _join(arr, sep=""):
+            if isinstance(arr, list):
+                return str(sep).join(_to_ls_string(v) for v in arr)
+            return ""
+
         self._builtins: dict[str, Callable] = {
             "push": _push,
             "count": _count,
@@ -251,6 +283,11 @@ class Interpreter:
             "arrayMap": _arrayMap,
             "arrayFilter": _arrayFilter,
             "inArray": _inArray,
+            "mapKeys": _mapKeys,
+            "mapValues": _mapValues,
+            "mapIsEmpty": _mapIsEmpty,
+            "clone": _clone,
+            "join": _join,
         }
 
     def run(self, program: Program) -> Any:
@@ -343,7 +380,7 @@ class Interpreter:
 
             if isinstance(obj, list):
                 idx = int(idx)
-                if 0 <= idx < len(obj):
+                if -len(obj) <= idx < len(obj):
                     obj[idx] = new_val
             elif isinstance(obj, dict):
                 obj[idx] = new_val
@@ -381,17 +418,23 @@ class Interpreter:
         raise LSRuntimeError(f"Invalid assignment target: {type(stmt.target).__name__}")
 
     def _apply_compound_op(self, op: str, old: Any, value: Any) -> Any:
-        old = _to_num(old)
-        value = _to_num(value)
         if op == "+=":
-            # String concatenation if old was a string
-            return old + value
+            # String concatenation if either side is string
+            if isinstance(old, str) or isinstance(value, str):
+                return _to_ls_string(old) + _to_ls_string(value)
+            return _to_num(old) + _to_num(value)
+        old_n = _to_num(old)
+        val_n = _to_num(value)
         if op == "-=":
-            return old - value
+            return old_n - val_n
         if op == "*=":
-            return old * value
+            return old_n * val_n
         if op == "/=":
-            return old / value if value != 0 else 0
+            return old_n / val_n if val_n != 0 else 0
+        if op == "%=":
+            return old_n % val_n if val_n != 0 else 0
+        if op == "**=":
+            return old_n ** val_n
         return value
 
     def _exec_if(self, stmt: IfStmt, env: Environment):
@@ -431,12 +474,12 @@ class Interpreter:
                 except ContinueSignal:
                     continue
         elif isinstance(iterable, dict):
-            for key in list(iterable.keys()):
+            for val in list(iterable.values()):  # LS for-in on map iterates VALUES
                 iters += 1
                 if iters > MAX_LOOP_ITERATIONS:
                     raise LSRuntimeError("For loop iteration limit exceeded")
                 local = Environment(env)
-                local.define(stmt.var_name, key)
+                local.define(stmt.var_name, val)
                 try:
                     self._exec_block(stmt.body, local)
                 except BreakSignal:
@@ -602,6 +645,12 @@ class Interpreter:
         if isinstance(expr, Increment):
             return self._eval_increment(expr, env)
 
+        if isinstance(expr, AnonFunction):
+            return self._eval_anon_function(expr, env)
+
+        if isinstance(expr, Assignment):
+            return self._exec_assignment(expr, env)
+
         raise LSRuntimeError(f"Unknown expression type: {type(expr).__name__}")
 
     def _eval_binary(self, expr: BinaryOp, env: Environment) -> Any:
@@ -621,12 +670,44 @@ class Interpreter:
         left = self._eval_expr(expr.left, env)
         right = self._eval_expr(expr.right, env)
 
+        # Boolean XOR
+        if expr.op == "xor":
+            return _is_truthy(left) != _is_truthy(right)
+
+        # Identity operators
+        if expr.op == "is":
+            return _ls_equal(left, right)
+        if expr.op == "is not":
+            return not _ls_equal(left, right)
+
+        # Membership operator
+        if expr.op == "in":
+            if isinstance(right, list):
+                return left in right
+            if isinstance(right, dict):
+                return left in right
+            return False
+
+        # Array concatenation
+        if expr.op == "+" and isinstance(left, list):
+            if isinstance(right, list):
+                return left + right
+            return left + [right]
+
+        # Map merge
+        if expr.op == "+" and isinstance(left, dict):
+            if isinstance(right, dict):
+                result = dict(left)
+                result.update(right)
+                return result
+            return dict(left)
+
         # String concatenation
         if expr.op == "+" and (isinstance(left, str) or isinstance(right, str)):
-            return _to_str(left) + _to_str(right)
+            return _to_ls_string(left) + _to_ls_string(right)
 
-        # Equality (v4: strict, but null == null is true)
-        if expr.op == "==":
+        # Equality (v4: strict, no type coercion)
+        if expr.op == "==" or expr.op == "===":
             return _ls_equal(left, right)
         if expr.op == "!=":
             return not _ls_equal(left, right)
@@ -645,6 +726,8 @@ class Interpreter:
             return l / r if r != 0 else 0
         if expr.op == "%":
             return l % r if r != 0 else 0
+        if expr.op == "**":
+            return l ** r
         if expr.op == "<":
             return l < r
         if expr.op == ">":
@@ -661,23 +744,38 @@ class Interpreter:
         if isinstance(expr.callee, Identifier):
             name = expr.callee.name
         else:
-            # Dynamic call (rare)
-            name = None
+            # Dynamic call: callee is an expression (closure, subscript, etc.)
+            callee_val = self._eval_expr(expr.callee, env)
+            args = [self._eval_expr(a, env) for a in expr.args]
+            if callable(callee_val):
+                return callee_val(*args)
+            return None
 
         args = [self._eval_expr(a, env) for a in expr.args]
 
+        # Special: include()
+        if name == "include" and args:
+            return self._handle_include(str(args[0]))
+
         # Priority: game API > builtins > user functions
-        if name and name in self.game_api:
+        if name in self.game_api:
             fn = self.game_api[name]
             if callable(fn):
                 return fn(*args)
             return fn  # constant
 
-        if name and name in self._builtins:
+        if name in self._builtins:
             return self._builtins[name](*args)
 
-        if name and name in self.functions:
+        if name in self.functions:
             return self._call_user_function(name, args)
+
+        # Try as variable (could be anon function stored in a var)
+        val = env.get(name)
+        if val is None:
+            val = self.global_env.get(name)
+        if callable(val):
+            return val(*args)
 
         # Unknown function — return null (lenient, like real LS runtime)
         return None
@@ -769,17 +867,72 @@ class Interpreter:
 
         return 0
 
+    def _eval_anon_function(self, expr: AnonFunction, env: Environment) -> Any:
+        """Create a closure for an anonymous function expression."""
+        captured_env = env  # capture enclosing scope for closures
+        interpreter = self  # capture self for recursive calls
+
+        def closure(*args):
+            local_env = Environment(captured_env)
+            for i, param in enumerate(expr.params):
+                local_env.define(param, args[i] if i < len(args) else None)
+            try:
+                interpreter._exec_block(expr.body, local_env)
+            except ReturnSignal as r:
+                return r.value
+            return None
+
+        return closure
+
+    def _handle_include(self, path_str: str) -> Any:
+        """Handle include("file.leek") — load and execute in same global scope."""
+        from .lexer import tokenize
+        from .parser import Parser
+
+        if self.source_path is None:
+            return None
+
+        base_dir = self.source_path.parent
+        include_path = base_dir / path_str
+
+        if not include_path.exists():
+            # Try common extensions
+            for ext in [".leek", ".lk"]:
+                candidate = base_dir / (path_str + ext)
+                if candidate.exists():
+                    include_path = candidate
+                    break
+
+        if not include_path.exists():
+            return None
+
+        resolved = str(include_path.resolve())
+        if resolved in self._included_files:
+            return None  # already included (prevent circular)
+        self._included_files.add(resolved)
+
+        source = include_path.read_text()
+        tokens = tokenize(source)
+        program = Parser(tokens).parse()
+
+        # Execute in same global scope; temporarily swap source_path
+        old_path = self.source_path
+        self.source_path = include_path
+        self.run(program)
+        self.source_path = old_path
+        return None
+
     def _subscript_get(self, obj: Any, idx: Any) -> Any:
         if isinstance(obj, list):
             i = int(idx)
-            if 0 <= i < len(obj):
-                return obj[i]
+            if -len(obj) <= i < len(obj):
+                return obj[i]  # Python handles negative indexing
             return None
         if isinstance(obj, dict):
             return obj.get(idx)
         if isinstance(obj, str):
             i = int(idx)
-            if 0 <= i < len(obj):
+            if -len(obj) <= i < len(obj):
                 return obj[i]
             return None
         return None
@@ -807,11 +960,13 @@ def _to_num(val: Any) -> int | float:
 
 
 def _to_str(val: Any) -> str:
-    """Coerce value to string."""
+    """LS toString() — display representation. Strings are quoted."""
     if val is None:
         return "null"
     if isinstance(val, bool):
         return "true" if val else "false"
+    if isinstance(val, str):
+        return f'"{val}"'
     if isinstance(val, float):
         if val == int(val):
             return str(int(val))
@@ -824,6 +979,14 @@ def _to_str(val: Any) -> str:
         pairs = [f"{_to_str(k)} : {_to_str(v)}" for k, v in val.items()]
         return "[" + ", ".join(pairs) + "]"
     return str(val)
+
+
+def _to_ls_string(val: Any) -> str:
+    """LS string() — value conversion. Strings NOT quoted.
+    Used for string concatenation and debug() output."""
+    if isinstance(val, str):
+        return val
+    return _to_str(val)
 
 
 def _is_truthy(val: Any) -> bool:
@@ -844,12 +1007,30 @@ def _is_truthy(val: Any) -> bool:
 
 
 def _ls_equal(a: Any, b: Any) -> bool:
-    """LeekScript v4 equality (strict-ish but null == null)."""
+    """LeekScript v4 equality (strict — no cross-type coercion)."""
     if a is None and b is None:
         return True
     if a is None or b is None:
         return False
+    # v4 strict: bool is NOT equal to number
+    if isinstance(a, bool) and isinstance(b, bool):
+        return a == b
+    if isinstance(a, bool) or isinstance(b, bool):
+        return False
     # Number comparison: int and float interchangeable
     if isinstance(a, (int, float)) and isinstance(b, (int, float)):
         return float(a) == float(b)
+    # Deep equality for arrays
+    if isinstance(a, list) and isinstance(b, list):
+        if len(a) != len(b):
+            return False
+        return all(_ls_equal(x, y) for x, y in zip(a, b))
+    # Deep equality for maps
+    if isinstance(a, dict) and isinstance(b, dict):
+        if len(a) != len(b):
+            return False
+        for k in a:
+            if k not in b or not _ls_equal(a[k], b[k]):
+                return False
+        return True
     return a == b

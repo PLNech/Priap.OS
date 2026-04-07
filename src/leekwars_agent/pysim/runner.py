@@ -209,8 +209,8 @@ class PySimRunner:
         # Load AI files
         ai1_source = Path(ai1_path).read_text()
         ai2_source = Path(ai2_path).read_text()
-        engine.load_ai(1, ai1_source)
-        engine.load_ai(2, ai2_source)
+        engine.load_ai(1, ai1_source, source_path=str(ai1_path))
+        engine.load_ai(2, ai2_source, source_path=str(ai2_path))
 
         # Run fight
         return engine.run()

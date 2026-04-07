@@ -51,14 +51,17 @@ class FightEngine:
         self.programs: dict[int, Program] = {}
         self._current_entity_id: int = 0
 
-    def load_ai(self, entity_id: int, leek_source: str):
+    def load_ai(self, entity_id: int, leek_source: str,
+                source_path: str | None = None):
         """Parse .leek file and create interpreter for entity."""
         tokens = tokenize(leek_source)
         program = Parser(tokens).parse()
         self.programs[entity_id] = program
 
         api = self._build_game_api(entity_id)
-        self.interpreters[entity_id] = Interpreter(game_api=api)
+        self.interpreters[entity_id] = Interpreter(
+            game_api=api, source_path=source_path,
+        )
 
     def _emit(self, *action):
         self.actions.append(list(action))
