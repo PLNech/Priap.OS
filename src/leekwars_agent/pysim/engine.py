@@ -833,6 +833,11 @@ class FightEngine:
 
         def getPathLength(c1, c2, leeks_to_ignore=None):
             c1, c2 = _safe_int(c1), _safe_int(c2)
+            # Dynamic ops: base 100 + distance²×20 (expensive BFS)
+            dist = engine.grid.distance(c1, c2)
+            interp = engine.interpreters.get(entity_id)
+            if interp:
+                interp.charge_ops(dist * dist * 20)
             if c1 == c2:
                 return 0
             ignore: set[int] = set()
@@ -849,6 +854,10 @@ class FightEngine:
 
         def getPath(c1, c2, leeks_to_ignore=None):
             c1, c2 = _safe_int(c1), _safe_int(c2)
+            dist = engine.grid.distance(c1, c2)
+            interp = engine.interpreters.get(entity_id)
+            if interp:
+                interp.charge_ops(dist * dist * 20)
             if c1 == c2:
                 return []
             ignore: set[int] = set()
@@ -1241,6 +1250,10 @@ class FightEngine:
 
     # ── Turn loop ───────────────────────────────────────────────────
 
+    # Action codes that represent meaningful combat progress
+    _COMBAT_ACTION_CODES = {16, 12, 101, 110, 11}  # USE_WEAPON, USE_CHIP, LOST_LIFE, POISON_DAMAGE, KILL
+    STALE_TURN_LIMIT = 10  # consecutive turns with 0 combat actions → declare draw
+
     def run(self) -> dict:
         """Execute the full fight. Returns outcome dict."""
         # Determine turn order by frequency (higher = first)
@@ -1253,10 +1266,12 @@ class FightEngine:
         )
 
         self._emit(0)  # START_FIGHT
+        stale_turns = 0  # consecutive full turns with no combat actions
 
         while self.turn < MAX_TURNS:
             self.turn += 1
             self._emit(6, self.turn)  # NEW_TURN
+            actions_before = len(self.actions)
 
             for eid in turn_order:
                 entity = self.entities[eid]
@@ -1304,6 +1319,20 @@ class FightEngine:
 
             if self._fight_over():
                 break
+
+            # Stale fight detection: check if any combat actions happened this turn
+            new_actions = self.actions[actions_before:]
+            had_combat = any(a[0] in self._COMBAT_ACTION_CODES for a in new_actions)
+            if had_combat:
+                stale_turns = 0
+            else:
+                stale_turns += 1
+                if stale_turns >= self.STALE_TURN_LIMIT:
+                    for eid in turn_order:
+                        self.debug_logs[eid].append(
+                            f"[stale] Fight declared stale after {stale_turns} turns with no combat"
+                        )
+                    break
 
         winner = self._get_winner()
         self._emit(4, winner)  # END_FIGHT

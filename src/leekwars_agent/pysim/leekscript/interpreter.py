@@ -77,9 +77,6 @@ class OpsLimitExceeded(Exception):
     pass
 
 
-# Max loop iterations — high enough that ops limit catches real issues.
-# Real game relies on ops limit, not loop count. We keep this as safety net only.
-MAX_LOOP_ITERATIONS = 500_000
 MAX_OPS = 20_000_000  # matches OPERATIONS_LIMIT constant in real game
 
 
@@ -397,11 +394,15 @@ class Interpreter:
             "endsWith": lambda s, p: str(s).endswith(str(p)) if s is not None else False,
         }
 
-    def charge_ops(self, cost: int) -> None:
-        """Charge operations from external caller (engine API functions)."""
+    def _charge_ops(self, cost: int) -> None:
+        """Charge operations (internal). Raises OpsLimitExceeded if over budget."""
         self.ops += cost
         if self.ops > MAX_OPS:
             raise OpsLimitExceeded("too_much_ops")
+
+    def charge_ops(self, cost: int) -> None:
+        """Charge operations from external caller (engine API functions)."""
+        self._charge_ops(cost)
 
     def run(self, program: Program) -> Any:
         """Execute a parsed program. Called once per turn.
@@ -431,9 +432,8 @@ class Interpreter:
     # ── Statement execution ─────────────────────────────────────────
 
     def _exec_stmt(self, stmt: Any, env: Environment) -> Any:
-        self.ops += 1
-        if self.ops > MAX_OPS:
-            raise OpsLimitExceeded("too_much_ops")
+        # Java model: statements don't cost ops themselves.
+        # Ops are charged by the expressions they contain.
 
         if isinstance(stmt, VarDecl):
             return self._exec_var_decl(stmt, env)
@@ -467,6 +467,8 @@ class Interpreter:
         raise LSRuntimeError(f"Unknown statement type: {type(stmt).__name__}")
 
     def _exec_var_decl(self, stmt: VarDecl, env: Environment):
+        # Java: var declaration costs 1 + init expression ops
+        self._charge_ops(1)
         if stmt.is_global:
             # Global: only initialize if not already defined (cross-turn persistence)
             if stmt.name not in self.global_env.vars:
@@ -478,6 +480,10 @@ class Interpreter:
             env.define(stmt.name, value)
 
     def _exec_assignment(self, stmt: Assignment, env: Environment):
+        # Java: assignment costs 1 op + compound operator cost
+        op_cost = self._BINARY_OPS_COST.get(stmt.op, 1)
+        self._charge_ops(op_cost)
+
         value = self._eval_expr(stmt.value, env)
 
         # Handle subscript assignment: arr[i] = val, map[k] = val
@@ -491,11 +497,14 @@ class Interpreter:
                 old_val = self._subscript_get(obj, idx)
                 new_val = self._apply_compound_op(stmt.op, old_val, value)
 
+            # Java runtime: array write = 2 ops, map write = 3 ops
             if isinstance(obj, list):
+                self._charge_ops(2)
                 idx = int(idx)
                 if -len(obj) <= idx < len(obj):
                     obj[idx] = new_val
             elif isinstance(obj, dict):
+                self._charge_ops(3)
                 obj[idx] = new_val
             return new_val
 
@@ -503,6 +512,7 @@ class Interpreter:
         if isinstance(stmt.target, PropertyAccess):
             obj = self._eval_expr(stmt.target.obj, env)
             if isinstance(obj, dict):
+                self._charge_ops(3)  # map write
                 if stmt.op == "=":
                     obj[stmt.target.prop] = value
                 else:
@@ -557,11 +567,12 @@ class Interpreter:
             return self._exec_block(stmt.else_body, env)
 
     def _exec_while(self, stmt: WhileStmt, env: Environment):
-        iters = 0
-        while _is_truthy(self._eval_expr(stmt.condition, env)):
-            iters += 1
-            if iters > MAX_LOOP_ITERATIONS:
-                raise LSRuntimeError("While loop iteration limit exceeded")
+        # Java: condition ops charged each iteration. We add a 1-op floor per
+        # iteration to prevent CPU-infinite loops when condition has 0 ops cost.
+        while True:
+            self._charge_ops(1)  # loop iteration floor
+            if not _is_truthy(self._eval_expr(stmt.condition, env)):
+                break
             try:
                 self._exec_block(stmt.body, env)
             except BreakSignal:
@@ -571,13 +582,10 @@ class Interpreter:
 
     def _exec_for_in(self, stmt: ForIn, env: Environment):
         iterable = self._eval_expr(stmt.iterable, env)
-        iters = 0
 
         if isinstance(iterable, list):
             for item in iterable:
-                iters += 1
-                if iters > MAX_LOOP_ITERATIONS:
-                    raise LSRuntimeError("For loop iteration limit exceeded")
+                self._charge_ops(1)  # Java: 1 op per foreach iteration
                 local = Environment(env)
                 local.define(stmt.var_name, item)
                 try:
@@ -588,9 +596,7 @@ class Interpreter:
                     continue
         elif isinstance(iterable, dict):
             for val in list(iterable.values()):  # LS for-in on map iterates VALUES
-                iters += 1
-                if iters > MAX_LOOP_ITERATIONS:
-                    raise LSRuntimeError("For loop iteration limit exceeded")
+                self._charge_ops(1)
                 local = Environment(env)
                 local.define(stmt.var_name, val)
                 try:
@@ -602,13 +608,10 @@ class Interpreter:
 
     def _exec_for_kv(self, stmt: ForKeyValue, env: Environment):
         iterable = self._eval_expr(stmt.iterable, env)
-        iters = 0
 
         if isinstance(iterable, dict):
             for key, val in list(iterable.items()):
-                iters += 1
-                if iters > MAX_LOOP_ITERATIONS:
-                    raise LSRuntimeError("For-kv loop iteration limit exceeded")
+                self._charge_ops(2)  # Java: 1 for key + 1 for value assignment
                 local = Environment(env)
                 local.define(stmt.key_name, key)
                 local.define(stmt.val_name, val)
@@ -620,9 +623,7 @@ class Interpreter:
                     continue
         elif isinstance(iterable, list):
             for idx, val in enumerate(iterable):
-                iters += 1
-                if iters > MAX_LOOP_ITERATIONS:
-                    raise LSRuntimeError("For-kv loop iteration limit exceeded")
+                self._charge_ops(2)
                 local = Environment(env)
                 local.define(stmt.key_name, idx)
                 local.define(stmt.val_name, val)
@@ -637,14 +638,11 @@ class Interpreter:
         local = Environment(env)
         if stmt.init:
             self._exec_stmt(stmt.init, local)
-        iters = 0
         while True:
+            self._charge_ops(1)  # loop iteration floor
             if stmt.condition:
                 if not _is_truthy(self._eval_expr(stmt.condition, local)):
                     break
-            iters += 1
-            if iters > MAX_LOOP_ITERATIONS:
-                raise LSRuntimeError("For loop iteration limit exceeded")
             try:
                 self._exec_block(stmt.body, local)
             except BreakSignal:
@@ -658,11 +656,8 @@ class Interpreter:
                     self._eval_expr(stmt.update, local)
 
     def _exec_do_while(self, stmt: DoWhileStmt, env: Environment):
-        iters = 0
         while True:
-            iters += 1
-            if iters > MAX_LOOP_ITERATIONS:
-                raise LSRuntimeError("Do-while loop iteration limit exceeded")
+            self._charge_ops(1)  # loop iteration floor
             try:
                 self._exec_block(stmt.body, env)
             except BreakSignal:
@@ -680,13 +675,26 @@ class Interpreter:
 
     # ── Expression evaluation ───────────────────────────────────────
 
+    # ── Operator ops costs (from LeekValueType.java) ─────────────────
+    _BINARY_OPS_COST = {
+        "+": 1, "-": 1, "==": 1, "===": 1, "!=": 1, "!==": 1,
+        "<": 1, ">": 1, "<=": 1, ">=": 1, "=": 1,
+        "+=": 1, "-=": 1, "++": 1, "--": 1,
+        "xor": 1, "in": 1, "is": 1, "is not": 1,
+        "&": 1, "|": 1, "^": 1, "<<": 1, ">>": 1, ">>>": 1,
+        "*": 2, "*=": 2,
+        "/": 5, "/=": 5, "//": 5, "//=": 5,
+        "%": 5, "%=": 5,
+        "**": 40, "**=": 40,
+        "&&": 0, "||": 0,  # short-circuit — sub-exprs charged separately
+    }
+
     def _eval_expr(self, expr: Any, env: Environment) -> Any:
         if expr is None:
             return None
 
-        self.ops += 1
-        if self.ops > MAX_OPS:
-            raise OpsLimitExceeded("too_much_ops")
+        # Java model: literals and identifiers cost 0 ops.
+        # Ops are charged by operators, declarations, and data structure ops.
 
         if isinstance(expr, NumberLit):
             return expr.value
@@ -698,22 +706,24 @@ class Interpreter:
             return None
 
         if isinstance(expr, Identifier):
-            # Check local scope, then global, then game API constants
             val = env.get(expr.name)
             if val is not None:
                 return val
             val = self.global_env.get(expr.name)
             if val is not None:
                 return val
-            # Game API constants (CELL_OBSTACLE, USE_SUCCESS, etc.)
             if expr.name in self.game_api:
                 return self.game_api[expr.name]
             return None
 
         if isinstance(expr, ArrayLit):
+            # Java: 2 ops per element
+            self._charge_ops(2 * len(expr.elements))
             return [self._eval_expr(e, env) for e in expr.elements]
 
         if isinstance(expr, MapLit):
+            # Java: 2 ops per entry
+            self._charge_ops(2 * len(expr.pairs))
             result = {}
             for k_expr, v_expr in expr.pairs:
                 k = self._eval_expr(k_expr, env)
@@ -725,6 +735,7 @@ class Interpreter:
             return self._eval_binary(expr, env)
 
         if isinstance(expr, UnaryOp):
+            self._charge_ops(1)
             operand = self._eval_expr(expr.operand, env)
             if expr.op == "-":
                 return -_to_num(operand)
@@ -733,52 +744,70 @@ class Interpreter:
             return operand
 
         if isinstance(expr, Ternary):
+            self._charge_ops(1)
             cond = self._eval_expr(expr.condition, env)
             if _is_truthy(cond):
                 return self._eval_expr(expr.true_val, env)
             return self._eval_expr(expr.false_val, env)
 
         if isinstance(expr, FunctionCall):
+            # Java: 1 op for user function call (system functions charged by API wrapper)
             return self._eval_function_call(expr, env)
 
         if isinstance(expr, MethodCall):
+            self._charge_ops(1)
             return self._eval_method_call(expr, env)
 
         if isinstance(expr, Subscript):
             obj = self._eval_expr(expr.obj, env)
             idx = self._eval_expr(expr.index, env)
+            # Java runtime: array read = 1 op, map read = 2 ops
+            if isinstance(obj, dict):
+                self._charge_ops(2)
+            else:
+                self._charge_ops(1)
             return self._subscript_get(obj, idx)
 
         if isinstance(expr, PropertyAccess):
+            self._charge_ops(1)
             obj = self._eval_expr(expr.obj, env)
             if isinstance(obj, dict):
                 return obj.get(expr.prop)
             return None
 
         if isinstance(expr, Increment):
+            self._charge_ops(1)
             return self._eval_increment(expr, env)
 
         if isinstance(expr, AnonFunction):
             return self._eval_anon_function(expr, env)
 
         if isinstance(expr, Assignment):
+            # Assignment ops charged in _exec_assignment
             return self._exec_assignment(expr, env)
 
         raise LSRuntimeError(f"Unknown expression type: {type(expr).__name__}")
 
     def _eval_binary(self, expr: BinaryOp, env: Environment) -> Any:
-        # Short-circuit for && and ||
+        # Short-circuit for && and || — Java charges 0 for the operator itself
+        # (1 op added to first sub-expression, but we approximate by charging 1 per eval)
         if expr.op == "&&":
+            self._charge_ops(1)
             left = self._eval_expr(expr.left, env)
             if not _is_truthy(left):
                 return left
             return self._eval_expr(expr.right, env)
 
         if expr.op == "||":
+            self._charge_ops(1)
             left = self._eval_expr(expr.left, env)
             if _is_truthy(left):
                 return left
             return self._eval_expr(expr.right, env)
+
+        # Charge operator cost from Java's LeekValueType constants
+        op_cost = self._BINARY_OPS_COST.get(expr.op, 1)
+        self._charge_ops(op_cost)
 
         left = self._eval_expr(expr.left, env)
         right = self._eval_expr(expr.right, env)
@@ -873,6 +902,7 @@ class Interpreter:
         # Priority: user functions > game API > builtins
         # User code can shadow game API (matches real LS runtime behavior)
         if name in self.functions:
+            self._charge_ops(1)  # Java: 1 op per user function call
             return self._call_user_function(name, args)
 
         # Try as variable (could be anon function stored in a var)
