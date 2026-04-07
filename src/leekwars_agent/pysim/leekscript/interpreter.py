@@ -255,6 +255,77 @@ class Interpreter:
                 return str(sep).join(_to_ls_string(v) for v in arr)
             return ""
 
+        import random as _random_mod
+        _rng = _random_mod.Random()
+
+        def _random():
+            return _rng.random()
+
+        def _randInt(lo, hi):
+            return _rng.randint(int(lo), int(hi))
+
+        def _arrayFlatten(arr):
+            if not isinstance(arr, list):
+                return []
+            result = []
+            for item in arr:
+                if isinstance(item, list):
+                    result.extend(item)
+                else:
+                    result.append(item)
+            return result
+
+        def _arrayFoldLeft(arr, fn, init):
+            if not isinstance(arr, list):
+                return init
+            acc = init
+            for v in arr:
+                acc = fn(acc, v)
+            return acc
+
+        def _search(arr, val, pos=0):
+            if isinstance(arr, list):
+                for i in range(int(pos), len(arr)):
+                    if arr[i] == val:
+                        return i
+                return -1
+            if isinstance(arr, str):
+                return arr.find(str(val), int(pos))
+            return -1
+
+        def _contains(arr, val):
+            if isinstance(arr, (list, dict)):
+                return val in arr
+            if isinstance(arr, str):
+                return str(val) in arr
+            return False
+
+        def _charAt(s, idx):
+            s = str(s) if not isinstance(s, str) else s
+            idx = int(idx)
+            if 0 <= idx < len(s):
+                return s[idx]
+            return ""
+
+        def _split(s, sep, limit=None):
+            s = str(s) if not isinstance(s, str) else s
+            sep = str(sep) if not isinstance(sep, str) else sep
+            if limit is not None:
+                return s.split(sep, int(limit))
+            return s.split(sep)
+
+        def _keySort(m, order=None):
+            if not isinstance(m, dict):
+                return m
+            rev = order == 1  # SORT_DESC = 1
+            return dict(sorted(m.items(), key=lambda kv: kv[0], reverse=rev))
+
+        def _assocSort(arr):
+            """Sort array values, preserve key association (for LS arrays = just sort)."""
+            if isinstance(arr, list):
+                arr.sort(key=lambda x: (_to_num(x) if isinstance(x, (int, float)) else 0))
+            return arr
+
         self._builtins: dict[str, Callable] = {
             "push": _push,
             "count": _count,
@@ -288,6 +359,36 @@ class Interpreter:
             "mapIsEmpty": _mapIsEmpty,
             "clone": _clone,
             "join": _join,
+            # New builtins for opponent AI support
+            "random": _random,
+            "randInt": _randInt,
+            "arrayFlatten": _arrayFlatten,
+            "arrayFoldLeft": _arrayFoldLeft,
+            "search": _search,
+            "contains": _contains,
+            "charAt": _charAt,
+            "split": _split,
+            "keySort": _keySort,
+            "assocSort": _assocSort,
+            "subArray": lambda arr, s, e=None: arr[int(s):] if e is None else arr[int(s):int(e)] if isinstance(arr, list) else [],
+            "arraySlice": lambda arr, s, l: arr[int(s):int(s)+int(l)] if isinstance(arr, list) else [],
+            "mapSize": lambda m: len(m) if isinstance(m, dict) else 0,
+            "isEmpty": lambda x: (len(x) == 0) if isinstance(x, (list, dict, str)) else x is None,
+            "toDegrees": lambda x: math.degrees(_to_num(x)),
+            "toRadians": lambda x: math.radians(_to_num(x)),
+            "cos": lambda x: math.cos(_to_num(x)),
+            "sin": lambda x: math.sin(_to_num(x)),
+            "atan2": lambda y, x: math.atan2(_to_num(y), _to_num(x)),
+            "log": lambda x: math.log(_to_num(x)) if _to_num(x) > 0 else 0,
+            "log2": lambda x: math.log2(_to_num(x)) if _to_num(x) > 0 else 0,
+            "log10": lambda x: math.log10(_to_num(x)) if _to_num(x) > 0 else 0,
+            "signum": lambda x: (1 if _to_num(x) > 0 else (-1 if _to_num(x) < 0 else 0)),
+            "charAt": _charAt,
+            "toLower": lambda s: str(s).lower() if s is not None else "",
+            "toUpper": lambda s: str(s).upper() if s is not None else "",
+            "trim": lambda s: str(s).strip() if s is not None else "",
+            "startsWith": lambda s, p: str(s).startswith(str(p)) if s is not None else False,
+            "endsWith": lambda s, p: str(s).endswith(str(p)) if s is not None else False,
         }
 
     def run(self, program: Program) -> Any:
@@ -757,16 +858,8 @@ class Interpreter:
         if name == "include" and args:
             return self._handle_include(str(args[0]))
 
-        # Priority: game API > builtins > user functions
-        if name in self.game_api:
-            fn = self.game_api[name]
-            if callable(fn):
-                return fn(*args)
-            return fn  # constant
-
-        if name in self._builtins:
-            return self._builtins[name](*args)
-
+        # Priority: user functions > game API > builtins
+        # User code can shadow game API (matches real LS runtime behavior)
         if name in self.functions:
             return self._call_user_function(name, args)
 
@@ -776,6 +869,15 @@ class Interpreter:
             val = self.global_env.get(name)
         if callable(val):
             return val(*args)
+
+        if name in self.game_api:
+            fn = self.game_api[name]
+            if callable(fn):
+                return fn(*args)
+            return fn  # constant
+
+        if name in self._builtins:
+            return self._builtins[name](*args)
 
         # Unknown function — return null (lenient, like real LS runtime)
         return None

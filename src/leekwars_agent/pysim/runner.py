@@ -28,6 +28,7 @@ def _build_weapon_dict(weapon) -> dict:
         "los": weapon.los,
         "area": weapon.area,
         "max_uses": weapon.max_uses,
+        "launch_type": weapon.launch_type,
         "effects": [
             {
                 "type": e.type,
@@ -55,6 +56,7 @@ def _build_chip_dict(chip) -> dict:
         "los": chip.los,
         "area": chip.area,
         "max_uses": chip.max_uses,
+        "launch_type": chip.launch_type,
         "effects": [
             {
                 "type": e.type,

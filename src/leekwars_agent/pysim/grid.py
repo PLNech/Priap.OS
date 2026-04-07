@@ -195,6 +195,218 @@ class Grid:
                 return cell_id
         return None
 
+    # ── coordinate lookups ──────────────────────────────────────────────
+
+    def cell_from_xy(self, x: int, y: int) -> int | None:
+        """Convert game (x, y) to cell_id. Public version of _xy_to_cell.
+
+        Java formula (FieldClass.getCellFromXY):
+            getCell(x + width - 1, y)
+        Where getCell(col, row) returns cells[row * stride + col].
+        Our _xy_to_cell uses the raw game coords directly.
+        """
+        return self._xy_to_cell(x, y)
+
+    def is_on_same_line(self, c1: int, c2: int) -> bool:
+        """True if cells share game x or y coordinate (same row/col on diamond)."""
+        if c1 < 0 or c2 < 0 or c1 >= self.nb_cells or c2 >= self.nb_cells:
+            return False
+        return self._x[c1] == self._x[c2] or self._y[c1] == self._y[c2]
+
+    # ── spatial queries (range + launch_type + LOS) ───────────────────
+
+    def verify_range(self, caster: int, target: int,
+                     min_range: int, max_range: int,
+                     launch_type: int = 7) -> bool:
+        """Check if target is within range and satisfies launch_type constraints.
+
+        launch_type bitmask (from Attack.java):
+          bit 0 (1): allow lines (dx==0 or dy==0)
+          bit 1 (2): allow diagonals (|dx|==|dy|)
+          bit 2 (4): allow rest (other directions)
+        Value 7 = all bits set = circle (no direction constraint).
+        """
+        if caster < 0 or target < 0 or caster >= self.nb_cells or target >= self.nb_cells:
+            return False
+        dx = self._x[caster] - self._x[target]
+        dy = self._y[caster] - self._y[target]
+        dist = abs(dx) + abs(dy)
+        if dist > max_range or dist < min_range:
+            return False
+        if caster == target:
+            return True
+        # Launch type direction constraints
+        if (launch_type & 1) == 0 and (dx == 0 or dy == 0):
+            return False  # lines excluded
+        if (launch_type & 2) == 0 and abs(dx) == abs(dy):
+            return False  # diagonals excluded
+        if (launch_type & 4) == 0 and abs(dx) != abs(dy) and dx != 0 and dy != 0:
+            return False  # rest excluded
+        return True
+
+    def can_use_attack(self, caster: int, target: int,
+                       min_range: int, max_range: int,
+                       los: bool, launch_type: int = 7,
+                       blocking: set[int] | None = None) -> bool:
+        """Full range + LOS check for weapon/chip use. Matches Map.canUseAttack."""
+        if not self.verify_range(caster, target, min_range, max_range, launch_type):
+            return False
+        if los and caster != target:
+            return self.line_of_sight(caster, target, blocking)
+        return True
+
+    def get_possible_cast_cells(
+        self,
+        target: int,
+        min_range: int,
+        max_range: int,
+        los: bool,
+        launch_type: int = 7,
+        cells_to_ignore: set[int] | None = None,
+        blocking_entities: set[int] | None = None,
+    ) -> list[int]:
+        """All cells from which an attack can reach target.
+
+        Matches Map.getPossibleCastCellsForTarget from Java source.
+        For inline (launch_type=1): trace 4 cardinal lines from target.
+        For circle (launch_type=7): scan all cells within range ring.
+        """
+        if target < 0 or target >= self.nb_cells:
+            return []
+        if target in self.obstacles:
+            return []
+
+        ignore = cells_to_ignore or set()
+        result: list[int] = []
+        tx, ty = self._x[target], self._y[target]
+
+        if launch_type == 1:
+            # Inline: trace 4 cardinal directions from target
+            dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+            for ddx, ddy in dirs:
+                blocked = False
+                for i in range(1, max_range + 1):
+                    cell = self._xy_to_cell(tx + i * ddx, ty + i * ddy)
+                    if cell is None:
+                        break
+                    if cell in self.obstacles:
+                        break
+                    if los and not blocked:
+                        # Check if cell is occupied by blocking entity (blocks further)
+                        if blocking_entities and cell in blocking_entities and cell not in ignore:
+                            blocked = True
+                            continue
+                    elif los and blocked:
+                        break
+                    if i >= min_range and cell not in self.obstacles:
+                        # Cell must be walkable and not ignored
+                        if cell not in ignore or True:  # ignore list is "cells to exclude from results"
+                            if self._is_available(cell, ignore):
+                                result.append(cell)
+        else:
+            # Circle/star/etc: scan all cells within range ring
+            for cell in range(self.nb_cells):
+                if cell in self.obstacles:
+                    continue
+                if not self._is_available(cell, ignore):
+                    continue
+                if not self.verify_range(cell, target, min_range, max_range, launch_type):
+                    continue
+                if los and cell != target:
+                    blocking = (blocking_entities or set()) - {cell, target}
+                    if not self.line_of_sight(cell, target, blocking):
+                        continue
+                result.append(cell)
+
+        return result
+
+    def _is_available(self, cell: int, ignore: set[int]) -> bool:
+        """Cell is walkable and not occupied (unless in ignore set)."""
+        if cell in self.obstacles:
+            return False
+        return True  # entity occupation checked separately by engine
+
+    # ── path toward line ──────────────────────────────────────────────
+
+    def path_toward_line(self, start: int, cell1: int, cell2: int) -> list[int]:
+        """BFS path toward the closest point on the line through cell1 and cell2.
+
+        Matches Map.getPathTowardLine from Java source:
+        1. Compute direction vector from cell1 to cell2
+        2. Extend line in both directions to get all cells on the line
+        3. BFS from start toward any cell on that line
+        """
+        if start < 0 or cell1 < 0 or cell2 < 0:
+            return []
+        if start >= self.nb_cells or cell1 >= self.nb_cells or cell2 >= self.nb_cells:
+            return []
+
+        x1, y1 = self._x[cell1], self._y[cell1]
+        x2, y2 = self._x[cell2], self._y[cell2]
+        dx = 0 if x2 == x1 else (1 if x2 > x1 else -1)
+        dy = 0 if y2 == y1 else (1 if y2 > y1 else -1)
+        if dx == 0 and dy == 0:
+            return []
+
+        # Collect all cells on the infinite line
+        line_cells: set[int] = set()
+        # Forward from cell1
+        cx, cy = x1, y1
+        while True:
+            c = self._xy_to_cell(cx, cy)
+            if c is None:
+                break
+            line_cells.add(c)
+            cx += dx
+            cy += dy
+        # Backward from cell1
+        cx, cy = x1 - dx, y1 - dy
+        while True:
+            c = self._xy_to_cell(cx, cy)
+            if c is None:
+                break
+            line_cells.add(c)
+            cx -= dx
+            cy -= dy
+
+        if not line_cells:
+            return []
+        if start in line_cells:
+            return []
+
+        # BFS from start toward any line cell
+        return self._bfs_to_any(start, line_cells)
+
+    def _bfs_to_any(self, start: int, goals: set[int],
+                    blocked: set[int] | None = None) -> list[int]:
+        """BFS shortest path from start to any cell in goals."""
+        if start in goals:
+            return []
+        blocked_set = blocked or set()
+        visited: set[int] = {start}
+        parent: dict[int, int] = {}
+        queue = __import__("collections").deque([start])
+
+        while queue:
+            current = queue.popleft()
+            for nb in self._neighbors[current]:
+                if nb in visited or nb in self.obstacles:
+                    continue
+                if nb not in goals and nb in blocked_set:
+                    continue
+                visited.add(nb)
+                parent[nb] = current
+                if nb in goals:
+                    path: list[int] = []
+                    node = nb
+                    while node != start:
+                        path.append(node)
+                        node = parent[node]
+                    path.reverse()
+                    return path
+                queue.append(nb)
+        return []
+
     # ── pathfinding ───────────────────────────────────────────────────
 
     def find_path_bfs(

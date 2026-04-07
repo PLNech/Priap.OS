@@ -66,6 +66,7 @@ class Chip:
     area: int
     max_uses: int         # -1 = unlimited
     type: int
+    launch_type: int = 7  # 7=circle, 1=line, 3=star, etc. (bitmask)
     effects: tuple[Effect, ...] = field(default_factory=tuple)
 
     @property
@@ -89,6 +90,7 @@ class Weapon:
     area: int
     max_uses: int         # -1 = unlimited
     forgotten: bool
+    launch_type: int = 7  # 7=circle, 1=line, 3=star, etc. (bitmask)
     effects: tuple[Effect, ...] = field(default_factory=tuple)
     passive_effects: tuple[Effect, ...] = field(default_factory=tuple)
 
@@ -225,6 +227,7 @@ def _load_chips() -> _Registry[Chip]:
             area=raw["area"],
             max_uses=raw.get("max_uses", -1),
             type=raw["type"],
+            launch_type=raw.get("launch_type", 7),
             effects=tuple(_parse_effect(e) for e in raw.get("effects", [])),
         ))
     return _Registry(chips, "Chip")
@@ -250,6 +253,7 @@ def _load_weapons() -> _Registry[Weapon]:
             area=raw["area"],
             max_uses=raw.get("max_uses", -1),
             forgotten=raw.get("forgotten", False),
+            launch_type=raw.get("launch_type", 7),
             effects=tuple(_parse_effect(e) for e in raw.get("effects", [])),
             passive_effects=tuple(_parse_effect(e) for e in raw.get("passive_effects", [])),
         ))

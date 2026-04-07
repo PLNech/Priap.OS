@@ -19,6 +19,7 @@ from .effects import (
     calc_damage, calc_heal, calc_abs_shield, calc_rel_shield,
     calc_tp_shackle, calc_raw_tp_buff, roll_critical,
 )
+from leekwars_agent.models.equipment import CHIP_REGISTRY, WEAPON_REGISTRY
 
 # Game constants (match Java generator)
 USE_SUCCESS = 1
@@ -201,10 +202,15 @@ class FightEngine:
 
         # ── Weapon queries ──────────────────────────────────────────
 
-        def getWeapon():
-            if me.current_weapon is None:
+        def getWeapon(target=None):
+            if target is None:
+                if me.current_weapon is None:
+                    return None
+                return me.current_weapon["id"]
+            t = engine.entities.get(target if isinstance(target, int) else int(target))
+            if t is None or t.current_weapon is None:
                 return None
-            return me.current_weapon["id"]
+            return t.current_weapon["id"]
 
         def getWeapons():
             return [w["id"] for w in me.weapons]
@@ -478,6 +484,434 @@ class FightEngine:
             me.tp_used += 1  # say costs 1 TP
             return None
 
+        # ── Turn / identity ─────────────────────────────────────────
+
+        def getTurn():
+            return engine.turn
+
+        def getLeek():
+            return me.id
+
+        def getFarmerID():
+            return me.farmer
+
+        def getFarmerName():
+            return me.name  # no farmer name in sim, use leek name
+
+        def getType(target=None):
+            if target is None:
+                return 2 if me.is_summon else 1  # ENTITY_LEEK=1, ENTITY_BULB=2
+            t = engine.entities.get(target if isinstance(target, int) else int(target))
+            if t is None:
+                return 0
+            return 2 if t.is_summon else 1
+
+        # ── Alive entity queries ────────────────────────────────────
+
+        def getAliveEnemies():
+            return getEnemies()
+
+        def getAliveAllies():
+            return getAllies()
+
+        def getAliveEnemiesCount():
+            return len(getEnemies())
+
+        def getAliveAlliesCount():
+            return len(getAllies())
+
+        # ── Grid coordinate helpers ─────────────────────────────────
+
+        def getCellX(cell):
+            cell = int(cell)
+            if cell < 0 or cell >= engine.grid.nb_cells:
+                return None
+            # Java: cell.getX() - map.getWidth() + 1
+            return engine.grid._x[cell] - engine.grid.width + 1
+
+        def getCellY(cell):
+            cell = int(cell)
+            if cell < 0 or cell >= engine.grid.nb_cells:
+                return None
+            return engine.grid._y[cell]
+
+        def getCellFromXY(x, y):
+            # Java: getCell(x + width - 1, y) — converts user coords to internal
+            x_internal = int(x) + engine.grid.width - 1
+            cell = engine.grid._xy_to_cell(x_internal, int(y))
+            return cell  # None if invalid
+
+        def isObstacle(cell):
+            cell = int(cell)
+            if cell < 0 or cell >= engine.grid.nb_cells:
+                return True
+            return cell in engine.grid.obstacles
+
+        def isOnSameLine(c1, c2):
+            return engine.grid.is_on_same_line(int(c1), int(c2))
+
+        # ── Weapon introspection ────────────────────────────────────
+
+        def getWeaponName(w_id=None):
+            w = _find_weapon(w_id)
+            return w["name"] if w else ""
+
+        def isInlineWeapon(w_id=None):
+            w = _find_weapon(w_id)
+            if w is None:
+                return False
+            return w.get("launch_type", 7) == 1
+
+        def weaponNeedLos(w_id=None):
+            w = _find_weapon(w_id)
+            if w is None:
+                return False
+            return w.get("los", True)
+
+        def isWeapon(tool_id):
+            """Check if a template ID belongs to a weapon (not a chip)."""
+            if tool_id is None:
+                return False
+            tool_id = int(tool_id)
+            return WEAPON_REGISTRY.by_template(tool_id) is not None
+
+        def getWeaponLaunchType(w_id=None):
+            w = _find_weapon(w_id)
+            if w is None:
+                return None
+            return w.get("launch_type", 7)
+
+        # ── Chip introspection ──────────────────────────────────────
+
+        def getChipCooldown(chip_id):
+            """Initial cooldown (not current remaining). Matches ChipClass.getChipCooldown."""
+            c = _find_chip(chip_id)
+            return c["cooldown"] if c else 0
+
+        def chipNeedLos(chip_id):
+            c = _find_chip(chip_id)
+            if c is None:
+                return False
+            return c.get("los", True)
+
+        def getChipLaunchType(chip_id):
+            c = _find_chip(chip_id)
+            if c is None:
+                return None
+            return c.get("launch_type", 7)
+
+        # ── Composite can-use checks ────────────────────────────────
+
+        def canUseWeapon(value1, value2=None):
+            """canUseWeapon(target) or canUseWeapon(weapon, target)."""
+            if value2 is None:
+                target_id = int(value1)
+                weapon = me.current_weapon
+            else:
+                weapon = _find_weapon(int(value1))
+                target_id = int(value2)
+            if weapon is None:
+                return False
+            target = engine.entities.get(target_id)
+            if target is None or target.dead:
+                return False
+            blocking = engine._entity_cells(exclude=me.id) - {target.cell}
+            return engine.grid.can_use_attack(
+                me.cell, target.cell,
+                weapon["min_range"], weapon["max_range"],
+                weapon.get("los", True), weapon.get("launch_type", 7),
+                blocking,
+            )
+
+        def canUseWeaponOnCell(value1, value2=None):
+            """canUseWeaponOnCell(cell) or canUseWeaponOnCell(weapon, cell)."""
+            if value2 is None:
+                target_cell = int(value1)
+                weapon = me.current_weapon
+            else:
+                weapon = _find_weapon(int(value1))
+                target_cell = int(value2)
+            if weapon is None:
+                return False
+            if target_cell < 0 or target_cell >= engine.grid.nb_cells:
+                return False
+            blocking = engine._entity_cells(exclude=me.id) - {target_cell}
+            return engine.grid.can_use_attack(
+                me.cell, target_cell,
+                weapon["min_range"], weapon["max_range"],
+                weapon.get("los", True), weapon.get("launch_type", 7),
+                blocking,
+            )
+
+        def canUseChip(chip_id, target_id):
+            c = _find_chip(chip_id)
+            if c is None:
+                return False
+            target = engine.entities.get(int(target_id))
+            if target is None or target.dead:
+                return False
+            blocking = engine._entity_cells(exclude=me.id) - {target.cell}
+            return engine.grid.can_use_attack(
+                me.cell, target.cell,
+                c["min_range"], c["max_range"],
+                c.get("los", True), c.get("launch_type", 7),
+                blocking,
+            )
+
+        def canUseChipOnCell(chip_id, cell):
+            c = _find_chip(chip_id)
+            if c is None:
+                return False
+            cell = int(cell)
+            if cell < 0 or cell >= engine.grid.nb_cells:
+                return False
+            blocking = engine._entity_cells(exclude=me.id) - {cell}
+            return engine.grid.can_use_attack(
+                me.cell, cell,
+                c["min_range"], c["max_range"],
+                c.get("los", True), c.get("launch_type", 7),
+                blocking,
+            )
+
+        # ── Spatial queries ─────────────────────────────────────────
+
+        def getCellsToUseWeapon(value1, value2=None, value3=None):
+            """getCellsToUseWeapon(target) or getCellsToUseWeapon(weapon, target)."""
+            if value2 is None:
+                target_id = int(value1)
+                weapon = me.current_weapon
+            else:
+                weapon = _find_weapon(int(value1))
+                target_id = int(value2)
+            if weapon is None:
+                return None
+            target = engine.entities.get(target_id)
+            if target is None or target.dead:
+                return None
+
+            ignore = {me.cell}
+            if isinstance(value3, list):
+                ignore = set(int(c) for c in value3)
+
+            blocking = engine._entity_cells(exclude=me.id) - {target.cell}
+            return engine.grid.get_possible_cast_cells(
+                target.cell,
+                weapon["min_range"], weapon["max_range"],
+                weapon.get("los", True), weapon.get("launch_type", 7),
+                ignore, blocking,
+            )
+
+        def getCellsToUseWeaponOnCell(value1, value2=None, value3=None):
+            if value2 is None:
+                target_cell = int(value1)
+                weapon = me.current_weapon
+            else:
+                weapon = _find_weapon(int(value1))
+                target_cell = int(value2)
+            if weapon is None:
+                return None
+            if target_cell < 0 or target_cell >= engine.grid.nb_cells:
+                return None
+
+            ignore = {me.cell}
+            if isinstance(value3, list):
+                ignore = set(int(c) for c in value3)
+
+            blocking = engine._entity_cells(exclude=me.id)
+            return engine.grid.get_possible_cast_cells(
+                target_cell,
+                weapon["min_range"], weapon["max_range"],
+                weapon.get("los", True), weapon.get("launch_type", 7),
+                ignore, blocking,
+            )
+
+        def getCellsToUseChip(chip_id, target_id, value3=None):
+            c = _find_chip(chip_id)
+            if c is None:
+                return None
+            target = engine.entities.get(int(target_id))
+            if target is None or target.dead:
+                return None
+
+            ignore = {me.cell}
+            if isinstance(value3, list):
+                ignore = set(int(v) for v in value3)
+
+            blocking = engine._entity_cells(exclude=me.id) - {target.cell}
+            return engine.grid.get_possible_cast_cells(
+                target.cell,
+                c["min_range"], c["max_range"],
+                c.get("los", True), c.get("launch_type", 7),
+                ignore, blocking,
+            )
+
+        def getCellsToUseChipOnCell(chip_id, cell, value3=None):
+            c = _find_chip(chip_id)
+            if c is None:
+                return None
+            cell = int(cell)
+            if cell < 0 or cell >= engine.grid.nb_cells:
+                return None
+
+            ignore = {me.cell}
+            if isinstance(value3, list):
+                ignore = set(int(v) for v in value3)
+
+            blocking = engine._entity_cells(exclude=me.id)
+            return engine.grid.get_possible_cast_cells(
+                cell,
+                c["min_range"], c["max_range"],
+                c.get("los", True), c.get("launch_type", 7),
+                ignore, blocking,
+            )
+
+        # ── Pathfinding queries ─────────────────────────────────────
+
+        def getPathLength(c1, c2, leeks_to_ignore=None):
+            c1, c2 = int(c1), int(c2)
+            if c1 == c2:
+                return 0
+            ignore: set[int] = set()
+            if isinstance(leeks_to_ignore, list):
+                for lid in leeks_to_ignore:
+                    e = engine.entities.get(int(lid))
+                    if e and not e.dead:
+                        ignore.add(e.cell)
+            blocked = engine._entity_cells(exclude=me.id) - ignore
+            path = engine.grid.find_path_bfs(c1, c2, blocked)
+            if not path:
+                return None
+            return len(path)
+
+        def getPath(c1, c2, leeks_to_ignore=None):
+            c1, c2 = int(c1), int(c2)
+            if c1 == c2:
+                return []
+            ignore: set[int] = set()
+            if isinstance(leeks_to_ignore, list):
+                for lid in leeks_to_ignore:
+                    e = engine.entities.get(int(lid))
+                    if e and not e.dead:
+                        ignore.add(e.cell)
+            blocked = engine._entity_cells(exclude=me.id) - ignore
+            path = engine.grid.find_path_bfs(c1, c2, blocked)
+            if not path:
+                return None
+            return path
+
+        def getDistance(c1, c2):
+            """Alias for getCellDistance — both are Manhattan distance."""
+            return getCellDistance(c1, c2)
+
+        # ── Movement ────────────────────────────────────────────────
+
+        def moveTowardLine(cell1, cell2, steps=None):
+            cell1, cell2 = int(cell1), int(cell2)
+            max_steps = me.mp if steps is None or int(steps) == -1 else min(int(steps), me.mp)
+            if max_steps <= 0:
+                return 0
+
+            path = engine.grid.path_toward_line(me.cell, cell1, cell2)
+            path = path[:max_steps]
+
+            if path:
+                # Filter out blocked cells (entities)
+                blocked = engine._entity_cells(exclude=me.id)
+                actual_path: list[int] = []
+                for cell in path:
+                    if cell in blocked:
+                        break
+                    actual_path.append(cell)
+                if actual_path:
+                    me.mp_used += len(actual_path)
+                    me.cell = actual_path[-1]
+                    engine._emit(10, me.id, actual_path)
+                    return len(actual_path)
+            return 0
+
+        # ── Effects query ───────────────────────────────────────────
+
+        def getEffects(target=None):
+            """Return active effects as array of [type, value, remaining_turns, caster, target]."""
+            ent = me
+            if target is not None:
+                ent = engine.entities.get(int(target))
+                if ent is None:
+                    return []
+            result = []
+            effect_type_map = {
+                "abs_shield": 4, "rel_shield": 3, "tp_shackle": 15,
+                "tp_buff": 5, "str_buff": 8, "poison": 6,
+            }
+            for e in ent.effects:
+                etype = effect_type_map.get(e.effect_type, 0)
+                result.append([etype, int(e.value), e.remaining_turns, e.source_entity, ent.id])
+            return result
+
+        def getEntityTurnOrder(target=None):
+            return None  # not critical for AI logic
+
+        # ── Cell content queries ────────────────────────────────────
+
+        def getLeekOnCell(cell):
+            cell = int(cell)
+            for e in engine.entities.values():
+                if not e.dead and e.cell == cell:
+                    return e.id
+            return -1
+
+        def getEntityOnCell(cell):
+            return getLeekOnCell(cell)
+
+        def isLeek(cell):
+            return getLeekOnCell(int(cell)) != -1
+
+        def isEntity(cell):
+            return isLeek(cell)
+
+        # ── Weapon on another entity ────────────────────────────────
+
+        def getWeaponTarget(target_id=None):
+            """getWeapon() for another entity — returns their current weapon template."""
+            if target_id is None:
+                if me.current_weapon is None:
+                    return None
+                return me.current_weapon.get("template", me.current_weapon.get("id"))
+            t = engine.entities.get(int(target_id))
+            if t is None or t.current_weapon is None:
+                return None
+            return t.current_weapon.get("template", t.current_weapon.get("id"))
+
+        # ── Visual/debug stubs (no-ops in sim) ──────────────────────
+
+        def getColor(r, g, b=None):
+            if b is None:
+                return int(r)  # single-arg form: getColor(rgb_int)
+            return (int(r) << 16) | (int(g) << 8) | int(b)
+
+        def mark(cell, color=None):
+            return None  # visual only
+
+        def markText(cell, text, color=None):
+            return None  # visual only
+
+        def unmark(cell):
+            return None
+
+        def unmarkAll():
+            return None
+
+        # ── Summoning stubs ─────────────────────────────────────────
+
+        def summon(chip_id, cell, ai_id=None):
+            return USE_FAILED  # summoning not implemented yet
+
+        def getBulbChips(chip_id):
+            return []
+
+        def getMapType():
+            return 0  # standard
+
         # ── Build API dict ──────────────────────────────────────────
 
         api = {
@@ -498,6 +932,12 @@ class FightEngine:
             "getLevel": getLevel,
             "getName": getName,
             "getOperations": getOperations,
+            # Turn / identity
+            "getTurn": getTurn,
+            "getLeek": getLeek,
+            "getFarmerID": getFarmerID,
+            "getFarmerName": getFarmerName,
+            "getType": getType,
             # Enemy
             "getEnemies": getEnemies,
             "getAllies": getAllies,
@@ -505,34 +945,84 @@ class FightEngine:
             "isSummon": isSummon,
             "isDead": isDead,
             "isAlive": isAlive,
-            # Weapon
+            "getAliveEnemies": getAliveEnemies,
+            "getAliveAllies": getAliveAllies,
+            "getAliveEnemiesCount": getAliveEnemiesCount,
+            "getAliveAlliesCount": getAliveAlliesCount,
+            # Weapon queries
             "getWeapon": getWeapon,
             "getWeapons": getWeapons,
             "getWeaponCost": getWeaponCost,
             "getWeaponMinRange": getWeaponMinRange,
             "getWeaponMaxRange": getWeaponMaxRange,
             "getWeaponEffects": getWeaponEffects,
-            # Chip
+            "getWeaponName": getWeaponName,
+            "isInlineWeapon": isInlineWeapon,
+            "weaponNeedLos": weaponNeedLos,
+            "isWeapon": isWeapon,
+            "getWeaponLaunchType": getWeaponLaunchType,
+            # Chip queries
             "getChips": getChips,
             "getChipName": getChipName,
             "getChipCost": getChipCost,
             "getCooldown": getCooldown,
+            "getChipCooldown": getChipCooldown,
             "getChipMinRange": getChipMinRange,
             "getChipMaxRange": getChipMaxRange,
             "getChipEffects": getChipEffects,
+            "chipNeedLos": chipNeedLos,
+            "getChipLaunchType": getChipLaunchType,
+            # Composite can-use checks
+            "canUseWeapon": canUseWeapon,
+            "canUseWeaponOnCell": canUseWeaponOnCell,
+            "canUseChip": canUseChip,
+            "canUseChipOnCell": canUseChipOnCell,
+            # Spatial queries
+            "getCellsToUseWeapon": getCellsToUseWeapon,
+            "getCellsToUseWeaponOnCell": getCellsToUseWeaponOnCell,
+            "getCellsToUseChip": getCellsToUseChip,
+            "getCellsToUseChipOnCell": getCellsToUseChipOnCell,
+            # Grid coordinates
+            "getCellX": getCellX,
+            "getCellY": getCellY,
+            "getCellFromXY": getCellFromXY,
+            "isObstacle": isObstacle,
+            "isOnSameLine": isOnSameLine,
             # Map
             "isEmptyCell": isEmptyCell,
             "getCellContent": getCellContent,
             "lineOfSight": lineOfSight,
+            "getLeekOnCell": getLeekOnCell,
+            "getEntityOnCell": getEntityOnCell,
+            "isLeek": isLeek,
+            "isEntity": isEntity,
+            # Pathfinding
+            "getPathLength": getPathLength,
+            "getPath": getPath,
+            "getDistance": getDistance,
             # Actions
             "moveToward": moveToward,
             "moveTowardCell": moveTowardCell,
             "moveAwayFrom": moveAwayFrom,
             "moveAwayFromCell": moveAwayFromCell,
+            "moveTowardLine": moveTowardLine,
             "setWeapon": setWeapon,
             "useWeapon": useWeapon,
             "useChip": useChip,
             "say": say,
+            # Effects
+            "getEffects": getEffects,
+            "getEntityTurnOrder": getEntityTurnOrder,
+            # Visual stubs
+            "getColor": getColor,
+            "mark": mark,
+            "markText": markText,
+            "unmark": unmark,
+            "unmarkAll": unmarkAll,
+            # Summon stubs
+            "summon": summon,
+            "getBulbChips": getBulbChips,
+            "getMapType": getMapType,
             # Constants
             "CELL_EMPTY": CELL_EMPTY,
             "CELL_OBSTACLE": CELL_OBSTACLE,
@@ -546,13 +1036,45 @@ class FightEngine:
             # Effect type constants
             "EFFECT_DAMAGE": 1,
             "EFFECT_HEAL": 2,
+            "EFFECT_RELATIVE_SHIELD": 3,
             "EFFECT_ABSOLUTE_SHIELD": 4,
             "EFFECT_BUFF_TP": 5,
-            "EFFECT_RELATIVE_SHIELD": 6,
+            "EFFECT_POISON": 6,
+            "EFFECT_DEBUFF_TP": 7,
+            "EFFECT_BUFF_STRENGTH": 8,
+            "EFFECT_SUMMON": 9,
+            "EFFECT_BUFF_MP": 10,
+            "EFFECT_SHACKLE_MP": 11,
+            "EFFECT_SHACKLE_STRENGTH": 12,
+            "EFFECT_NOVA_DAMAGE": 13,
+            "EFFECT_SHACKLE_MAGIC": 14,
             "EFFECT_SHACKLE_TP": 15,
+            "EFFECT_VULNERABILITY": 16,
             # Entity type constants
             "ENTITY_LEEK": 1,
             "ENTITY_BULB": 2,
+            # Launch type constants
+            "LAUNCH_TYPE_LINE": 1,
+            "LAUNCH_TYPE_DIAGONAL": 2,
+            "LAUNCH_TYPE_STAR": 3,
+            "LAUNCH_TYPE_STAR_INVERTED": 4,
+            "LAUNCH_TYPE_DIAGONAL_INVERTED": 5,
+            "LAUNCH_TYPE_LINE_INVERTED": 6,
+            "LAUNCH_TYPE_CIRCLE": 7,
+            # Misc constants
+            "OPERATIONS_LIMIT": 10_000_000,
+            "SORT_ASC": 0,
+            "SORT_DESC": 1,
+            "MAP_NEXUS": 0,
+            "MAP_FACTORY": 1,
+            "MAP_DESERT": 2,
+            "MAP_FOREST": 3,
+            "MAP_GLACIER": 4,
+            "MAP_BEACH": 5,
+            # Color constants
+            "COLOR_RED": 0xFF0000,
+            "COLOR_GREEN": 0x00FF00,
+            "COLOR_BLUE": 0x0000FF,
         }
         # Inject chip/weapon template constants (CHIP_SPARK, WEAPON_PISTOL, etc.)
         api.update(self._get_equipment_constants())
