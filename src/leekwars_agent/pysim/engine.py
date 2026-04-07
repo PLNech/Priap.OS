@@ -598,9 +598,12 @@ class FightEngine:
     def run(self) -> dict:
         """Execute the full fight. Returns outcome dict."""
         # Determine turn order by frequency (higher = first)
+        # Equal frequency → randomize (matches real game behavior)
+        eids = [e.id for e in self.entity_list]
+        self.rng.shuffle(eids)  # randomize before stable sort
         turn_order = sorted(
-            [e.id for e in self.entity_list],
-            key=lambda eid: (-self.entities[eid].frequency, eid),
+            eids,
+            key=lambda eid: -self.entities[eid].frequency,
         )
 
         self._emit(0)  # START_FIGHT

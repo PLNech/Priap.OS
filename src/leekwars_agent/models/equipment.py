@@ -111,10 +111,13 @@ class _Registry(Generic[_T]):
         self._by_id: dict[int, _T] = {}
         self._by_template: dict[int, _T] = {}
         self._by_name: dict[str, _T] = {}
+        self._by_item: dict[int, _T] = {}
         for item in items:
             self._by_id[item.id] = item
             self._by_template[item.template] = item
             self._by_name[item.name] = item
+            if hasattr(item, "item"):
+                self._by_item[item.item] = item
 
     def by_id(self, chip_id: int) -> _T | None:
         return self._by_id.get(chip_id)
@@ -124,6 +127,10 @@ class _Registry(Generic[_T]):
 
     def by_name(self, name: str) -> _T | None:
         return self._by_name.get(name.lower())
+
+    def by_item(self, item_id: int) -> _T | None:
+        """Lookup by market/inventory item ID (weapons only)."""
+        return self._by_item.get(item_id)
 
     def all(self) -> tuple:
         return self._items
