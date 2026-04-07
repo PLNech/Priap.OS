@@ -13,6 +13,7 @@ from typing import Any
 from .grid import Grid
 from .entity import Entity
 from .engine import FightEngine
+from .maps import RealMapLibrary
 
 
 def _build_weapon_dict(weapon) -> dict:
@@ -72,15 +73,21 @@ class PySimRunner:
     """Run PySim fights using existing infrastructure (EntityConfig, equipment registry)."""
 
     def __init__(self):
-        # Lazy-load equipment registry
+        # Lazy-load equipment registry and map library
         self._chip_reg = None
         self._weapon_reg = None
+        self._map_lib: RealMapLibrary | None = None
 
     def _load_registries(self):
         if self._chip_reg is None:
             from leekwars_agent.models.equipment import CHIP_REGISTRY, WEAPON_REGISTRY
             self._chip_reg = CHIP_REGISTRY
             self._weapon_reg = WEAPON_REGISTRY
+
+    def _get_map_lib(self) -> RealMapLibrary:
+        if self._map_lib is None:
+            self._map_lib = RealMapLibrary()
+        return self._map_lib
 
     def _resolve_weapons(self, weapon_ids: list[int]) -> list[dict]:
         """Resolve weapon item/id/template IDs to engine weapon dicts."""
@@ -125,8 +132,9 @@ class PySimRunner:
         weapon_ids_2: list[int] | None = None,
         seed: int = 42,
         obstacles: set[int] | None = None,
-        spawn1: int = 100,
-        spawn2: int = 450,
+        spawn1: int | None = None,
+        spawn2: int | None = None,
+        use_real_maps: bool = True,
     ) -> dict:
         """Run a 1v1 fight (same stats, optionally different equipment).
 
@@ -172,12 +180,28 @@ class PySimRunner:
             weapons=weapons2, chips=chips2,
         )
 
-        # Set spawn positions
-        e1.cell = spawn1
-        e2.cell = spawn2
+        # Resolve map: real map from DB, explicit params, or defaults
+        if obstacles is not None or (spawn1 is not None and spawn2 is not None):
+            # Explicit map parameters
+            grid_obstacles = obstacles or set()
+            s1 = spawn1 if spawn1 is not None else 100
+            s2 = spawn2 if spawn2 is not None else 450
+        elif use_real_maps:
+            # Sample a real map from our fight database
+            map_lib = self._get_map_lib()
+            fight_map = map_lib.get_map(seed)  # deterministic by seed
+            grid_obstacles = fight_map.obstacle_set
+            s1 = fight_map.spawn1
+            s2 = fight_map.spawn2
+        else:
+            # Fallback: empty map, fixed spawns
+            grid_obstacles = set()
+            s1 = 100
+            s2 = 450
 
-        # Create grid
-        grid = Grid(18, 18, obstacles=obstacles or set())
+        e1.cell = s1
+        e2.cell = s2
+        grid = Grid(18, 18, obstacles=grid_obstacles)
 
         # Create engine
         engine = FightEngine(grid, [e1, e2], seed=seed)
