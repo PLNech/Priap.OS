@@ -275,6 +275,8 @@ class FightEngine:
                     for e in c.get("effects", [])]
 
         def _find_chip(chip_id):
+            if chip_id is None:
+                return None
             chip_id = int(chip_id)
             for c in me.chips:
                 # LS constants use template IDs; also match on id for compat

@@ -66,7 +66,7 @@ class Entity:
 
         # Fight state
         self.cell: int = 0
-        self.current_weapon: dict | None = None
+        self.current_weapon: dict | None = weapons[0] if weapons else None
         self.effects: list[ActiveEffect] = []
         self.cooldowns: dict[int, int] = {}  # chip_template -> turns remaining
         self.chip_fight_uses: dict[int, int] = {}  # chip_template -> total uses this fight
