@@ -69,11 +69,17 @@ class Entity:
         self.current_weapon: dict | None = weapons[0] if weapons else None
         self.effects: list[ActiveEffect] = []
         self.cooldowns: dict[int, int] = {}  # chip_template -> turns remaining
+        # Initial cooldowns: some chips start the fight on cooldown
+        for c in self.chips:
+            ic = c.get("initial_cooldown", 0)
+            if ic and ic > 0:
+                self.cooldowns[c["template"]] = ic
         self.chip_fight_uses: dict[int, int] = {}  # chip_template -> total uses this fight
         self.tp_used: int = 0
         self.mp_used: int = 0
         self.dead: bool = False
         self.is_summon: bool = False
+        self.states: set[int] = set()  # active entity states (INVINCIBLE=3, ROOTED=9, etc.)
 
     # ── derived stats ─────────────────────────────────────────────────
 
@@ -90,26 +96,71 @@ class Entity:
 
     @property
     def mp(self) -> int:
-        """Current MP = base - used."""
-        return max(0, self.base_mp - self.mp_used)
+        """Current MP = base + buffs - shackles - used."""
+        total = self.base_mp
+        for e in self.effects:
+            if e.effect_type == "mp_buff":
+                total += int(e.value)
+            elif e.effect_type == "mp_shackle":
+                total -= int(e.value)
+        return max(0, total - self.mp_used)
 
     @property
     def effective_strength(self) -> int:
-        """Strength including active buffs (e.g. Ferocity)."""
-        bonus = sum(
-            int(e.value) for e in self.effects if e.effect_type == "str_buff"
-        )
-        return self.strength + bonus
+        """Strength including active buffs/shackles."""
+        bonus = sum(int(e.value) for e in self.effects if e.effect_type == "str_buff")
+        shackle = sum(int(e.value) for e in self.effects if e.effect_type == "str_shackle")
+        return max(0, self.strength + bonus - shackle)
+
+    @property
+    def effective_agility(self) -> int:
+        """Agility including buffs/shackles."""
+        shackle = sum(int(e.value) for e in self.effects if e.effect_type == "agi_shackle")
+        return max(0, self.agility - shackle)
+
+    @property
+    def effective_wisdom(self) -> int:
+        """Wisdom including buffs/shackles."""
+        buff = sum(int(e.value) for e in self.effects if e.effect_type == "wis_buff")
+        shackle = sum(int(e.value) for e in self.effects if e.effect_type == "wis_shackle")
+        return max(0, self.wisdom + buff - shackle)
+
+    @property
+    def effective_magic(self) -> int:
+        """Magic including shackles."""
+        shackle = sum(int(e.value) for e in self.effects if e.effect_type == "mag_shackle")
+        return max(0, self.magic - shackle)
 
     @property
     def abs_shield(self) -> float:
-        """Total absolute shield from active effects."""
-        return sum(e.value for e in self.effects if e.effect_type == "abs_shield")
+        """Total absolute shield, reduced by absolute vulnerability."""
+        shield = sum(e.value for e in self.effects if e.effect_type == "abs_shield")
+        vuln = sum(e.value for e in self.effects if e.effect_type == "abs_vulnerability")
+        return max(0, shield - vuln)
 
     @property
     def rel_shield(self) -> float:
-        """Total relative shield from active effects."""
-        return sum(e.value for e in self.effects if e.effect_type == "rel_shield")
+        """Total relative shield, reduced by relative vulnerability."""
+        shield = sum(e.value for e in self.effects if e.effect_type == "rel_shield")
+        vuln = sum(e.value for e in self.effects if e.effect_type == "rel_vulnerability")
+        return max(0, shield - vuln)
+
+    @property
+    def damage_return(self) -> float:
+        """Total damage return percentage from active effects."""
+        return sum(e.value for e in self.effects if e.effect_type == "damage_return")
+
+    @property
+    def is_invincible(self) -> bool:
+        return 3 in self.states
+
+    @property
+    def is_rooted(self) -> bool:
+        return 9 in self.states
+
+    @property
+    def is_petrified(self) -> bool:
+        return 10 in self.states
 
     # ── turn lifecycle ────────────────────────────────────────────────
 
@@ -130,13 +181,16 @@ class Entity:
 
     def end_turn(self) -> None:
         """Called at end of entity's turn. Tick effects, remove expired."""
-        self.effects = [e for e in self.effects if self._tick_effect(e)]
-
-    @staticmethod
-    def _tick_effect(e: ActiveEffect) -> bool:
-        """Tick effect duration down by one. Returns True if still active."""
-        e.remaining_turns -= 1
-        return e.remaining_turns > 0
+        surviving = []
+        for e in self.effects:
+            e.remaining_turns -= 1
+            if e.remaining_turns > 0:
+                surviving.append(e)
+            elif e.effect_type.startswith("state_"):
+                # Remove entity state when the state effect expires
+                state_id = int(e.value)
+                self.states.discard(state_id)
+        self.effects = surviving
 
     # ── combat ────────────────────────────────────────────────────────
 
@@ -146,6 +200,8 @@ class Entity:
         Formula: final = max(0, raw * (1 - rel_shield/100) - abs_shield)
         Erosion: 5% of final damage reduces max HP permanently.
         """
+        if self.is_invincible:
+            return 0
         rel = self.rel_shield
         abs_s = self.abs_shield
         after_rel = raw_damage * (1 - rel / 100) if rel > 0 else raw_damage

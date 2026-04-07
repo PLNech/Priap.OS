@@ -133,3 +133,78 @@ def calc_raw_tp_buff(
     buff_pct = (v1 + jet * v2) * factor
     buff_tp = round(base_tp * buff_pct)
     return buff_tp, crit
+
+
+def calc_stat_shackle(
+    v1: float,
+    v2: float,
+    caster_mag: int,
+    caster_agi: int,
+    rng: random.Random,
+) -> tuple[float, bool]:
+    """Calculate stat shackle (STR/AGI/WIS/MP/Magic).
+
+    Returns (shackle_value, is_critical).
+    Formula: value = (v1 + jet * v2) * (1 + max(0, MAG) / 100) * crit_factor
+    Same formula as TP shackle but returns raw value, not TP-scaled.
+    """
+    jet = rng.random()
+    crit = roll_critical(caster_agi, rng)
+    factor = CRITICAL_FACTOR if crit else 1.0
+    value = (v1 + jet * v2) * (1 + max(0, caster_mag) / 100) * factor
+    return value, crit
+
+
+def calc_stat_buff(
+    v1: float,
+    v2: float,
+    caster_agi: int,
+    rng: random.Random,
+) -> tuple[float, bool]:
+    """Calculate stat buff (MP/WIS/RES).
+
+    Returns (buff_value, is_critical).
+    Formula: value = (v1 + jet * v2) * crit_factor
+    """
+    jet = rng.random()
+    crit = roll_critical(caster_agi, rng)
+    factor = CRITICAL_FACTOR if crit else 1.0
+    value = (v1 + jet * v2) * factor
+    return value, crit
+
+
+def calc_vulnerability(
+    v1: float,
+    v2: float,
+    caster_mag: int,
+    caster_agi: int,
+    rng: random.Random,
+) -> tuple[float, bool]:
+    """Calculate vulnerability (reduces target shield effectiveness).
+
+    Returns (vuln_value, is_critical).
+    Formula: value = (v1 + jet * v2) * (1 + max(0, MAG) / 100) * crit_factor
+    """
+    jet = rng.random()
+    crit = roll_critical(caster_agi, rng)
+    factor = CRITICAL_FACTOR if crit else 1.0
+    value = (v1 + jet * v2) * (1 + max(0, caster_mag) / 100) * factor
+    return value, crit
+
+
+def calc_damage_return(
+    v1: float,
+    v2: float,
+    caster_agi: int,
+    rng: random.Random,
+) -> tuple[float, bool]:
+    """Calculate damage return percentage.
+
+    Returns (return_pct, is_critical).
+    Formula: value = (v1 + jet * v2) * (1 + AGI / 100) * crit_factor
+    """
+    jet = rng.random()
+    crit = roll_critical(caster_agi, rng)
+    factor = CRITICAL_FACTOR if crit else 1.0
+    value = (v1 + jet * v2) * (1 + max(0, caster_agi) / 100) * factor
+    return value, crit

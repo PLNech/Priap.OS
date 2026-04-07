@@ -53,6 +53,7 @@ def _build_chip_dict(chip) -> dict:
         "min_range": chip.min_range,
         "max_range": chip.max_range,
         "cooldown": chip.cooldown,
+        "initial_cooldown": chip.initial_cooldown,
         "los": chip.los,
         "area": chip.area,
         "max_uses": chip.max_uses,

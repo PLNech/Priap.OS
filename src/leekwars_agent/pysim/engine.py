@@ -18,6 +18,7 @@ from .entity import Entity, ActiveEffect
 from .effects import (
     calc_damage, calc_heal, calc_abs_shield, calc_rel_shield,
     calc_tp_shackle, calc_raw_tp_buff, roll_critical,
+    calc_stat_shackle, calc_stat_buff, calc_vulnerability, calc_damage_return,
 )
 from leekwars_agent.models.equipment import CHIP_REGISTRY, WEAPON_REGISTRY
 
@@ -1423,9 +1424,17 @@ class FightEngine:
         turns = eff.get("turns", 0)
 
         if eff_type == 1:  # Damage
-            raw, crit = calc_damage(v1, v2, caster.strength, caster.agility, self.rng)
+            raw, crit = calc_damage(v1, v2, caster.effective_strength, caster.effective_agility, self.rng)
             actual = target.take_damage(raw)
             self._emit(101, target.id, actual)  # LOST_LIFE
+            # Damage return: reflect % of actual damage back to attacker
+            dr = target.damage_return
+            if dr > 0 and actual > 0:
+                reflected = int(actual * dr / 100)
+                if reflected > 0:
+                    reflected_actual = caster.take_damage(reflected)
+                    if reflected_actual > 0:
+                        self._emit(101, caster.id, reflected_actual)
             # Life steal: WIS/1000 of damage dealt
             if caster.wisdom > 0 and actual > 0:
                 steal = int(actual * caster.wisdom / 1000)
@@ -1468,6 +1477,78 @@ class FightEngine:
             target.add_effect(ActiveEffect("str_buff", v1, turns, caster.id))
             self._emit(14, target.id, 8, v1, turns)
 
+        # ── Stat shackles (HIGH priority from Java audit) ──────────
+        elif eff_type == 19:  # STR shackle
+            val, crit = calc_stat_shackle(v1, v2, caster.effective_magic, caster.agility, self.rng)
+            target.add_effect(ActiveEffect("str_shackle", val, turns, caster.id))
+            self._emit(14, target.id, 19, val, turns)
+
+        elif eff_type == 47:  # AGI shackle
+            val, crit = calc_stat_shackle(v1, v2, caster.effective_magic, caster.agility, self.rng)
+            target.add_effect(ActiveEffect("agi_shackle", val, turns, caster.id))
+            self._emit(14, target.id, 47, val, turns)
+
+        elif eff_type == 48:  # WIS shackle
+            val, crit = calc_stat_shackle(v1, v2, caster.effective_magic, caster.agility, self.rng)
+            target.add_effect(ActiveEffect("wis_shackle", val, turns, caster.id))
+            self._emit(14, target.id, 48, val, turns)
+
+        elif eff_type == 17:  # MP shackle
+            val, crit = calc_stat_shackle(v1, v2, caster.effective_magic, caster.agility, self.rng)
+            target.add_effect(ActiveEffect("mp_shackle", val, turns, caster.id))
+            self._emit(14, target.id, 17, val, turns)
+
+        elif eff_type == 24:  # Magic shackle
+            val, crit = calc_stat_shackle(v1, v2, caster.effective_magic, caster.agility, self.rng)
+            target.add_effect(ActiveEffect("mag_shackle", val, turns, caster.id))
+            self._emit(14, target.id, 24, val, turns)
+
+        # ── Stat buffs ─────────────────────────────────────────────
+        elif eff_type == 10:  # MP buff
+            val, crit = calc_stat_buff(v1, v2, caster.agility, self.rng)
+            target.add_effect(ActiveEffect("mp_buff", int(val), turns, caster.id))
+            self._emit(14, target.id, 10, val, turns)
+
+        elif eff_type == 22:  # WIS buff
+            val, crit = calc_stat_buff(v1, v2, caster.agility, self.rng)
+            target.add_effect(ActiveEffect("wis_buff", int(val), turns, caster.id))
+            self._emit(14, target.id, 22, val, turns)
+
+        elif eff_type == 21:  # RES buff
+            val, crit = calc_stat_buff(v1, v2, caster.agility, self.rng)
+            target.add_effect(ActiveEffect("res_buff", int(val), turns, caster.id))
+            self._emit(14, target.id, 21, val, turns)
+
+        # ── Vulnerability ──────────────────────────────────────────
+        elif eff_type == 26:  # Relative vulnerability
+            val, crit = calc_vulnerability(v1, v2, caster.effective_magic, caster.agility, self.rng)
+            target.add_effect(ActiveEffect("rel_vulnerability", val, turns, caster.id))
+            self._emit(14, target.id, 26, val, turns)
+
+        elif eff_type == 27:  # Absolute vulnerability
+            val, crit = calc_vulnerability(v1, v2, caster.effective_magic, caster.agility, self.rng)
+            target.add_effect(ActiveEffect("abs_vulnerability", val, turns, caster.id))
+            self._emit(14, target.id, 27, val, turns)
+
+        # ── Damage return ──────────────────────────────────────────
+        elif eff_type == 20:  # Damage return
+            val, crit = calc_damage_return(v1, v2, caster.agility, self.rng)
+            target.add_effect(ActiveEffect("damage_return", val, turns, caster.id))
+            self._emit(14, target.id, 20, val, turns)
+
+        # ── Aftereffect (poison without decay) ─────────────────────
+        elif eff_type == 25:  # Aftereffect
+            raw, crit = calc_damage(v1, v2, caster.strength, caster.agility, self.rng)
+            target.add_effect(ActiveEffect("aftereffect", raw, turns, caster.id))
+            self._emit(14, target.id, 25, raw, turns)
+
+        # ── Entity states (crowd control) ──────────────────────────
+        elif eff_type == 59:  # Add state
+            state_id = int(v1)
+            target.states.add(state_id)
+            target.add_effect(ActiveEffect(f"state_{state_id}", state_id, turns, caster.id))
+            self._emit(14, target.id, 59, state_id, turns)
+
     # ── Turn loop ───────────────────────────────────────────────────
 
     # Action codes that represent meaningful combat progress
@@ -1502,15 +1583,18 @@ class FightEngine:
                 self._current_entity_id = eid
                 self._emit(7, eid)  # LEEK_TURN
 
-                # Apply poison damage at turn start
+                # Apply poison/aftereffect damage at turn start
                 for eff in entity.effects:
-                    if eff.effect_type == "poison":
+                    if eff.effect_type in ("poison", "aftereffect"):
                         actual = entity.take_damage(eff.value)
                         if actual > 0:
                             self._emit(110, entity.id, actual)  # POISON_DAMAGE
                         if entity.dead:
                             self._emit(11, entity.id)  # KILL
                             break
+                        # Poison decays by 10% each turn; aftereffect does NOT decay
+                        if eff.effect_type == "poison":
+                            eff.value = int(eff.value * 0.9)
 
                 if not entity.dead:
                     # Run the AI
