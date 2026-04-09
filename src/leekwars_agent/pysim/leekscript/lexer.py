@@ -75,6 +75,8 @@ class TokenType(Enum):
     STRICT_EQ = auto()
     STRICT_NEQ = auto()
     PERCENT_ASSIGN = auto()
+    INTDIV = auto()        # \ (integer division)
+    INTDIV_ASSIGN = auto() # \=
     QUESTION = auto()
     COLON = auto()
 
@@ -323,6 +325,7 @@ def tokenize(source: str) -> list[Token]:
                 "||": TokenType.OR,
                 "->": TokenType.ARROW,
                 "=>": TokenType.FAT_ARROW,
+                "\\=": TokenType.INTDIV_ASSIGN,
             }.get(two)
             if tt2 is not None:
                 tokens.append(Token(tt2, two, line, start_col))
@@ -357,6 +360,7 @@ def tokenize(source: str) -> list[Token]:
             "&": TokenType.BITWISE_AND,
             "^": TokenType.BITWISE_XOR,
             "~": TokenType.BITWISE_NOT,
+            "\\": TokenType.INTDIV,
         }.get(ch)
 
         if tt1 is not None:

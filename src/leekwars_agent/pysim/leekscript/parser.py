@@ -261,7 +261,7 @@ class ParseError(Exception):
 # Operator precedence (Pratt) — lower number = lower precedence = binds looser
 PRECEDENCE = {
     # Assignment (right-assoc)
-    "=": 0, "+=": 0, "-=": 0, "*=": 0, "/=": 0, "%=": 0, "**=": 0,
+    "=": 0, "+=": 0, "-=": 0, "*=": 0, "/=": 0, "\\=": 0, "%=": 0, "**=": 0,
     # Logical
     "||": 2,
     "xor": 2,
@@ -274,7 +274,7 @@ PRECEDENCE = {
     "in": 8, "<": 8, ">": 8, "<=": 8, ">=": 8, "instanceof": 8,
     # Arithmetic
     "+": 10, "-": 10,
-    "*": 11, "/": 11, "%": 11,
+    "*": 11, "/": 11, "\\": 11, "%": 11,
     "**": 12,
 }
 
@@ -311,6 +311,8 @@ BINARY_OPS = {
     TokenType.BITWISE_OR: "|",
     TokenType.BITWISE_AND: "&",
     TokenType.BITWISE_XOR: "^",
+    TokenType.INTDIV: "\\",
+    TokenType.INTDIV_ASSIGN: "\\=",
     # Identity + membership
     TokenType.IS: "is",
     TokenType.IN: "in",
@@ -318,10 +320,10 @@ BINARY_OPS = {
 }
 
 # Right-associative operators
-RIGHT_ASSOC = {"**", "=", "+=", "-=", "*=", "/=", "%=", "**="}
+RIGHT_ASSOC = {"**", "=", "+=", "-=", "*=", "/=", "\\=", "%=", "**="}
 
 # Assignment operators (produce Assignment node, not BinaryOp)
-ASSIGN_OPS = {"=", "+=", "-=", "*=", "/=", "%=", "**="}
+ASSIGN_OPS = {"=", "+=", "-=", "*=", "/=", "\\=", "%=", "**="}
 
 
 class Parser:
@@ -416,14 +418,12 @@ class Parser:
         if tok.type == TokenType.CLASS:
             return self._parse_class_decl()
 
-        # Typed declaration without 'var': `TypeName varName = expr`
-        # Detect: IDENTIFIER IDENTIFIER (= | ; | ,) — first is type, second is name
+        # Typed declaration without 'var': `TypeName varName = expr` or `Type<G> name = expr`
+        # Detect: IDENTIFIER IDENTIFIER or IDENTIFIER < ... > IDENTIFIER
         if tok.type == TokenType.IDENTIFIER and self.pos + 1 < len(self.tokens):
             next_tok = self.tokens[self.pos + 1]
-            # Type<Generic> pattern: skip ahead past the generic part
             if next_tok.type == TokenType.LT:
-                # Could be a generic type: Type<A, B> name = ...
-                # Use lookahead to find matching >
+                # Could be generic type: `Array<int> name = ...` or comparison `a < b`
                 saved = self.pos
                 try:
                     return self._parse_typed_var_decl()
@@ -431,7 +431,21 @@ class Parser:
                     self.pos = saved
             elif next_tok.type == TokenType.IDENTIFIER:
                 # Simple typed decl: `Type name = expr`
-                return self._parse_typed_var_decl()
+                # But NOT function calls: `foo(bar)` or `foo bar` in expression context
+                # Heuristic: only if the next-next is `=`, `,`, `;`, or EOF
+                if self.pos + 2 < len(self.tokens):
+                    after_name = self.tokens[self.pos + 2]
+                    if after_name.type in (TokenType.ASSIGN, TokenType.COMMA, TokenType.SEMICOLON,
+                                           TokenType.RPAREN, TokenType.EOF, TokenType.LBRACKET):
+                        return self._parse_typed_var_decl()
+                    # Also allow `Type name = ...` where name is followed by expression
+                    if after_name.type not in (TokenType.LPAREN, TokenType.DOT, TokenType.LBRACKET,
+                                               TokenType.PLUS, TokenType.MINUS, TokenType.STAR):
+                        saved = self.pos
+                        try:
+                            return self._parse_typed_var_decl()
+                        except ParseError:
+                            self.pos = saved
 
         # Expression statement (function call, assignment, increment)
         # Assignment is now handled inside _parse_expression as an operator
@@ -443,9 +457,37 @@ class Parser:
         return ExprStmt(expr)
 
     def _parse_param_name(self) -> str:
-        """Parse a parameter name, skipping optional @ prefix (pass-by-reference no-op)."""
+        """Parse a parameter name, skipping optional @ prefix and type annotation."""
         self._match(TokenType.AT)  # skip @ if present
+        # Skip optional type annotation before param name
+        if self._check(TokenType.IDENTIFIER) and self.pos + 1 < len(self.tokens):
+            next_tok = self.tokens[self.pos + 1]
+            if next_tok.type == TokenType.IDENTIFIER:
+                # Could be `Type name` — skip the type
+                saved = self.pos
+                self._skip_type_annotation()
+                if self._check(TokenType.IDENTIFIER):
+                    pass  # Successfully skipped type, now at name
+                else:
+                    self.pos = saved  # Wasn't a type, restore
+            elif next_tok.type == TokenType.LT:
+                # Generic type: Array<Type> name
+                saved = self.pos
+                self._skip_type_annotation()
+                if self._check(TokenType.IDENTIFIER):
+                    pass
+                else:
+                    self.pos = saved
         return self._expect(TokenType.IDENTIFIER, "Expected parameter name").value
+
+    def _skip_return_type(self):
+        """Skip optional return type annotation: `=> Type` or `: Type` after params."""
+        if self._match(TokenType.FAT_ARROW) or self._match(TokenType.ARROW):
+            self._skip_type_annotation()
+        elif self._check(TokenType.COLON) and self.pos + 1 < len(self.tokens):
+            # : ReturnType { ... } — only if next-next is {
+            # Don't consume colon if it's not a return type
+            pass
 
     def _parse_function_decl(self) -> FunctionDecl:
         tok = self._advance()  # 'function'
@@ -459,6 +501,8 @@ class Parser:
                 params.append(self._parse_param_name())
 
         self._expect(TokenType.RPAREN, "Expected ')' after parameters")
+        # Skip optional return type annotation
+        self._skip_return_type()
         body = self._parse_block()
         return FunctionDecl(name_tok.value, params, body, line=tok.line)
 
@@ -474,6 +518,8 @@ class Parser:
                 params.append(self._parse_param_name())
 
         self._expect(TokenType.RPAREN, "Expected ')' after parameters")
+        # Skip optional return type annotation
+        self._skip_return_type()
         body = self._parse_block()
         return AnonFunction(params, body)
 
@@ -535,10 +581,22 @@ class Parser:
         self._expect(TokenType.LPAREN, "Expected '(' after 'for'")
 
         # Detect: C-style for (init; cond; update) vs for-in / for-kv
+        # Also handle typed for-in: for (Type name in ...)
         if self._check(TokenType.VAR):
             # Could be: for (var x in ...) OR for (var x = 0; ...)
             saved_pos = self.pos
             self._advance()  # consume 'var'
+            # Skip optional type annotation after 'var'
+            if self._check(TokenType.IDENTIFIER) and self.pos + 1 < len(self.tokens):
+                next_t = self.tokens[self.pos + 1]
+                if next_t.type == TokenType.IDENTIFIER:
+                    # var Type name — skip Type
+                    self._skip_type_annotation()
+                elif next_t.type == TokenType.LT:
+                    saved_type = self.pos
+                    self._skip_type_annotation()
+                    if not self._check(TokenType.IDENTIFIER):
+                        self.pos = saved_type
             name1 = self._expect(TokenType.IDENTIFIER, "Expected variable name").value
 
             # for (var k : var v in map)
@@ -579,6 +637,47 @@ class Parser:
             self._expect(TokenType.RPAREN, "Expected ')' after for clause")
             body = self._parse_body()
             return ForClassic(init, cond, update, body)
+
+        # Typed for-in without 'var': for (Type name in ...) or for (Type k : Type v in ...)
+        if self._check(TokenType.IDENTIFIER) and self.pos + 1 < len(self.tokens):
+            next_t = self.tokens[self.pos + 1]
+            # Check for `Type name in` or `Type<Gen> name in` pattern
+            if next_t.type == TokenType.IDENTIFIER or next_t.type == TokenType.LT:
+                saved_pos = self.pos
+                self._skip_type_annotation()
+                if self._check(TokenType.IDENTIFIER):
+                    name1 = self._advance().value
+                    # for (Type k : Type v in map)
+                    if self._check(TokenType.COLON):
+                        self._advance()
+                        self._match(TokenType.VAR)  # optional var before value
+                        # Skip optional type on value
+                        if self._check(TokenType.IDENTIFIER) and self.pos + 1 < len(self.tokens):
+                            next_t2 = self.tokens[self.pos + 1]
+                            if next_t2.type == TokenType.IDENTIFIER:
+                                self._skip_type_annotation()
+                            elif next_t2.type == TokenType.LT:
+                                sav = self.pos
+                                self._skip_type_annotation()
+                                if not self._check(TokenType.IDENTIFIER):
+                                    self.pos = sav
+                        name2 = self._expect(TokenType.IDENTIFIER, "Expected value variable name").value
+                        self._expect(TokenType.IN, "Expected 'in'")
+                        iterable = self._parse_expression(0)
+                        self._expect(TokenType.RPAREN, "Expected ')'")
+                        body = self._parse_body()
+                        return ForKeyValue(name1, name2, iterable, body)
+                    # for (Type name in arr)
+                    if self._check(TokenType.IN):
+                        self._advance()
+                        iterable = self._parse_expression(0)
+                        self._expect(TokenType.RPAREN, "Expected ')'")
+                        body = self._parse_body()
+                        return ForIn(name1, iterable, body)
+                    # Was actually `for (expr; ...` — restore
+                    self.pos = saved_pos
+                else:
+                    self.pos = saved_pos
 
         # C-style without var: for (; cond; update) or for (expr; ...)
         init = None
@@ -1031,6 +1130,10 @@ class Parser:
         if tok.type == TokenType.LBRACKET:
             return self._parse_array_or_map()
 
+        # Object literal: { key: val, ... }
+        if tok.type == TokenType.LBRACE:
+            return self._parse_object_literal()
+
         raise ParseError(f"Unexpected token: {tok.type.name} ({tok.value!r})", tok)
 
     def _parse_array_or_map(self) -> ArrayLit | MapLit:
@@ -1073,3 +1176,31 @@ class Parser:
             elements.append(self._parse_expression(0))
         self._expect(TokenType.RBRACKET, "Expected ']'")
         return ArrayLit(elements)
+
+    def _parse_object_literal(self) -> MapLit:
+        """Parse object literal: { key: val, key: val, ... } → treated as MapLit."""
+        self._advance()  # '{'
+
+        # Empty object: {}
+        if self._check(TokenType.RBRACE):
+            self._advance()
+            return MapLit([])
+
+        pairs = []
+        while not self._check(TokenType.RBRACE) and not self._at_end():
+            # Key: identifier or string or expression
+            if self._check(TokenType.IDENTIFIER):
+                key = StringLit(self._advance().value)
+            elif self._check(TokenType.STRING):
+                key = StringLit(self._advance().value)
+            else:
+                key = self._parse_expression(0)
+            self._expect(TokenType.COLON, "Expected ':' in object literal")
+            val = self._parse_expression(0)
+            pairs.append((key, val))
+            if not self._match(TokenType.COMMA):
+                # LS allows commas to be optional
+                if self._check(TokenType.RBRACE):
+                    break
+        self._expect(TokenType.RBRACE, "Expected '}' to close object literal")
+        return MapLit(pairs)

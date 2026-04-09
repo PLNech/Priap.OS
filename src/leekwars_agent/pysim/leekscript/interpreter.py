@@ -672,6 +672,8 @@ class Interpreter:
             return old_n % val_n if val_n != 0 else 0
         if op == "**=":
             return old_n ** val_n
+        if op == "\\=":
+            return int(old_n) // int(val_n) if int(val_n) != 0 else 0
         return value
 
     def _exec_if(self, stmt: IfStmt, env: Environment):
@@ -1014,6 +1016,8 @@ class Interpreter:
             return l % r if r != 0 else 0
         if expr.op == "**":
             return l ** r
+        if expr.op == "\\":
+            return int(l) // int(r) if int(r) != 0 else 0
         if expr.op == "|":
             return int(l) | int(r)
         if expr.op == "&":
