@@ -1547,17 +1547,13 @@ class FightEngine:
         54: "rel_shield",
     }
 
-    # Effects that are no-ops in our sim (spatial, summon, lifecycle).
-    # Logged but not mechanically simulated.
+    # Effects not yet simulated — require systems we don't have.
+    # Summon needs entity creation + AI loading + turn order insertion.
+    # Propagation needs full AOE target resolution.
     _NOOP_EFFECTS: set[int] = {
-        10,  # TELEPORT
-        11,  # PERMUTATION
-        14,  # SUMMON
-        15,  # RESURRECT
-        43,  # PROPAGATION
-        46,  # ATTRACT
-        51,  # PUSH
-        53,  # REPEL
+        14,  # SUMMON — needs entity factory + bulb AI
+        15,  # RESURRECT — needs dead entity tracking
+        43,  # PROPAGATION — needs AOE system
     }
 
     def _apply_effect(self, eff: dict, caster: Entity, target: Entity):
@@ -1707,9 +1703,34 @@ class FightEngine:
             target.add_effect(ActiveEffect(f"state_{state_id}", state_id, turns, caster.id))
             self._emit(14, target.id, 59, state_id, turns)
 
-        # ── No-op effects (spatial, summon — not simulated) ────────
+        # ── Spatial effects ─────────────────────────────────────────
+        elif eff_id == 10:  # TELEPORT — move caster to target's cell
+            old_cell = caster.cell
+            caster.cell = target.cell
+            self._emit(10, caster.id, [caster.cell])
+
+        elif eff_id == 11:  # PERMUTATION — swap caster and target cells
+            caster.cell, target.cell = target.cell, caster.cell
+            self._emit(10, caster.id, [caster.cell])
+            self._emit(10, target.id, [target.cell])
+
+        elif eff_id in (51, 53):  # PUSH / REPEL — push target away from caster
+            blocked = self._entity_cells(exclude=target.id)
+            path = self.grid.move_away_from(target.cell, caster.cell, 3, blocked)
+            if path:
+                target.cell = path[-1]
+                self._emit(10, target.id, path)
+
+        elif eff_id == 46:  # ATTRACT — pull target toward caster
+            blocked = self._entity_cells(exclude=target.id)
+            path = self.grid.move_toward(target.cell, caster.cell, 3, blocked)
+            if path:
+                target.cell = path[-1]
+                self._emit(10, target.id, path)
+
+        # ── Not yet simulated (summon, resurrect, propagation) ─────
         elif eff_id in self._NOOP_EFFECTS:
-            pass  # Logged implicitly by chip/weapon use action
+            pass
 
         # ── Generic buff/shackle/shield/vulnerability ──────────────
         elif eff_id in self._EFFECT_NAMES:
