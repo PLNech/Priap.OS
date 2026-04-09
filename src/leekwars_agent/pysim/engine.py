@@ -1677,10 +1677,15 @@ class FightEngine:
     STALE_TURN_LIMIT = 10  # consecutive turns with 0 combat actions → declare draw
 
     def run(self) -> dict:
-        """Execute the full fight. Returns outcome dict."""
+        """Execute the full fight. Returns outcome dict.
+
+        Runs in a thread with a large stack to support deep AI recursion
+        (e.g. beam search AIs with thousands of nested function calls).
+        The real game runs on JVM with ~512KB stack per thread; we match that.
+        """
         import sys
         old_limit = sys.getrecursionlimit()
-        sys.setrecursionlimit(max(old_limit, 4000))  # allow deep AI recursion (e.g. beam search)
+        sys.setrecursionlimit(max(old_limit, 10_000))  # enough for legitimate recursion
         try:
             return self._run_inner()
         finally:

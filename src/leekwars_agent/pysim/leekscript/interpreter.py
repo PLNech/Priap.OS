@@ -81,7 +81,7 @@ class OpsLimitExceeded(Exception):
 
 
 MAX_OPS = 20_000_000  # matches OPERATIONS_LIMIT constant in real game
-MAX_CALL_DEPTH = 256  # prevent Python stack overflow from deep LS recursion
+MAX_CALL_DEPTH = 512  # catches infinite recursion from null cascading; ops budget is the real limiter
 
 
 # ── OOP Runtime Types ──────────────────────────────────────────────────
@@ -1094,7 +1094,7 @@ class Interpreter:
         # Priority: user functions > game API > builtins
         # User code can shadow game API (matches real LS runtime behavior)
         if name in self.functions:
-            self._charge_ops(1)  # Java: 1 op per user function call
+            self._charge_ops(5)  # function call overhead (push/pop frame + dispatch)
             return self._call_user_function(name, args)
 
         # Try as variable (could be anon function stored in a var, or a class)
