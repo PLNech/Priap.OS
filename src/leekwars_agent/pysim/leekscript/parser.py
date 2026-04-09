@@ -198,6 +198,57 @@ class AnonFunction:
     body: list
 
 
+# OOP AST nodes
+@dataclass
+class ClassDecl:
+    name: str
+    parent: str | None  # extends ClassName
+    members: list  # ClassField | ClassMethod | ClassConstructor
+
+
+@dataclass
+class ClassField:
+    name: str
+    init: Any  # Expr | None
+    access: str  # 'public', 'private', 'protected'
+    is_static: bool
+    is_final: bool
+
+
+@dataclass
+class ClassMethod:
+    name: str
+    params: list[str]
+    defaults: list  # parallel to params, None = no default
+    body: list
+    access: str
+    is_static: bool
+
+
+@dataclass
+class ClassConstructor:
+    params: list[str]
+    defaults: list
+    body: list
+    access: str
+
+
+@dataclass
+class NewExpr:
+    class_expr: Any  # Identifier or expression
+    args: list
+
+
+@dataclass
+class ThisExpr:
+    pass
+
+
+@dataclass
+class SuperExpr:
+    pass
+
+
 # ── Parser ──────────────────────────────────────────────────────────────
 
 class ParseError(Exception):
@@ -220,7 +271,7 @@ PRECEDENCE = {
     # Equality
     "==": 7, "!=": 7, "===": 7, "!==": 7, "is": 7, "is not": 7,
     # Relational + membership
-    "in": 8, "<": 8, ">": 8, "<=": 8, ">=": 8,
+    "in": 8, "<": 8, ">": 8, "<=": 8, ">=": 8, "instanceof": 8,
     # Arithmetic
     "+": 10, "-": 10,
     "*": 11, "/": 11, "%": 11,
@@ -263,6 +314,7 @@ BINARY_OPS = {
     # Identity + membership
     TokenType.IS: "is",
     TokenType.IN: "in",
+    TokenType.INSTANCEOF: "instanceof",
 }
 
 # Right-associative operators
@@ -359,6 +411,27 @@ class Parser:
             return ContinueStmt()
         if tok.type == TokenType.LBRACE:
             return self._parse_block_as_stmts()
+
+        # Class declaration
+        if tok.type == TokenType.CLASS:
+            return self._parse_class_decl()
+
+        # Typed declaration without 'var': `TypeName varName = expr`
+        # Detect: IDENTIFIER IDENTIFIER (= | ; | ,) — first is type, second is name
+        if tok.type == TokenType.IDENTIFIER and self.pos + 1 < len(self.tokens):
+            next_tok = self.tokens[self.pos + 1]
+            # Type<Generic> pattern: skip ahead past the generic part
+            if next_tok.type == TokenType.LT:
+                # Could be a generic type: Type<A, B> name = ...
+                # Use lookahead to find matching >
+                saved = self.pos
+                try:
+                    return self._parse_typed_var_decl()
+                except ParseError:
+                    self.pos = saved
+            elif next_tok.type == TokenType.IDENTIFIER:
+                # Simple typed decl: `Type name = expr`
+                return self._parse_typed_var_decl()
 
         # Expression statement (function call, assignment, increment)
         # Assignment is now handled inside _parse_expression as an operator
@@ -545,6 +618,176 @@ class Parser:
         self._match(TokenType.SEMICOLON)
         return ReturnStmt(value)
 
+    # ── Type annotations (skip) ──────────────────────────────────────
+
+    def _skip_type_annotation(self) -> bool:
+        """Try to consume a type annotation (e.g., `integer`, `Array<Enemy>`, `Map<int, Leek>`).
+        Returns True if a type was consumed, False if nothing was consumed."""
+        if not self._check(TokenType.IDENTIFIER):
+            return False
+        # Lookahead: is next token also an identifier or a `<` (generic)?
+        saved = self.pos
+        self._advance()  # consume type name
+        # Handle generics: Type<A, B>
+        if self._check(TokenType.LT):
+            depth = 1
+            self._advance()  # consume <
+            while depth > 0 and not self._at_end():
+                if self._check(TokenType.LT):
+                    depth += 1
+                elif self._check(TokenType.GT):
+                    depth -= 1
+                self._advance()
+        return True
+
+    def _parse_typed_var_decl(self) -> VarDecl | list:
+        """Parse typed declaration: `Type name [= expr]` → treat as var decl."""
+        # Skip the type annotation
+        self._skip_type_annotation()
+        # Now parse like a var declaration
+        decls = []
+        while True:
+            name = self._expect(TokenType.IDENTIFIER, "Expected variable name").value
+            init = None
+            if self._match(TokenType.ASSIGN):
+                init = self._parse_expression(0)
+            decls.append(VarDecl(name, init, is_global=False))
+            if not self._match(TokenType.COMMA):
+                break
+        self._match(TokenType.SEMICOLON)
+        return decls[0] if len(decls) == 1 else decls
+
+    # ── Class declarations ─────────────────────────────────────────────
+
+    def _parse_class_decl(self) -> ClassDecl:
+        """Parse: class Name [extends Parent] { members... }"""
+        self._advance()  # 'class'
+        name = self._expect(TokenType.IDENTIFIER, "Expected class name").value
+
+        parent = None
+        if self._match(TokenType.EXTENDS):
+            parent = self._expect(TokenType.IDENTIFIER, "Expected parent class name").value
+
+        self._expect(TokenType.LBRACE, "Expected '{' after class declaration")
+
+        members = []
+        while not self._check(TokenType.RBRACE) and not self._at_end():
+            self._skip_semis()
+            if self._check(TokenType.RBRACE):
+                break
+            member = self._parse_class_member()
+            if member is not None:
+                members.append(member)
+
+        self._expect(TokenType.RBRACE, "Expected '}' to close class")
+        return ClassDecl(name, parent, members)
+
+    def _parse_class_member(self) -> Any:
+        """Parse a single class member (field, method, or constructor)."""
+        access = "public"
+        is_static = False
+        is_final = False
+
+        # Consume access modifiers
+        if self._check(TokenType.PUBLIC, TokenType.PRIVATE, TokenType.PROTECTED):
+            access = self._advance().value
+
+        # Consume static
+        if self._match(TokenType.STATIC):
+            is_static = True
+
+        # Consume final
+        if self._match(TokenType.FINAL):
+            is_final = True
+
+        # Constructor
+        if self._check(TokenType.CONSTRUCTOR):
+            self._advance()
+            params, defaults = self._parse_method_params()
+            body = self._parse_block()
+            self._match(TokenType.SEMICOLON)
+            return ClassConstructor(params, defaults, body, access)
+
+        # Skip optional type annotation before name
+        # We need to be careful: if it's `string()` that's the toString method, not a type
+        saved = self.pos
+        has_type = False
+
+        # Check for `string(` — special toString method (no type annotation, method named "string")
+        if self._check(TokenType.IDENTIFIER) and self._peek().value == "string":
+            if self.pos + 1 < len(self.tokens) and self.tokens[self.pos + 1].type == TokenType.LPAREN:
+                # It's the string() method
+                pass  # Don't skip type
+            else:
+                has_type = self._skip_type_annotation()
+        elif self._check(TokenType.IDENTIFIER):
+            # Look ahead: if IDENTIFIER IDENTIFIER, first is type
+            if self.pos + 1 < len(self.tokens):
+                next_tok = self.tokens[self.pos + 1]
+                if next_tok.type == TokenType.IDENTIFIER:
+                    has_type = self._skip_type_annotation()
+                elif next_tok.type == TokenType.LT:
+                    # Generic type: Array<Enemy> enemies
+                    has_type = self._skip_type_annotation()
+                    # After generics, check if next is identifier
+                    if not self._check(TokenType.IDENTIFIER):
+                        # Wasn't a type after all, restore
+                        self.pos = saved
+                        has_type = False
+
+        # Now we should be at the member name
+        if not self._check(TokenType.IDENTIFIER):
+            # Skip unknown token
+            self._advance()
+            self._match(TokenType.SEMICOLON)
+            return None
+
+        name_tok = self._advance()
+        name = name_tok.value
+
+        # Method: name(params) { body }
+        if self._check(TokenType.LPAREN):
+            params, defaults = self._parse_method_params()
+            body = self._parse_block()
+            self._match(TokenType.SEMICOLON)
+            return ClassMethod(name, params, defaults, body, access, is_static)
+
+        # Field: name [= expr]
+        init = None
+        if self._match(TokenType.ASSIGN):
+            init = self._parse_expression(0)
+        self._match(TokenType.SEMICOLON)
+        return ClassField(name, init, access, is_static, is_final)
+
+    def _parse_method_params(self) -> tuple[list[str], list]:
+        """Parse (param1, param2 = default, ...) returning (names, defaults)."""
+        self._expect(TokenType.LPAREN, "Expected '(' for method parameters")
+        params = []
+        defaults = []
+        while not self._check(TokenType.RPAREN) and not self._at_end():
+            # Skip @ reference prefix
+            self._match(TokenType.AT)
+            # Skip optional type annotation
+            if self._check(TokenType.IDENTIFIER) and self.pos + 1 < len(self.tokens):
+                next_tok = self.tokens[self.pos + 1]
+                if next_tok.type == TokenType.IDENTIFIER:
+                    self._skip_type_annotation()
+                elif next_tok.type == TokenType.LT:
+                    saved = self.pos
+                    self._skip_type_annotation()
+                    if not self._check(TokenType.IDENTIFIER):
+                        self.pos = saved
+            name = self._expect(TokenType.IDENTIFIER, "Expected parameter name").value
+            params.append(name)
+            # Default value
+            if self._match(TokenType.ASSIGN):
+                defaults.append(self._parse_expression(0))
+            else:
+                defaults.append(None)
+            self._match(TokenType.COMMA)
+        self._expect(TokenType.RPAREN, "Expected ')' after parameters")
+        return params, defaults
+
     def _parse_block(self) -> list:
         """Parse { ... } block, returning list of statements."""
         self._expect(TokenType.LBRACE, "Expected '{'")
@@ -677,7 +920,17 @@ class Parser:
             # Property access / method call
             if self._check(TokenType.DOT):
                 self._advance()
-                prop = self._expect(TokenType.IDENTIFIER, "Expected property name after '.'").value
+                # Allow keywords as property names (this.class.name, super.method, etc.)
+                prop_tok = self._peek()
+                if prop_tok.type == TokenType.IDENTIFIER or prop_tok.type in (
+                    TokenType.CLASS, TokenType.SUPER, TokenType.THIS, TokenType.NEW,
+                    TokenType.CONSTRUCTOR, TokenType.STATIC, TokenType.FINAL,
+                    TokenType.PUBLIC, TokenType.PRIVATE, TokenType.PROTECTED,
+                    TokenType.RETURN, TokenType.FUNCTION, TokenType.IN,
+                ):
+                    prop = self._advance().value
+                else:
+                    prop = self._expect(TokenType.IDENTIFIER, "Expected property name after '.'").value
                 if self._check(TokenType.LPAREN):
                     self._advance()
                     args = []
@@ -728,6 +981,35 @@ class Parser:
         if tok.type == TokenType.AT:
             self._advance()
             return self._parse_primary()
+
+        # `new ClassName(args)` expression
+        if tok.type == TokenType.NEW:
+            self._advance()
+            class_expr = Identifier(self._expect(TokenType.IDENTIFIER, "Expected class name after 'new'").value)
+            args = []
+            if self._check(TokenType.LPAREN):
+                self._advance()
+                if not self._check(TokenType.RPAREN):
+                    args.append(self._parse_expression(0))
+                    while self._match(TokenType.COMMA):
+                        args.append(self._parse_expression(0))
+                self._expect(TokenType.RPAREN, "Expected ')' after constructor args")
+            return NewExpr(class_expr, args)
+
+        # `this` keyword
+        if tok.type == TokenType.THIS:
+            self._advance()
+            return ThisExpr()
+
+        # `super` keyword
+        if tok.type == TokenType.SUPER:
+            self._advance()
+            return SuperExpr()
+
+        # `class` as expression (inside methods: returns current class)
+        if tok.type == TokenType.CLASS:
+            self._advance()
+            return Identifier("__class__")
 
         # Anonymous function: function(params) { body }
         if tok.type == TokenType.FUNCTION:

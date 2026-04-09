@@ -34,6 +34,20 @@ class TokenType(Enum):
     CONTINUE = auto()
     NOT_KEYWORD = auto()  # 'not' as keyword (LeekScript supports both ! and not)
 
+    # OOP Keywords (v2+)
+    CLASS = auto()
+    EXTENDS = auto()
+    NEW = auto()
+    THIS = auto()
+    SUPER = auto()
+    CONSTRUCTOR = auto()
+    STATIC = auto()
+    INSTANCEOF = auto()
+    PRIVATE = auto()
+    PROTECTED = auto()
+    PUBLIC = auto()
+    FINAL = auto()
+
     # Operators
     PLUS = auto()
     MINUS = auto()
@@ -68,6 +82,11 @@ class TokenType(Enum):
     BITWISE_OR = auto()   # |
     BITWISE_AND = auto()  # &
     BITWISE_XOR = auto()  # ^
+    BITWISE_NOT = auto()  # ~
+
+    # Arrow operators
+    ARROW = auto()       # ->
+    FAT_ARROW = auto()   # =>
 
     # Keyword-based operators
     XOR = auto()
@@ -108,6 +127,19 @@ KEYWORDS = {
     "or": TokenType.OR,
     "xor": TokenType.XOR,
     "is": TokenType.IS,
+    # OOP keywords (v2+)
+    "class": TokenType.CLASS,
+    "extends": TokenType.EXTENDS,
+    "new": TokenType.NEW,
+    "this": TokenType.THIS,
+    "super": TokenType.SUPER,
+    "constructor": TokenType.CONSTRUCTOR,
+    "static": TokenType.STATIC,
+    "instanceof": TokenType.INSTANCEOF,
+    "private": TokenType.PRIVATE,
+    "protected": TokenType.PROTECTED,
+    "public": TokenType.PUBLIC,
+    "final": TokenType.FINAL,
 }
 
 
@@ -289,6 +321,8 @@ def tokenize(source: str) -> list[Token]:
                 ">=": TokenType.GTE,
                 "&&": TokenType.AND,
                 "||": TokenType.OR,
+                "->": TokenType.ARROW,
+                "=>": TokenType.FAT_ARROW,
             }.get(two)
             if tt2 is not None:
                 tokens.append(Token(tt2, two, line, start_col))
@@ -322,6 +356,7 @@ def tokenize(source: str) -> list[Token]:
             "|": TokenType.BITWISE_OR,
             "&": TokenType.BITWISE_AND,
             "^": TokenType.BITWISE_XOR,
+            "~": TokenType.BITWISE_NOT,
         }.get(ch)
 
         if tt1 is not None:

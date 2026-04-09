@@ -19,6 +19,9 @@ from .parser import (
     BinaryOp, UnaryOp, Ternary, FunctionCall, MethodCall, Subscript,
     PropertyAccess, Identifier, NumberLit, StringLit, BoolLit, NullLit,
     ArrayLit, MapLit, Increment, AnonFunction,
+    # OOP
+    ClassDecl, ClassField, ClassMethod, ClassConstructor,
+    NewExpr, ThisExpr, SuperExpr,
 )
 
 
@@ -80,6 +83,78 @@ class OpsLimitExceeded(Exception):
 MAX_OPS = 20_000_000  # matches OPERATIONS_LIMIT constant in real game
 
 
+# ── OOP Runtime Types ──────────────────────────────────────────────────
+
+class LSClassValue:
+    """Runtime representation of a LeekScript class.
+
+    Holds: field templates, constructors (by arity), methods (by name_arity),
+    static fields/methods, parent chain. Mirrors Java's ClassLeekValue.
+    """
+    __slots__ = ("name", "parent", "field_templates", "constructors", "methods",
+                 "static_fields", "static_methods", "init_fields_fn")
+
+    def __init__(self, name: str, parent: "LSClassValue | None" = None):
+        self.name = name
+        self.parent = parent
+        # field_templates: {name: (default_expr_or_None, access, is_final)}
+        self.field_templates: dict[str, tuple] = {}
+        # constructors: {arity: (params, defaults, body, access)}
+        self.constructors: dict[int, tuple] = {}
+        # methods: {"name_arity": (params, defaults, body, access)}
+        self.methods: dict[str, tuple] = {}
+        # static_fields: {name: value}
+        self.static_fields: dict[str, Any] = {}
+        # static_methods: {"name_arity": (params, defaults, body, access)}
+        self.static_methods: dict[str, tuple] = {}
+        self.init_fields_fn = None  # optional callable
+
+    def get_method(self, method_key: str) -> tuple | None:
+        """Look up method by 'name_arity', walking parent chain."""
+        m = self.methods.get(method_key)
+        if m is not None:
+            return m
+        if self.parent is not None:
+            return self.parent.get_method(method_key)
+        return None
+
+    def get_constructor(self, arity: int) -> tuple | None:
+        c = self.constructors.get(arity)
+        if c is not None:
+            return c
+        # Try parent constructors
+        if self.parent is not None:
+            return self.parent.get_constructor(arity)
+        return None
+
+    def descends_from(self, other: "LSClassValue") -> bool:
+        current = self
+        while current is not None:
+            if current is other:
+                return True
+            current = current.parent
+        return False
+
+    def __repr__(self):
+        return f"<class {self.name}>"
+
+
+class LSObjectInstance:
+    """Runtime representation of a LeekScript object instance.
+
+    Holds: field values dict, reference to its class.
+    """
+    __slots__ = ("clazz", "fields")
+
+    def __init__(self, clazz: LSClassValue):
+        self.clazz = clazz
+        self.fields: dict[str, Any] = {}
+
+    def __repr__(self):
+        field_str = ", ".join(f"{k}: {v!r}" for k, v in self.fields.items())
+        return f"{self.clazz.name} {{{field_str}}}"
+
+
 class Interpreter:
     """Tree-walking LeekScript evaluator.
 
@@ -91,12 +166,15 @@ class Interpreter:
                  source_path: str | Path | None = None):
         self.global_env = Environment()
         self.functions: dict[str, FunctionDecl] = {}
+        self.classes: dict[str, LSClassValue] = {}  # registered classes
         self.game_api: dict[str, Any] = game_api or {}
         self.debug_log: list[str] = []
         self.ops = 0
         self._initialized = False
         self.source_path = Path(source_path) if source_path else None
         self._included_files: set[str] = set()  # resolved paths
+        self._current_this: LSObjectInstance | None = None  # for 'this' in methods
+        self._current_class: LSClassValue | None = None  # for 'super' resolution
         self._setup_builtins()
 
     def _setup_builtins(self):
@@ -428,9 +506,12 @@ class Interpreter:
 
         for stmt in program.stmts:
             try:
-                # First pass on first run: register function signatures
+                # First pass on first run: register function signatures and classes
                 if isinstance(stmt, FunctionDecl):
                     self.functions[stmt.name] = stmt
+                    continue
+                if isinstance(stmt, ClassDecl):
+                    self._register_class(stmt)
                     continue
                 result = self._exec_stmt(stmt, self.global_env)
             except ReturnSignal as r:
@@ -474,6 +555,10 @@ class Interpreter:
             return self._eval_expr(stmt.expr, env)
         if isinstance(stmt, FunctionDecl):
             self.functions[stmt.name] = stmt
+            return None
+
+        if isinstance(stmt, ClassDecl):
+            self._register_class(stmt)
             return None
 
         raise LSRuntimeError(f"Unknown statement type: {type(stmt).__name__}")
@@ -523,7 +608,24 @@ class Interpreter:
         # Handle property assignment
         if isinstance(stmt.target, PropertyAccess):
             obj = self._eval_expr(stmt.target.obj, env)
-            if isinstance(obj, dict):
+            if isinstance(obj, LSObjectInstance):
+                self._charge_ops(1)
+                prop = stmt.target.prop
+                if stmt.op == "=":
+                    obj.fields[prop] = value
+                else:
+                    old = obj.fields.get(prop)
+                    obj.fields[prop] = self._apply_compound_op(stmt.op, old, value)
+            elif isinstance(obj, LSClassValue):
+                # Static field assignment: ClassName.field = value
+                self._charge_ops(1)
+                prop = stmt.target.prop
+                if stmt.op == "=":
+                    obj.static_fields[prop] = value
+                else:
+                    old = obj.static_fields.get(prop)
+                    obj.static_fields[prop] = self._apply_compound_op(stmt.op, old, value)
+            elif isinstance(obj, dict):
                 self._charge_ops(3)  # map write
                 if stmt.op == "=":
                     obj[stmt.target.prop] = value
@@ -780,9 +882,33 @@ class Interpreter:
                 self._charge_ops(1)
             return self._subscript_get(obj, idx)
 
+        if isinstance(expr, NewExpr):
+            self._charge_ops(1)
+            return self._eval_new(expr, env)
+
+        if isinstance(expr, ThisExpr):
+            return self._current_this
+
+        if isinstance(expr, SuperExpr):
+            return self._current_this  # super is dispatched via method call
+
         if isinstance(expr, PropertyAccess):
             self._charge_ops(1)
             obj = self._eval_expr(expr.obj, env)
+            if isinstance(obj, LSObjectInstance):
+                # Instance field access
+                if expr.prop == "class":
+                    return obj.clazz
+                return obj.fields.get(expr.prop)
+            if isinstance(obj, LSClassValue):
+                # Static field or class metadata
+                if expr.prop == "name":
+                    return obj.name
+                if expr.prop == "super":
+                    return obj.parent
+                if expr.prop in obj.static_fields:
+                    return obj.static_fields[expr.prop]
+                return None
             if isinstance(obj, dict):
                 return obj.get(expr.prop)
             return None
@@ -833,6 +959,12 @@ class Interpreter:
             return _ls_equal(left, right)
         if expr.op == "is not":
             return not _ls_equal(left, right)
+
+        # instanceof operator
+        if expr.op == "instanceof":
+            if isinstance(left, LSObjectInstance) and isinstance(right, LSClassValue):
+                return left.clazz.descends_from(right)
+            return False
 
         # Membership operator
         if expr.op == "in":
@@ -900,6 +1032,16 @@ class Interpreter:
         raise LSRuntimeError(f"Unknown operator: {expr.op}")
 
     def _eval_function_call(self, expr: FunctionCall, env: Environment) -> Any:
+        # super(args) → call parent constructor
+        if isinstance(expr.callee, SuperExpr):
+            args = [self._eval_expr(a, env) for a in expr.args]
+            if self._current_class and self._current_class.parent and self._current_this:
+                parent = self._current_class.parent
+                ctor = parent.get_constructor(len(args))
+                if ctor:
+                    self._call_method_body(ctor, args, self._current_this, parent)
+            return None
+
         # Resolve the callee
         if isinstance(expr.callee, Identifier):
             name = expr.callee.name
@@ -909,6 +1051,9 @@ class Interpreter:
             args = [self._eval_expr(a, env) for a in expr.args]
             if callable(callee_val):
                 return callee_val(*args)
+            if isinstance(callee_val, LSClassValue):
+                # Class used as constructor: ClassName(args) without new
+                return self._instantiate(callee_val, args)
             return None
 
         args = [self._eval_expr(a, env) for a in expr.args]
@@ -923,10 +1068,12 @@ class Interpreter:
             self._charge_ops(1)  # Java: 1 op per user function call
             return self._call_user_function(name, args)
 
-        # Try as variable (could be anon function stored in a var)
+        # Try as variable (could be anon function stored in a var, or a class)
         val = env.get(name)
         if val is None:
             val = self.global_env.get(name)
+        if isinstance(val, LSClassValue):
+            return self._instantiate(val, args)
         if callable(val):
             return val(*args)
 
@@ -945,6 +1092,37 @@ class Interpreter:
     def _eval_method_call(self, expr: MethodCall, env: Environment) -> Any:
         obj = self._eval_expr(expr.obj, env)
         args = [self._eval_expr(a, env) for a in expr.args]
+
+        # Object instance method call
+        if isinstance(obj, LSObjectInstance):
+            method_key = f"{expr.method}_{len(args)}"
+            m = obj.clazz.get_method(method_key)
+            if m is not None:
+                return self._call_method_body(m, args, obj, obj.clazz)
+            # Try as a field that is callable
+            field_val = obj.fields.get(expr.method)
+            if callable(field_val):
+                return field_val(*args)
+            return None
+
+        # super.method(args) — dispatch to parent class
+        if isinstance(expr.obj, SuperExpr) and self._current_class and self._current_this:
+            parent = self._current_class.parent
+            if parent:
+                method_key = f"{expr.method}_{len(args)}"
+                m = parent.get_method(method_key)
+                if m is not None:
+                    return self._call_method_body(m, args, self._current_this, parent)
+            return None
+
+        # Static method call: ClassName.method(args)
+        if isinstance(obj, LSClassValue):
+            method_key = f"{expr.method}_{len(args)}"
+            m = obj.static_methods.get(method_key)
+            if m is not None:
+                return self._call_method_body(m, args, None, obj)
+            # Also check if it's a generic method (non-u_ prefixed)
+            return None
 
         # String methods
         if isinstance(obj, str):
@@ -1027,6 +1205,23 @@ class Interpreter:
 
             return old_num if not expr.prefix else new_val
 
+        if isinstance(expr.target, PropertyAccess):
+            obj = self._eval_expr(expr.target.obj, env)
+            prop = expr.target.prop
+            if isinstance(obj, LSObjectInstance):
+                old_val = obj.fields.get(prop, 0)
+                old_num = _to_num(old_val)
+                new_val = old_num + delta
+                obj.fields[prop] = new_val
+                return old_num if not expr.prefix else new_val
+            if isinstance(obj, LSClassValue):
+                # Static field increment
+                old_val = obj.static_fields.get(prop, 0)
+                old_num = _to_num(old_val)
+                new_val = old_num + delta
+                obj.static_fields[prop] = new_val
+                return old_num if not expr.prefix else new_val
+
         return 0
 
     def _eval_anon_function(self, expr: AnonFunction, env: Environment) -> Any:
@@ -1082,6 +1277,134 @@ class Interpreter:
         self.source_path = include_path
         self.run(program)
         self.source_path = old_path
+        return None
+
+    # ── OOP Runtime ─────────────────────────────────────────────────
+
+    def _register_class(self, decl: ClassDecl) -> None:
+        """Register a class declaration. Creates LSClassValue and stores in global scope."""
+        parent = None
+        if decl.parent:
+            parent = self.classes.get(decl.parent)
+            if parent is None:
+                # Try from global env (might have been set by include)
+                parent = self.global_env.get(decl.parent)
+
+        cls = LSClassValue(decl.name, parent)
+
+        # Inherit parent fields (copies templates)
+        if parent and isinstance(parent, LSClassValue):
+            for fname, ftpl in parent.field_templates.items():
+                cls.field_templates[fname] = ftpl
+            # Inherit methods
+            for mkey, mval in parent.methods.items():
+                cls.methods[mkey] = mval
+
+        # Process members
+        for member in decl.members:
+            if isinstance(member, ClassField):
+                if member.is_static:
+                    # Static field: evaluate default now, store on class
+                    val = self._eval_expr(member.init, self.global_env) if member.init else None
+                    cls.static_fields[member.name] = val
+                else:
+                    # Instance field template: store (init_expr, access, is_final)
+                    cls.field_templates[member.name] = (member.init, member.access, member.is_final)
+
+            elif isinstance(member, ClassConstructor):
+                # Register by arity (including defaults)
+                for arity in range(
+                    sum(1 for d in member.defaults if d is None),
+                    len(member.params) + 1
+                ):
+                    cls.constructors[arity] = (member.params, member.defaults, member.body, member.access)
+
+            elif isinstance(member, ClassMethod):
+                # Register by name_arity
+                min_arity = sum(1 for d in member.defaults if d is None)
+                for arity in range(min_arity, len(member.params) + 1):
+                    key = f"{member.name}_{arity}"
+                    if member.is_static:
+                        cls.static_methods[key] = (member.params, member.defaults, member.body, member.access)
+                    else:
+                        cls.methods[key] = (member.params, member.defaults, member.body, member.access)
+
+        self.classes[decl.name] = cls
+        self.global_env.define(decl.name, cls)
+
+    def _instantiate(self, cls: LSClassValue, args: list) -> LSObjectInstance:
+        """Create a new instance: init fields from template, call constructor."""
+        self._charge_ops(1)
+        obj = LSObjectInstance(cls)
+
+        # Initialize fields from template (walk up hierarchy)
+        self._init_fields(obj, cls)
+
+        # Call constructor
+        ctor = cls.get_constructor(len(args))
+        if ctor is not None:
+            self._call_method_body(ctor, args, obj, cls)
+
+        return obj
+
+    def _init_fields(self, obj: LSObjectInstance, cls: LSClassValue) -> None:
+        """Initialize instance fields from class template (including parent fields)."""
+        for fname, (init_expr, access, is_final) in cls.field_templates.items():
+            if fname not in obj.fields:
+                val = self._eval_expr(init_expr, self.global_env) if init_expr else None
+                obj.fields[fname] = val
+
+    def _eval_new(self, expr: NewExpr, env: Environment) -> Any:
+        """Evaluate a `new ClassName(args)` expression."""
+        # Resolve class
+        class_val = self._eval_expr(expr.class_expr, env)
+        if isinstance(class_val, LSClassValue):
+            args = [self._eval_expr(a, env) for a in expr.args]
+            return self._instantiate(class_val, args)
+        # Class not found — look up by name
+        if isinstance(expr.class_expr, Identifier):
+            cls = self.classes.get(expr.class_expr.name)
+            if cls is not None:
+                args = [self._eval_expr(a, env) for a in expr.args]
+                return self._instantiate(cls, args)
+        return None
+
+    def _call_method_body(self, method_tuple: tuple, args: list,
+                          this_obj: LSObjectInstance | None,
+                          cls: LSClassValue) -> Any:
+        """Execute a method/constructor body with `this` and `class` context."""
+        params, defaults, body, access = method_tuple
+
+        # Save context
+        saved_this = self._current_this
+        saved_class = self._current_class
+        self._current_this = this_obj
+        self._current_class = cls
+
+        # Create local env
+        local_env = Environment(self.global_env)
+        # Make __class__ available for `class.name` etc.
+        local_env.define("__class__", cls)
+
+        # Bind parameters (with defaults)
+        for i, param in enumerate(params):
+            if i < len(args):
+                local_env.define(param, args[i])
+            elif defaults[i] is not None:
+                local_env.define(param, self._eval_expr(defaults[i], local_env))
+            else:
+                local_env.define(param, None)
+
+        try:
+            self._exec_block(body, local_env)
+        except ReturnSignal as r:
+            self._current_this = saved_this
+            self._current_class = saved_class
+            return r.value
+        finally:
+            self._current_this = saved_this
+            self._current_class = saved_class
+
         return None
 
     def _subscript_get(self, obj: Any, idx: Any) -> Any:
@@ -1140,6 +1463,11 @@ def _to_str(val: Any) -> str:
             return "[:]"
         pairs = [f"{_to_str(k)} : {_to_str(v)}" for k, v in val.items()]
         return "[" + ", ".join(pairs) + "]"
+    if isinstance(val, LSObjectInstance):
+        fields = ", ".join(f"{k}: {_to_str(v)}" for k, v in val.fields.items())
+        return f"{val.clazz.name} {{{fields}}}"
+    if isinstance(val, LSClassValue):
+        return f"<class {val.name}>"
     return str(val)
 
 
