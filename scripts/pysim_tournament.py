@@ -39,6 +39,10 @@ PARTICIPANTS = [
     ("yaelmagnier", "ais/opponents/yaelmagnier/main/MAIN.lk"),
     # tankyx_v8 — Beam search AI with OOP (32 files, includes)
     ("tankyx", "ais/opponents/tankyx_v8/main.lk"),
+    # chinafred — OOP AI with classes, sets, danger maps (26 files)
+    ("chinafred", "ais/opponents/chinafred/Main/Kassbi_Class.leek"),
+    # fauconv — Deep OOP AI with typed engine, strategies (29 files)
+    ("fauconv", "ais/opponents/fauconv/main.leek"),
     # Archetypes (calibration)
     ("arch_balanced", "ais/archetype_balanced.leek"),
     ("arch_burst", "ais/archetype_burst.leek"),
