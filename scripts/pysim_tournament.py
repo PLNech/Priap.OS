@@ -45,7 +45,7 @@ PARTICIPANTS = [
     ("chinafred", "ais/opponents/chinafred/Main/Kassbi_Class.leek"),
     # fauconv — Deep OOP AI with typed engine, strategies (29 files)
     ("fauconv", "ais/opponents/fauconv/main.leek"),
-    # tagadanar — Game creator's AIs
+    # tagadanar — #1 ranked player's AIs
     ("tagada_nn", "ais/opponents/tagadanar_nn/main.leek"),
     ("tagada_legacy", "ais/opponents/tagadanar_legacy/auto.leek"),
     # Archetypes (calibration)
