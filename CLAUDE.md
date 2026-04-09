@@ -44,6 +44,15 @@ Fight Online → Collect Data → Analyze Losses → Improve AI Offline
      └──────────── Deploy Best Variant ←──────────────────┘
 ```
 
+### Exercice de Style (CORE RULE)
+
+> This project proves that **Claude alone** can compete at LeekWars — no human gameplay intuition, no copying opponent strategies.
+
+- **NEVER read or study opponent AI source code** (`ais/opponents/`) to inform our own AI design. Opponent AIs exist solely as PySim sparring partners for ELO benchmarking.
+- All strategic decisions must emerge from: our own fight data, game mechanics analysis, formula introspection, and first-principles reasoning.
+- Scouting opponent *builds* (stats, equipment via `leek scout`) is fair game — that's public observable data from fight replays. Reading their *code* is not.
+- The tournament ELO rankings tell us *where we stand*, not *what to copy*.
+
 ---
 
 ## Safety Rules

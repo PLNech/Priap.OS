@@ -1,0 +1,920 @@
+// Fighter v15 "Phalanx II" — Stalemate Breaker
+// Based on v14 Phalanx + S48 PySim tournament analysis (10,120 fights)
+// =============================================================================
+// Design: v14 base (Move→Whip→Attack→Defend) + stalemate-breaking force_engage.
+//
+// S49 v15 ("Break the Stalemate"):
+//   v14: 91.2% WR but 8.4% draws. Draws, not losses, are the bottleneck.
+//   Root cause: Flame(166 raw) < Shields(192 abs) = 0 damage → 64-turn timeout.
+//
+//   THREE CHANGES (all gated behind force_engage — normal play untouched):
+//
+//   A. TRANQ-FIRST: In stalemate, fire Tranq before damage (was: after).
+//      Weakens enemy shields BEFORE our attacks hit.
+//
+//   B. SHIELD SUPPRESSION: Skip own shields in force_engage.
+//      Our shields are PART of the deadlock. Break symmetry via pure offense.
+//
+//   C. TRANQ BURST: 2x Tranq/turn in stalemate (was: 1x).
+//      2x Tranq shackles ~15 TP → enemy 0 TP → 0 shields, 0 attacks.
+//      Flame deals full 166/hit × 3 = 498 dmg/turn → kill in 2-3 turns.
+//      TP budget: Whip(-4,+9) + Tranq×2(6) + Flame×3(12) = 18/19. Fits.
+// =============================================================================
+
+// === TARGETING MODULE ===
+// Anti-bulb: always target the main leek, not disposable summons.
+// Data (S33): 100% of losses were vs bulb summoners. getNearestEnemy() targets
+// bulbs → wasted TP on 150 HP decoys while the real threat heals unmolested.
+
+function getPrimaryTarget() {
+    var enemies = getEnemies()
+    var best = null
+    var best_dist = 999
+
+    // Priority 1: nearest non-summon (the "brain")
+    for (var e in enemies) {
+        if (isSummon(e)) continue;
+        var d = getCellDistance(getCell(), getCell(e))
+        if (d < best_dist) { best_dist = d; best = e }
+    }
+
+    // Priority 2: if all real leeks dead, mop up summons
+    if (best == null) best = getNearestEnemy()
+
+    return best
+}
+
+
+// === STATE MODULE ===
+// Cross-turn persistence and fight phase detection
+
+// TURN TRACKING
+global turn_count = 0
+global fight_phase = "opening"  // opening, midgame, endgame
+
+// HP TRACKING
+global my_start_hp = 0
+global enemy_start_hp = 0
+global last_enemy_hp = 0
+global last_my_hp = 0
+
+// DAMAGE TRACKING
+global total_damage_dealt = 0
+global total_damage_taken = 0
+global my_dpt = 0
+global enemy_dpt = 0
+
+// TTK CALCULATIONS
+global my_ttk = 999
+global enemy_ttk = 999
+global winning_race = true
+
+// ENEMY BEHAVIOR DETECTION
+global last_enemy_dist = 0
+global enemy_pattern = "unknown"  // aggressive, kiting, passive
+global enemy_closing_count = 0
+global enemy_retreating_count = 0
+
+// STALEMATE DETECTION
+global stalemate_threshold = 25
+global low_damage_threshold = 50
+global force_engage = false
+global turns_no_damage = 0
+
+// POSITION CACHING
+global cached_my_accessible = null
+global cached_enemy_accessible = null
+global cached_danger_map = null
+
+function initState(enemy) {
+    my_start_hp = getLife()
+    enemy_start_hp = getLife(enemy)
+    last_enemy_hp = enemy_start_hp
+    last_my_hp = my_start_hp
+    last_enemy_dist = getCellDistance(getCell(), getCell(enemy))
+    enemy_pattern = "unknown"
+    enemy_closing_count = 0
+    enemy_retreating_count = 0
+    fight_phase = "opening"
+}
+
+function updateState(enemy) {
+    var my_hp = getLife()
+    var enemy_hp = getLife(enemy)
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    var dmg_dealt = last_enemy_hp - enemy_hp
+    var dmg_taken = last_my_hp - my_hp
+
+    if (dmg_dealt > 0) {
+        total_damage_dealt = total_damage_dealt + dmg_dealt
+        turns_no_damage = 0
+    } else {
+        turns_no_damage = turns_no_damage + 1
+    }
+    if (dmg_taken > 0) {
+        total_damage_taken = total_damage_taken + dmg_taken
+    }
+
+    if (turn_count > 0) {
+        my_dpt = total_damage_dealt / turn_count
+        enemy_dpt = total_damage_taken / turn_count
+    }
+
+    if (my_dpt > 0) {
+        my_ttk = ceil(enemy_hp / my_dpt)
+    }
+    if (enemy_dpt > 0) {
+        enemy_ttk = ceil(my_hp / enemy_dpt)
+    }
+
+    winning_race = my_ttk <= enemy_ttk
+
+    if (turn_count > 0) {
+        if (dist > last_enemy_dist) {
+            enemy_retreating_count = enemy_retreating_count + 1
+        } else if (dist < last_enemy_dist) {
+            enemy_closing_count = enemy_closing_count + 1
+        }
+
+        if (turn_count >= 2) {
+            if (enemy_retreating_count > enemy_closing_count + 1) {
+                enemy_pattern = "kiting"
+            } else if (enemy_closing_count > enemy_retreating_count + 1) {
+                enemy_pattern = "aggressive"
+            } else {
+                enemy_pattern = "passive"
+            }
+        }
+    }
+
+    last_enemy_hp = enemy_hp
+    last_my_hp = my_hp
+    last_enemy_dist = dist
+
+    turn_count = turn_count + 1
+
+    cached_my_accessible = null
+    cached_enemy_accessible = null
+    cached_danger_map = null
+}
+
+function detectPhase() {
+    var my_hp_pct = getLife() * 100 / my_start_hp
+    var enemy_hp_pct = 100
+    if (enemy_start_hp > 0) {
+        enemy_hp_pct = last_enemy_hp * 100 / enemy_start_hp
+    }
+
+    if (turn_count <= 2) {
+        fight_phase = "opening"
+    } else if (my_hp_pct < 40 || enemy_hp_pct < 40) {
+        fight_phase = "endgame"
+    } else {
+        fight_phase = "midgame"
+    }
+}
+
+function detectStalemate() {
+    force_engage = false
+
+    if (turn_count >= stalemate_threshold && total_damage_dealt < low_damage_threshold) {
+        force_engage = true
+        debug("  STALEMATE: Low damage over " + turn_count + " turns (dealt: " + total_damage_dealt + ")")
+        return;
+    }
+
+    if (turns_no_damage >= 3) {
+        // Threshold 3 (restored): early force_engage closes to dist≤2 (aggressive melee range).
+        // Threshold 5 tested: main-path dist≤8 approach was less aggressive, net -5.5% in sim.
+        force_engage = true
+        debug("  STALEMATE: " + turns_no_damage + " consecutive turns with no damage — forcing aggro")
+        return;
+    }
+}
+
+function debugState() {
+    debug("T" + turn_count + " Phase:" + fight_phase + " HP:" + getLife() + "/" + my_start_hp)
+    debug("  TTK: me=" + my_ttk + " vs enemy=" + enemy_ttk + " winning=" + winning_race)
+    debug("  Pattern: " + enemy_pattern + " (close:" + enemy_closing_count + " retreat:" + enemy_retreating_count + ")")
+    if (turns_no_damage > 0) {
+        debug("  NoDmg streak: " + turns_no_damage)
+    }
+}
+
+
+// === ACCESSIBLE CELLS MODULE ===
+// BFS flood-fill for reachability
+
+global neighbor_cache_initialized = false
+global neighbor_cache = [:]
+global MAP_WIDTH = 18
+global MAP_HEIGHT = 18
+
+function cellFromXY(x, y) {
+    if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return -1
+    return y * MAP_WIDTH + x
+}
+
+function cellX(cell) { return cell % MAP_WIDTH }
+function cellY(cell) { return floor(cell / MAP_WIDTH) }
+
+function getCardinalNeighbors(cell) {
+    var x = cellX(cell)
+    var y = cellY(cell)
+    var neighbors = []
+    if (y > 0) push(neighbors, cellFromXY(x, y - 1))
+    if (y < MAP_HEIGHT - 1) push(neighbors, cellFromXY(x, y + 1))
+    if (x > 0) push(neighbors, cellFromXY(x - 1, y))
+    if (x < MAP_WIDTH - 1) push(neighbors, cellFromXY(x + 1, y))
+    return neighbors
+}
+
+function initNeighborCache() {
+    if (neighbor_cache_initialized) return;
+    var cell = 0;
+    while (cell < 324) {
+        var neighbors = getCardinalNeighbors(cell)
+        var walkable = []
+        for (var n in neighbors) {
+            if (isEmptyCell(n) || getCellContent(n) != CELL_OBSTACLE) {
+                push(walkable, n)
+            }
+        }
+        neighbor_cache[cell] = walkable
+        if (getOperations() > 500000) {
+            debug("Warning: neighbor cache init stopped early (ops limit)")
+            break;
+        }
+        cell++
+    }
+    neighbor_cache_initialized = true
+}
+
+function getAccessibleCells(start_cell, max_mp) {
+    var accessible = [:]
+    accessible[start_cell] = 0
+    var frontier = [start_cell]
+    var current_cost = 0
+    while (current_cost < max_mp && count(frontier) > 0) {
+        var next_frontier = []
+        for (var cell in frontier) {
+            var neighbors = neighbor_cache[cell]
+            if (neighbors == null) neighbors = getCardinalNeighbors(cell)
+            for (var neighbor in neighbors) {
+                if (accessible[neighbor] != null) continue;
+                if (!isEmptyCell(neighbor)) continue;
+                accessible[neighbor] = current_cost + 1
+                push(next_frontier, neighbor)
+            }
+            if (getOperations() > 800000) {
+                debug("Warning: accessible cells stopped early (ops limit)")
+                return accessible
+            }
+        }
+        frontier = next_frontier
+        current_cost = current_cost + 1
+    }
+    return accessible
+}
+
+function countAccessible(accessible) {
+    var count_val = 0
+    for (var cell : var cost in accessible) { count_val = count_val + 1 }
+    return count_val
+}
+
+function getClosestAccessible(accessible, target_cell) {
+    var best_cell = -1
+    var best_dist = 999999
+    for (var cell : var cost in accessible) {
+        var dist = getCellDistance(cell, target_cell)
+        if (dist < best_dist) { best_dist = dist; best_cell = cell }
+        if (getOperations() > 850000) break;
+    }
+    return best_cell
+}
+
+function getFurthestAccessible(accessible, target_cell) {
+    var best_cell = -1
+    var best_dist = -1
+    for (var cell : var cost in accessible) {
+        var dist = getCellDistance(cell, target_cell)
+        if (dist > best_dist) { best_dist = dist; best_cell = cell }
+        if (getOperations() > 850000) break;
+    }
+    return best_cell
+}
+
+
+// === DANGER MAP MODULE ===
+// Cell danger scoring based on enemy reach
+
+function computeQuickDanger(my_accessible, enemy) {
+    var danger = [:]
+    var enemy_cell = getCell(enemy)
+    for (var my_cell : var my_cost in my_accessible) {
+        var dist = getCellDistance(my_cell, enemy_cell)
+        var cell_danger = 0
+        if (dist > 0) {
+            cell_danger = 15 - dist
+            if (cell_danger < 0) cell_danger = 0
+        } else {
+            cell_danger = 20
+        }
+        if (!lineOfSight(enemy_cell, my_cell)) {
+            cell_danger = cell_danger * 0.3
+        }
+        danger[my_cell] = cell_danger
+    }
+    return danger
+}
+
+function getSafestCell(danger_map) {
+    var safest_cell = -1
+    var lowest_danger = 999999
+    for (var cell : var danger in danger_map) {
+        if (danger < lowest_danger) { lowest_danger = danger; safest_cell = cell }
+    }
+    return safest_cell
+}
+
+function getDangerAt(danger_map, cell) {
+    var d = danger_map[cell]
+    if (d == null) return 999
+    return d
+}
+
+function getAverageDanger(danger_map) {
+    var total = 0
+    var cell_count = 0
+    for (var cell : var danger in danger_map) { total = total + danger; cell_count = cell_count + 1 }
+    if (cell_count == 0) return 0
+    return total / cell_count
+}
+
+
+// === COMBAT MODULE ===
+// Weapon rotation and attack execution
+
+global weapon_uses = [:]
+global current_weapon = null
+global weapon_switched = false
+
+function resetCombatState() {
+    weapon_uses = [:]
+    weapon_switched = false
+}
+
+function getBestWeapon(enemy, remaining_tp) {
+    var best_weapon = null
+    var best_score = -999999
+    var weapons = getWeapons()
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    for (var w in weapons) {
+        var cost = getWeaponCost(w)
+        var min_range = getWeaponMinRange(w)
+        var max_range = getWeaponMaxRange(w)
+
+        if (cost > remaining_tp) continue;
+
+        var uses_this_turn = weapon_uses[w]
+        if (uses_this_turn == null) uses_this_turn = 0
+        if (uses_this_turn >= 2) continue  // Per-turn cap; game enforces per-fight max_uses
+
+        if (dist < min_range || dist > max_range) continue;
+        if (!lineOfSight(getCell(), getCell(enemy))) continue;
+
+        // Score: actual effect value per TP (damage + heal)
+        var total_value = 0
+        var effects = getWeaponEffects(w)
+        for (var e in effects) {
+            total_value = total_value + e[1]  // value1 (base damage or heal)
+        }
+        var score_per_tp = total_value / cost
+        var switch_penalty = 0
+        if (current_weapon != w && current_weapon != null) {
+            switch_penalty = 1
+            if (switch_penalty >= remaining_tp - cost) switch_penalty = 999
+        }
+
+        var score = score_per_tp * 100 - switch_penalty
+        if (score > best_score) { best_score = score; best_weapon = w }
+    }
+    return best_weapon
+}
+
+function executeAttacks(enemy) {
+    var attacks_made = 0
+    var total_tp = getTP()
+    var total_damage = 0
+
+    while (getTP() > 0) {
+        var weapon = getBestWeapon(enemy, getTP())
+        if (weapon == null) break;
+
+        if (getWeapon() != weapon) {
+            if (getTP() < getWeaponCost(weapon) + 1) break;
+            setWeapon(weapon)
+            current_weapon = weapon
+            weapon_switched = true
+        }
+
+        var enemy_hp_before = getLife(enemy)
+        var result = useWeapon(enemy)
+
+        if (result == USE_SUCCESS) {
+            attacks_made = attacks_made + 1
+            var dmg = enemy_hp_before - getLife(enemy)
+            total_damage = total_damage + dmg
+            var uses = weapon_uses[weapon]
+            if (uses == null) uses = 0
+            weapon_uses[weapon] = uses + 1
+        } else if (result == USE_INVALID_TARGET || result == USE_NOT_ENOUGH_TP) {
+            break;
+        } else {
+            break;
+        }
+
+        if (attacks_made >= 8) break;
+    }
+
+    debug("  Combat: " + attacks_made + " hits, " + total_damage + " dmg, " + (total_tp - getTP()) + " TP used")
+    return attacks_made
+}
+
+function canAttackFrom(cell, enemy) {
+    var dist = getCellDistance(cell, getCell(enemy))
+    var weapons = getWeapons()
+    for (var w in weapons) {
+        if (dist >= getWeaponMinRange(w) && dist <= getWeaponMaxRange(w)) {
+            if (lineOfSight(cell, getCell(enemy))) return true
+        }
+    }
+    return false
+}
+
+
+// === CHIP MODULE (v14 Phalanx) ===
+// Triple-layer defense: Helmet + Shield + Armor
+// Flame-only damage chip (Flash removed — 15.7% solo WR)
+// Staggered cooldown rotation for permanent mitigation
+
+// Chip references
+global chip_tranq = null      // 3 TP, 50% TP shackle, range 1-8, CD 0, 4 uses
+global chip_flame = null      // 4 TP, 29±2 dmg, range 2-7, CD 0, 3 uses/turn
+global chip_helmet = null     // 3 TP, -15 abs, 2t, CD 3
+global chip_shield = null     // 4 TP, -20 abs, 3t, CD 4
+global chip_armor = null      // 6 TP, -25 abs, 4t, CD 5
+global chip_whip = null       // 4 TP, +60% TP, 2t, CD 1, range 0-6 (self-castable!)
+global chips_loaded = false
+
+// Per-turn usage tracking (only for chips with no cooldown / per-turn limits)
+global tranq_uses_this_turn = 0
+global TRANQ_MAX_PER_TURN = 1  // Normal: 1/turn (3 TP). Stalemate: 2/turn (see debuffEnemy)
+global tranq_uses_this_fight = 0  // v15: track total fight uses to conserve for burst
+global TRANQ_RESERVE_FOR_BURST = 2  // v15: always keep 2 charges for stalemate burst
+global TRANQ_MAX_PER_FIGHT = 4  // Tranquilizer has 4 uses per fight
+global flame_uses_this_turn = 0
+global FLAME_MAX_PER_TURN = 3
+
+function loadChips() {
+    if (chips_loaded) return;
+    var my_chips = getChips()
+    debug("  Loading " + count(my_chips) + " chips...")
+    for (var chip in my_chips) {
+        var name = getChipName(chip)
+        if (name == "tranquilizer") chip_tranq = chip
+        else if (name == "flame") chip_flame = chip
+        else if (name == "helmet") chip_helmet = chip
+        else if (name == "shield") chip_shield = chip
+        else if (name == "armor") chip_armor = chip
+        else if (name == "whip") chip_whip = chip
+    }
+    chips_loaded = true
+}
+
+function resetPerTurnUsage() {
+    tranq_uses_this_turn = 0
+    flame_uses_this_turn = 0
+    // Cooldowns now use getCooldown() API — no manual tracking needed
+}
+
+function canUseChip(chip) {
+    if (chip == null) return false
+    if (getTP() < getChipCost(chip)) return false
+    // Per-turn limits (no cooldown chips)
+    if (chip == chip_tranq && tranq_uses_this_turn >= TRANQ_MAX_PER_TURN) return false
+    if (chip == chip_flame && flame_uses_this_turn >= FLAME_MAX_PER_TURN) return false
+    // All other chips: use getCooldown() API (30 ops, accurate)
+    if (getCooldown(chip) > 0) return false
+    return true
+}
+
+function markChipUsed(chip) {
+    // Only track per-turn usage; cooldowns handled by getCooldown() API
+    if (chip == chip_tranq) tranq_uses_this_turn++
+    else if (chip == chip_flame) flame_uses_this_turn++
+}
+
+// =============================================================================
+// DEFENSIVE ROTATION — The Phalanx
+// =============================================================================
+// Priority: Armor (biggest shield, longest CD) > Shield > Helmet
+// Apply from biggest to smallest so we don't waste TP on small shields
+// when we could afford the big one.
+// Reserve TP for at least one Flame (4 TP) after defense.
+
+function applyDefensiveBuffs(enemy_dist) {
+    var applied = 0
+    // Distance gate: shields at distance > 10 expire before combat (67% waste rate — S36 data)
+    if (enemy_dist > 10) {
+        debug("  Shields SKIPPED: enemy too far (" + enemy_dist + ")")
+        return 0
+    }
+    // Dynamic TP reserve: weapon cost or minimum 4 (Flame)
+    var weapon = getWeapon()
+    var weapon_cost = weapon ? getWeaponCost(weapon) : 0
+    var tp_reserve = max(weapon_cost, 4)  // b_laser=5, minimum=4 (1× Flame)
+
+    // ARMOR first: 6 TP for -25 abs, 4 turns. Best TP-to-mitigation ratio over duration.
+    if (canUseChip(chip_armor) && getTP() >= 6 + tp_reserve) {
+        var result = useChip(chip_armor, getEntity())
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_armor)
+            applied++
+            debug("    ARMOR! -25 abs for 4t")
+        }
+    }
+
+    // SHIELD: 4 TP for -20 abs, 3 turns
+    if (canUseChip(chip_shield) && getTP() >= 4 + tp_reserve) {
+        var result = useChip(chip_shield, getEntity())
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_shield)
+            applied++
+            debug("    SHIELD! -20 abs for 3t")
+        }
+    }
+
+    // HELMET: 3 TP for -15 abs, 2 turns
+    if (canUseChip(chip_helmet) && getTP() >= 3 + tp_reserve) {
+        var result = useChip(chip_helmet, getEntity())
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_helmet)
+            applied++
+            debug("    HELMET! -15 abs for 2t")
+        }
+    }
+
+    return applied
+}
+
+// =============================================================================
+// WHIP (+60% TP buff) — use early in turn for max TP utilization, CD 1
+// =============================================================================
+// 4 TP, +60% TP for 2 turns, range 0-6 (SELF-CASTABLE). CD 1 = every other turn.
+// At TP 14 → ~22 TP for 2 turns. Extra 8 TP = 1-2 more attacks + full defense.
+// Cast EARLY in turn — the extra TP is available immediately for this turn.
+
+function applyWhip() {
+    if (!canUseChip(chip_whip)) return 0
+
+    var result = useChip(chip_whip, getEntity())
+    if (result == USE_SUCCESS) {
+        debug("    WHIP! +60% TP for 2t (TP now: " + getTP() + ")")
+        return 1
+    }
+    return 0
+}
+
+// =============================================================================
+// CHIP DAMAGE — Flame only (Flash removed)
+// =============================================================================
+
+function useChipDamage(enemy) {
+    var total_damage = 0
+    var dist = getCellDistance(getCell(), getCell(enemy))
+
+    // FLAME (range 2-7, 4 TP, 29±2 dmg, 3 uses/turn)
+    // Our only damage chip. Spam all 3 uses when in range.
+    while (canUseChip(chip_flame) && dist >= 2 && dist <= 7) {
+        if (!lineOfSight(getCell(), getCell(enemy))) break;
+        var result = useChip(chip_flame, enemy)
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_flame)
+            total_damage = total_damage + 29
+            debug("    FLAME hit! (" + flame_uses_this_turn + "/3)")
+        } else {
+            break
+        }
+    }
+
+    return total_damage
+}
+
+// =============================================================================
+// TRANQUILIZER — Cripple enemy TP economy (replaces Cure, S29 data: 0 heals/12 fights)
+// =============================================================================
+// 3 TP, 50% TP shackle (1 turn), range 1-8, CD 0, 4 uses/fight
+// Fire early in combat: halving enemy TP is better than any heal.
+// 2 uses/turn max to preserve TP for Flame.
+
+function debuffEnemy(enemy) {
+    // v15: Ammo management — save 2 charges for stalemate burst
+    // Normal play: only Tranq if we have charges to spare (>2 remaining)
+    // Stalemate (force_engage): burn up to 2 charges for devastating TP denial
+    var remaining = TRANQ_MAX_PER_FIGHT - tranq_uses_this_fight
+    var max_this_call = 1
+
+    if (force_engage) {
+        // BURST: fire 2 Tranqs (6 TP) → enemy has 0 TP → 0 shields, 0 attacks
+        max_this_call = 2
+    } else {
+        // CONSERVE: only Tranq if we can still save 2 for burst
+        if (remaining <= TRANQ_RESERVE_FOR_BURST) {
+            debug("    TRANQ conserved (" + remaining + " left, saving for burst)")
+            return false
+        }
+    }
+
+    var used = 0
+    while (used < max_this_call) {
+        if (!canUseChip(chip_tranq)) return used > 0
+        var dist = getCellDistance(getCell(), getCell(enemy))
+        if (dist < 1 || dist > 8) return used > 0
+        var result = useChip(chip_tranq, enemy)
+        if (result == USE_SUCCESS) {
+            markChipUsed(chip_tranq)
+            tranq_uses_this_fight++
+            used++
+            debug("    TRANQ! TP shackled (" + used + "/" + max_this_call + ", fight total: " + tranq_uses_this_fight + "/4)")
+        } else {
+            return used > 0
+        }
+    }
+    return used > 0
+}
+
+
+// =============================================================================
+// MAIN ENTRY POINT — Fighter v15 "Phalanx II"
+// =============================================================================
+
+var enemy = getPrimaryTarget()
+if (enemy == null) return;
+
+// =============================================================================
+// INITIALIZATION (First Turn Only)
+// =============================================================================
+if (turn_count == 0) {
+    initNeighborCache()
+    initState(enemy)
+    loadChips()
+}
+
+// =============================================================================
+// TURN START
+// =============================================================================
+updateState(enemy)
+resetPerTurnUsage()
+detectPhase()
+detectStalemate()
+resetCombatState()
+
+debug("═══ T" + turn_count + " Phalanx II ═══")
+debug("  HP: " + getLife() + "/" + my_start_hp + " vs " + getLife(enemy))
+debug("  TP: " + getTP() + " MP: " + getMP())
+debug("  TTK: us=" + my_ttk + " them=" + enemy_ttk + " winning=" + winning_race)
+if (force_engage) debug("  FORCE ENGAGE MODE")
+
+// =============================================================================
+// EQUIP WEAPON (once, prefer b_laser for range+heal)
+// =============================================================================
+if (getWeapon() == null) {
+    var weapons = getWeapons()
+    if (count(weapons) > 0) {
+        // Prefer highest total effect value per TP (damage + heal)
+        var best_w = weapons[0]
+        var best_vpt = 0
+        for (var w in weapons) {
+            var val = 0
+            var effs = getWeaponEffects(w)
+            for (var e in effs) { val = val + e[1] }
+            var vpt = val / getWeaponCost(w)
+            if (vpt > best_vpt) { best_vpt = vpt; best_w = w }
+        }
+        setWeapon(best_w)
+        current_weapon = best_w
+    }
+}
+
+// =============================================================================
+// FORCE ENGAGE MODE (v15 stalemate breaker)
+// =============================================================================
+// v15: Complete rewrite of force_engage. Three changes from v14:
+//   A. Tranq FIRST (deny enemy shield budget before our damage hits)
+//   B. NO shields (break the symmetric deadlock — our shields are part of the problem)
+//   C. 2x Tranq/turn (debuffEnemy now loops; stacks to ~15 TP shackle → enemy 0 TP)
+//
+// v14 used Defend→Move→Attack here (shields first, proven 64% in mirror).
+// v15 drops shields entirely in stalemate — different math when both sides deal 0 damage.
+// Shields only help when there IS damage to absorb. In a 0-damage deadlock, they're dead weight.
+if (force_engage) {
+    debug("  STALEMATE BREAK: Tranq-first, no shields, pure aggro")
+
+    // Phase 1: Whip for TP boost (19 TP available after Whip)
+    applyWhip()
+
+    // Phase 2: Tranq BURST — deny enemy shields before our damage
+    // 2x Tranq (6 TP) → enemy 0 TP → can't shield, can't attack
+    debuffEnemy(enemy)
+
+    // Phase 3: Position at optimal attack range (dist 2-7 for Flame)
+    var fe_dist = getCellDistance(getCell(), getCell(enemy))
+    if (fe_dist < 2) {
+        // TOO CLOSE — all weapons/chips have min_range >= 2. Back off!
+        debug("    Too close (dist=" + fe_dist + "), backing off to range 2")
+        moveAwayFrom(enemy)
+    } else {
+        while (getMP() > 0) {
+            if (getCellDistance(getCell(), getCell(enemy)) <= 2) break;
+            var moved = moveToward(enemy, 1)
+            if (moved == 0) break;
+        }
+    }
+
+    // Phase 4: Maximum damage — all remaining TP to Flame + weapons
+    useChipDamage(enemy)
+    executeAttacks(enemy)
+
+    // Phase 5: Reposition if needed + second attack pass
+    fe_dist = getCellDistance(getCell(), getCell(enemy))
+    if (fe_dist < 2 && getMP() > 0) {
+        moveAwayFrom(enemy)
+    } else {
+        while (getMP() > 0) {
+            if (getCellDistance(getCell(), getCell(enemy)) <= 2) break;
+            var moved2 = moveToward(enemy, 1)
+            if (moved2 == 0) break;
+        }
+    }
+    useChipDamage(enemy)
+    executeAttacks(enemy)
+
+    // NO shields — intentional. Breaking the deadlock requires asymmetric aggression.
+    // With 2x Tranq, enemy has 0 TP anyway — they can't damage us either.
+
+    debugState()
+    return;
+}
+
+// =============================================================================
+// PHASE 1: (reserved — Motivation removed, Whip applied in Phase 4)
+// =============================================================================
+
+// =============================================================================
+// PHASE 2: SPATIAL + STRATEGY (compute only — NO TP spent)
+// =============================================================================
+// S36 data: old Defend→Move→Attack wasted 67% shields, weapon fired 3.5% of turns.
+// New order: Move→Attack→Defend. Movement is FREE (MP only). Attack gets full TP budget.
+// Shields get whatever TP is left, only when close enough to matter.
+var my_mp = getMP()
+var enemy_mp = getMP(enemy)
+
+cached_my_accessible = getAccessibleCells(getCell(), my_mp)
+
+if (fight_phase != "opening" && getOperations() < 600000) {
+    cached_enemy_accessible = getAccessibleCells(getCell(enemy), enemy_mp)
+    cached_danger_map = computeQuickDanger(cached_my_accessible, enemy)
+}
+
+var dist = getCellDistance(getCell(), getCell(enemy))
+var weapon = getWeapon()
+var w_min = weapon ? getWeaponMinRange(weapon) : 1
+var w_max = weapon ? getWeaponMaxRange(weapon) : 7
+var strategy = "aggro"
+
+// Anti-kite: if enemy is running, ALWAYS aggro (never retreat vs kiters)
+if (enemy_pattern == "kiting") {
+    strategy = "aggro"
+    debug("  Anti-kite: forced aggro vs retreating opponent")
+}
+// If losing AND not being kited, consider retreat to extend fight
+else if (!winning_race && fight_phase == "midgame" && cached_danger_map != null) {
+    var safe_cell = getSafestCell(cached_danger_map)
+    if (safe_cell != null) {
+        var current_danger = getDangerAt(cached_danger_map, getCell())
+        var safe_danger = getDangerAt(cached_danger_map, safe_cell)
+        if (safe_danger < current_danger - 2) {
+            strategy = "retreat"
+        }
+    }
+}
+
+debug("  Strategy: " + strategy + " | Dist: " + dist + " | Range: " + w_min + "-" + w_max)
+
+// =============================================================================
+// PHASE 3: MOVE (MP only — free, no TP cost)
+// =============================================================================
+// Movement first: get into range before spending any TP.
+// This is the key insight: MP is free, TP is precious.
+if (strategy == "retreat") {
+    var safe_cell = getSafestCell(cached_danger_map)
+    if (safe_cell != null) {
+        moveTowardCell(safe_cell)
+    }
+} else {
+    // AGGRO: Close to attack range
+    var approach_target = w_max  // b_laser=8, Laser=9, Magnum=8
+    if (approach_target < 7) approach_target = 7  // Flame range minimum
+
+    if (enemy_pattern == "kiting") {
+        debug("  Anti-kite: spending all MP to close")
+        while (getMP() > 0) {
+            if (getCellDistance(getCell(), getCell(enemy)) <= 2) break;
+            var moved = moveToward(enemy, 1)
+            if (moved == 0) break;
+            dist = getCellDistance(getCell(), getCell(enemy))
+        }
+    } else {
+        while (dist > approach_target && getMP() > 0) {
+            var moved = moveToward(enemy)
+            if (moved == 0) break;
+            dist = getCellDistance(getCell(), getCell(enemy))
+        }
+    }
+}
+
+// =============================================================================
+// PHASE 4: ATTACK (weapon + Flame — TP reserved for THIS)
+// =============================================================================
+// Full TP budget goes to damage first. b_laser gets priority.
+dist = getCellDistance(getCell(), getCell(enemy))
+
+// v15: If too close for any weapon/chip (min_range 2), back off
+if (dist < 2 && getMP() > 0) {
+    debug("  Too close (dist=" + dist + "), backing off to min_range")
+    moveAwayFrom(enemy)
+    dist = getCellDistance(getCell(), getCell(enemy))
+}
+
+if (strategy == "retreat") {
+    // Even retreating, attack if in range
+    applyWhip()
+    useChipDamage(enemy)
+    executeAttacks(enemy)
+    debuffEnemy(enemy)
+} else {
+    // WHIP before damage — extra TP for more attacks this turn (+60% TP)
+    applyWhip()
+    // At distance > 7: weapon-first (b_laser reaches where Flame can't)
+    // At distance ≤ 7: Flame-first (chip damage before weapon)
+    if (dist > 7) {
+        debug("  Long range (" + dist + "): weapon-first (b_laser reach)")
+        executeAttacks(enemy)
+        useChipDamage(enemy)
+    } else {
+        useChipDamage(enemy)
+        executeAttacks(enemy)
+    }
+
+    // Debuff after damage — TP denial for their next turn
+    debuffEnemy(enemy)
+
+    // Remaining MP: close further for next turn, but respect weapon min_range
+    while (getMP() > 0) {
+        var close_dist = getCellDistance(getCell(), getCell(enemy))
+        if (close_dist <= 2) break;  // Stay at b_laser min_range
+        var moved2 = moveToward(enemy)
+        if (moved2 == 0) break;
+    }
+
+    // Second attack pass after closing
+    useChipDamage(enemy)
+    executeAttacks(enemy)
+}
+
+// =============================================================================
+// PHASE 5: DEFEND (leftover TP → shields, only if dist ≤ 10)
+// =============================================================================
+// Shields LAST, with whatever TP remains. Distance gate prevents waste.
+dist = getCellDistance(getCell(), getCell(enemy))
+var defenses = applyDefensiveBuffs(dist)
+if (defenses > 0) {
+    debug("  Shields: " + defenses + " applied (leftover TP)")
+}
+
+// =============================================================================
+// PHASE 6: CLEANUP (any remaining TP → debuff + attack)
+// =============================================================================
+debuffEnemy(enemy)
+useChipDamage(enemy)
+executeAttacks(enemy)
+
+// =============================================================================
+// END OF TURN
+// =============================================================================
+debugState()
+debug("  Ops: " + getOperations())
