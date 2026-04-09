@@ -23,14 +23,14 @@ from .effects import (
 from leekwars_agent.models.equipment import CHIP_REGISTRY, WEAPON_REGISTRY
 from . import constants as game_constants
 
-# Game constants — USE_* are from FightFunctions.java (not in constants.ts)
-USE_SUCCESS = 1
-USE_FAILED = 2
-USE_NOT_ENOUGH_TP = 3
-USE_INVALID_TARGET = 4
-USE_INVALID_POSITION = 5
-USE_TOO_FAR = 6
-USE_INVALID_COOLDOWN = 7
+# Game constants — parsed from constants.ts (verified against Java source)
+USE_SUCCESS = game_constants.get("USE_SUCCESS")             # 1
+USE_FAILED = game_constants.get("USE_FAILED")               # 0
+USE_NOT_ENOUGH_TP = game_constants.get("USE_NOT_ENOUGH_TP") # -2
+USE_INVALID_TARGET = game_constants.get("USE_INVALID_TARGET") # -1
+USE_INVALID_POSITION = game_constants.get("USE_INVALID_POSITION") # -4
+USE_INVALID_COOLDOWN = game_constants.get("USE_INVALID_COOLDOWN") # -3
+USE_TOO_FAR = -6  # not in constants.ts, rarely used
 
 # Cell content values exposed to AI code (from constants.ts)
 CELL_EMPTY = game_constants.get("CELL_EMPTY")      # 0
@@ -448,7 +448,7 @@ class FightEngine:
             return 100  # Default RAM
 
         def getMaxOperations():
-            return 10_000_000  # ops limit
+            return MAX_OPS
 
         def pause():
             pass  # no-op in sim
@@ -1038,9 +1038,28 @@ class FightEngine:
                 if ent is None:
                     return []
             result = []
+            # Map internal effect names → real EFFECT_* constant values (from constants.ts)
+            _gc = game_constants.get
             effect_type_map = {
-                "abs_shield": 4, "rel_shield": 3, "tp_shackle": 15,
-                "tp_buff": 5, "str_buff": 8, "poison": 6,
+                "abs_shield": _gc("EFFECT_ABSOLUTE_SHIELD"),       # 6
+                "rel_shield": _gc("EFFECT_RELATIVE_SHIELD"),       # 5
+                "tp_shackle": _gc("EFFECT_SHACKLE_TP"),            # 18
+                "tp_buff": _gc("EFFECT_BUFF_TP"),                  # 8
+                "str_buff": _gc("EFFECT_BUFF_STRENGTH"),           # 3
+                "agi_buff": _gc("EFFECT_BUFF_AGILITY"),            # 4
+                "res_buff": _gc("EFFECT_BUFF_RESISTANCE"),         # 21
+                "wis_buff": _gc("EFFECT_BUFF_WISDOM"),             # 22
+                "mp_buff": _gc("EFFECT_BUFF_MP"),                  # 7
+                "poison": _gc("EFFECT_POISON"),                    # 13
+                "aftereffect": _gc("EFFECT_AFTEREFFECT"),          # 25
+                "str_shackle": _gc("EFFECT_SHACKLE_STRENGTH"),     # 19
+                "agi_shackle": _gc("EFFECT_SHACKLE_AGILITY"),      # 47
+                "wis_shackle": _gc("EFFECT_SHACKLE_WISDOM"),       # 48
+                "mp_shackle": _gc("EFFECT_SHACKLE_MP"),            # 17
+                "mag_shackle": _gc("EFFECT_SHACKLE_MAGIC"),        # 24
+                "rel_vulnerability": _gc("EFFECT_VULNERABILITY"),  # 26
+                "abs_vulnerability": _gc("EFFECT_ABSOLUTE_VULNERABILITY"), # 27
+                "damage_return": _gc("EFFECT_DAMAGE_RETURN"),      # 20
             }
             for e in ent.effects:
                 etype = effect_type_map.get(e.effect_type, 0)
@@ -1464,8 +1483,8 @@ class FightEngine:
             "USE_INVALID_POSITION": USE_INVALID_POSITION,
             "USE_TOO_FAR": USE_TOO_FAR,
             "USE_INVALID_COOLDOWN": USE_INVALID_COOLDOWN,
-            # Misc non-constants.ts values
-            "OPERATIONS_LIMIT": 10_000_000,
+            # Misc non-constants.ts values (SORT_ASC/DESC are in constants.ts too,
+            # but kept here as fallback since they're trivial)
             "SORT_ASC": 0,
             "SORT_DESC": 1,
         }
