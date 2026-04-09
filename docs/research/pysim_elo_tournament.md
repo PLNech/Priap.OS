@@ -4,7 +4,7 @@
 **Participants**: 21
 **Fights per matchup**: 40 (20/side)
 **Total fights**: 8400
-**Duration**: 1698.2s (5 fights/sec, 10 workers)
+**Duration**: 1775.2s (5 fights/sec, 10 workers)
 
 ## ELO Rankings
 
@@ -60,6 +60,14 @@
 
 ## Runtime Errors
 
+### fauconv
+- `AI ERROR: FightEngine._build_game_api.<locals>.addOperation() takes 0 positional arguments but 4 wer`
+
+### tankyx
+- `AI ERROR: FightEngine._build_game_api.<locals>.getCooldown() takes 1 positional argument but 2 were `
+
 ### yaelmagnier
-- `AI ERROR: Parse error at L12:48: Expected ')'`
+- `AI ERROR: Invalid assignment target: Ternary`
+- `AI ERROR: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'`
+- `INCLUDE PARSE ERROR (OTHERS.lk): Parse error at L12:48: Expected ')'`
 
