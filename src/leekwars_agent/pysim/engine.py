@@ -1543,8 +1543,21 @@ class FightEngine:
         31: "mp_buff", 32: "tp_buff",
         37: "abs_shield", 38: "str_buff", 39: "mag_buff",
         40: "sci_buff", 41: "agi_buff", 42: "res_buff", 44: "wis_buff",
-        47: "agi_shackle", 48: "wis_shackle", 52: "pow_buff",
+        45: "vitality", 47: "agi_shackle", 48: "wis_shackle", 52: "pow_buff",
         54: "rel_shield",
+    }
+
+    # Effects that are no-ops in our sim (spatial, summon, lifecycle).
+    # Logged but not mechanically simulated.
+    _NOOP_EFFECTS: set[int] = {
+        10,  # TELEPORT
+        11,  # PERMUTATION
+        14,  # SUMMON
+        15,  # RESURRECT
+        43,  # PROPAGATION
+        46,  # ATTRACT
+        51,  # PUSH
+        53,  # REPEL
     }
 
     def _apply_effect(self, eff: dict, caster: Entity, target: Entity):
@@ -1620,9 +1633,72 @@ class FightEngine:
             target.add_effect(ActiveEffect("aftereffect", raw, turns, caster.id))
             self._emit(14, target.id, 25, raw, turns)
 
-        # ── Debuff (reduce existing buffs) ─────────────────────────
+        # ── Debuff (reduce existing buff values) ───────────────────
         elif eff_id in (9, 60):  # DEBUFF / TOTAL_DEBUFF
-            pass  # TODO: remove/reduce target's active buffs
+            val, crit = calc_effect_value(v1, v2, eff_id, stats, self.rng)
+            # Remove val points of buffs from target (strongest first)
+            remaining = val
+            for e in sorted(target.effects, key=lambda e: -e.value):
+                if remaining <= 0:
+                    break
+                if e.effect_type.endswith("_buff") or e.effect_type in ("abs_shield", "rel_shield"):
+                    reduce = min(int(e.value), remaining)
+                    e.value -= reduce
+                    remaining -= reduce
+
+        # ── Damage variants ────────────────────────────────────────
+        elif eff_id == 28:  # LIFE_DAMAGE (% of caster's life)
+            jet = self.rng.random()
+            crit = roll_critical(caster.effective_agility, self.rng)
+            from .effects import CRITICAL_FACTOR
+            factor = CRITICAL_FACTOR if crit else 1.0
+            pct = (v1 + jet * v2) / 100
+            raw = int(round(caster.life * pct * factor * (1 + caster.effective_power / 100)))
+            er = erosion_rate(is_poison=False, is_critical=crit)
+            actual = target.take_damage(raw, erosion_rate=er)
+            self._emit(101, target.id, actual)
+
+        elif eff_id == 30:  # NOVA_DAMAGE (science + power scaled)
+            raw, crit = calc_effect_value(v1, v2, eff_id, stats, self.rng)
+            er = erosion_rate(is_poison=False, is_critical=crit)
+            actual = target.take_damage(raw, erosion_rate=er)
+            self._emit(101, target.id, actual)
+
+        elif eff_id == 57:  # RAW_HEAL (no stat scaling)
+            raw, crit = calc_effect_value(v1, v2, eff_id, stats, self.rng)
+            actual = target.heal(raw)
+            self._emit(103, target.id, actual)
+
+        elif eff_id == 61:  # STEAL_LIFE
+            raw, crit = calc_effect_value(v1, v2, eff_id, stats, self.rng)
+            er = erosion_rate(is_poison=False, is_critical=crit)
+            actual = target.take_damage(raw, erosion_rate=er)
+            self._emit(101, target.id, actual)
+            if actual > 0 and not caster.dead:
+                healed = caster.heal(actual)
+                if healed > 0:
+                    self._emit(103, caster.id, healed)
+
+        elif eff_id == 29:  # STEAL_ABSOLUTE_SHIELD
+            raw, crit = calc_effect_value(v1, v2, eff_id, stats, self.rng)
+            # Steal shield from target, give to caster
+            target.add_effect(ActiveEffect("abs_vulnerability", raw, turns, caster.id))
+            caster.add_effect(ActiveEffect("abs_shield", raw, turns, caster.id))
+            self._emit(14, target.id, 29, raw, turns)
+
+        # ── Kill ───────────────────────────────────────────────────
+        elif eff_id == 16:  # EFFECT_KILL
+            target.life = 0
+            target.dead = True
+            self._emit(11, target.id)
+
+        # ── Antidote (remove poisons) ──────────────────────────────
+        elif eff_id == 23:  # EFFECT_ANTIDOTE
+            target.effects = [e for e in target.effects if e.effect_type != "poison"]
+
+        # ── Remove shackles ────────────────────────────────────────
+        elif eff_id == 49:  # EFFECT_REMOVE_SHACKLES
+            target.effects = [e for e in target.effects if not e.effect_type.endswith("_shackle")]
 
         # ── Add state (invincible, rooted, etc.) ───────────────────
         elif eff_id == 59:  # EFFECT_ADD_STATE
@@ -1630,6 +1706,10 @@ class FightEngine:
             target.states.add(state_id)
             target.add_effect(ActiveEffect(f"state_{state_id}", state_id, turns, caster.id))
             self._emit(14, target.id, 59, state_id, turns)
+
+        # ── No-op effects (spatial, summon — not simulated) ────────
+        elif eff_id in self._NOOP_EFFECTS:
+            pass  # Logged implicitly by chip/weapon use action
 
         # ── Generic buff/shackle/shield/vulnerability ──────────────
         elif eff_id in self._EFFECT_NAMES:
