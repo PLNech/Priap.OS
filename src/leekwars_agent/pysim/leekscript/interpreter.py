@@ -164,7 +164,8 @@ class Interpreter:
     """
 
     def __init__(self, game_api: dict[str, Any] | None = None,
-                 source_path: str | Path | None = None):
+                 source_path: str | Path | None = None,
+                 ai_root: str | Path | None = None):
         self.global_env = Environment()
         self.functions: dict[str, FunctionDecl] = {}
         self.classes: dict[str, LSClassValue] = {}  # registered classes
@@ -173,6 +174,22 @@ class Interpreter:
         self.ops = 0
         self._initialized = False
         self.source_path = Path(source_path) if source_path else None
+        # ai_root: the top-level directory of the AI project, used to resolve
+        # absolute-style include paths (e.g. include("/Classes/Leek")).
+        # LeekWars treats leading-/ paths as relative to the AI root folder.
+        if ai_root is not None:
+            self.ai_root: Path | None = Path(ai_root)
+        elif self.source_path is not None:
+            # Auto-detect: walk up from source_path to find the AI root.
+            # Heuristic: if source is inside a "Main" or "main" subfolder,
+            # the ai_root is that subfolder's parent.
+            p = self.source_path.parent
+            if p.name.lower() in ("main", "brain", "classes", "toolbox"):
+                self.ai_root = p.parent
+            else:
+                self.ai_root = p
+        else:
+            self.ai_root = None
         self._included_files: set[str] = set()  # resolved paths
         self._current_this: LSObjectInstance | None = None  # for 'this' in methods
         self._current_class: LSClassValue | None = None  # for 'super' resolution
@@ -1328,14 +1345,20 @@ class Interpreter:
             return None
 
         base_dir = self.source_path.parent
-        include_path = base_dir / path_str
+
+        # LeekWars absolute-style paths: include("/Classes/Leek") means relative
+        # to the AI root directory, not the filesystem root.
+        if path_str.startswith("/") and self.ai_root is not None:
+            include_path = self.ai_root / path_str.lstrip("/")
+        else:
+            include_path = base_dir / path_str
 
         if not include_path.exists():
             # Try common extensions
             for ext in [".leek", ".lk"]:
-                candidate = base_dir / (path_str + ext)
-                if candidate.exists():
-                    include_path = candidate
+                candidate2 = Path(str(include_path) + ext)
+                if candidate2.exists():
+                    include_path = candidate2
                     break
 
         if not include_path.exists():
@@ -1350,6 +1373,7 @@ class Interpreter:
                         break
 
         if not include_path.exists():
+            self.debug_log.append(f"INCLUDE NOT FOUND: {path_str!r}")
             return None
 
         resolved = str(include_path.resolve())

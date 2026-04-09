@@ -823,8 +823,11 @@ class Parser:
                 elif self._check(TokenType.GT):
                     depth -= 1
                 elif self._check(TokenType.GTE):
-                    # >> can be two closing brackets in nested generics
+                    # >= can be two closing brackets (> then =) in some edge cases
                     depth -= 1
+                elif self._check(TokenType.RSHIFT):
+                    # >> is TWO closing brackets: Array<Array<T>> produces RSHIFT
+                    depth -= 2
                 self._advance()
         # Handle union types: Type|OtherType|AnotherType
         while self._check(TokenType.BITWISE_OR):

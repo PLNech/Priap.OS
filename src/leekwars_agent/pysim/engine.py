@@ -301,6 +301,16 @@ class FightEngine:
                 # LS constants use template IDs; also match on id for compat
                 if w["template"] == w_id or w["id"] == w_id:
                     return w
+            # Fallback: look up in global registry by template (e.g. WEAPON_PISTOL
+            # is always equippable — every leek starts with one in the real game)
+            try:
+                from leekwars_agent.models.equipment import WEAPON_REGISTRY
+                from .runner import _build_weapon_dict
+                reg_w = WEAPON_REGISTRY.by_template(w_id)
+                if reg_w is not None:
+                    return _build_weapon_dict(reg_w)
+            except Exception:
+                pass
             return None
 
         # ── Chip queries ────────────────────────────────────────────
@@ -1244,17 +1254,19 @@ class FightEngine:
             return USE_INVALID_TARGET
 
         def getAccessibleCells(target=None, mp=None):
-            """Get cells reachable from entity's position with available MP."""
+            """Get cells reachable from a starting cell with given MP.
+
+            LeekScript API: getAccessibleCells(start_cell, max_mp)
+            - target is a CELL NUMBER (not an entity ID)
+            - mp overrides available MP (defaults to current entity's MP)
+            """
             if target is None:
                 start = me.cell
                 avail_mp = me.mp
             else:
-                tid = _safe_int(target)
-                t = engine.entities.get(tid)
-                if t is None:
-                    return []
-                start = t.cell
-                avail_mp = t.mp
+                # target is a cell number per the LeekScript API spec
+                start = _safe_int(target)
+                avail_mp = me.mp
             if mp is not None:
                 avail_mp = _safe_int(mp)
             # BFS from start, up to avail_mp steps
