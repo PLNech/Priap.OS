@@ -425,9 +425,20 @@ class Parser:
             next_tok = self.tokens[self.pos + 1]
             if next_tok.type in (TokenType.LT, TokenType.BITWISE_OR, TokenType.QUESTION):
                 # Could be generic/union/nullable type or comparison/bitwise op
+                # But `ident ? expr : expr` is a ternary, not a nullable type decl.
+                # Try typed decl, but validate: after parsing, next token must look like
+                # a declaration continuation (=, ;, ,) not a call/expr continuation ((, .)
                 saved = self.pos
                 try:
-                    return self._parse_typed_var_decl()
+                    result = self._parse_typed_var_decl()
+                    # Sanity check: if the next token is something unexpected for a decl,
+                    # we probably misparsed a ternary or expression as a typed decl
+                    nxt = self._peek().type
+                    if nxt in (TokenType.LPAREN, TokenType.COLON, TokenType.QUESTION):
+                        # This looks like an expression, not a declaration
+                        self.pos = saved
+                        raise ParseError("false typed decl", self._peek())
+                    return result
                 except ParseError:
                     self.pos = saved
             elif next_tok.type == TokenType.IDENTIFIER:
@@ -1038,7 +1049,7 @@ class Parser:
                 self._advance()
                 true_val = self._parse_expression(0)
                 self._expect(TokenType.COLON, "Expected ':' in ternary")
-                false_val = self._parse_expression(1)  # right-assoc
+                false_val = self._parse_expression(0)  # allow assignments in false branch too
                 left = Ternary(left, true_val, false_val)
                 continue
 

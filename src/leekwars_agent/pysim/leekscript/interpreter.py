@@ -81,6 +81,7 @@ class OpsLimitExceeded(Exception):
 
 
 MAX_OPS = 20_000_000  # matches OPERATIONS_LIMIT constant in real game
+MAX_CALL_DEPTH = 256  # prevent Python stack overflow from deep LS recursion
 
 
 # ── OOP Runtime Types ──────────────────────────────────────────────────
@@ -175,6 +176,7 @@ class Interpreter:
         self._included_files: set[str] = set()  # resolved paths
         self._current_this: LSObjectInstance | None = None  # for 'this' in methods
         self._current_class: LSClassValue | None = None  # for 'super' resolution
+        self._call_depth = 0  # recursion depth tracker
         self._setup_builtins()
 
     def _setup_builtins(self):
@@ -343,7 +345,7 @@ class Interpreter:
             return _rng.random()
 
         def _randInt(lo, hi):
-            return _rng.randint(int(lo), int(hi))
+            return _rng.randint(int(_to_num(lo)), int(_to_num(hi)))
 
         def _arrayFlatten(arr):
             if not isinstance(arr, list):
@@ -383,7 +385,7 @@ class Interpreter:
 
         def _charAt(s, idx):
             s = str(s) if not isinstance(s, str) else s
-            idx = int(idx)
+            idx = int(_to_num(idx))
             if 0 <= idx < len(s):
                 return s[idx]
             return ""
@@ -451,8 +453,8 @@ class Interpreter:
             "split": _split,
             "keySort": _keySort,
             "assocSort": _assocSort,
-            "subArray": lambda arr, s, e=None: arr[int(s):] if e is None else arr[int(s):int(e)] if isinstance(arr, list) else [],
-            "arraySlice": lambda arr, s, l: arr[int(s):int(s)+int(l)] if isinstance(arr, list) else [],
+            "subArray": lambda arr, s, e=None: arr[int(_to_num(s)):] if e is None else arr[int(_to_num(s)):int(_to_num(e))] if isinstance(arr, list) else [],
+            "arraySlice": lambda arr, s, l: arr[int(_to_num(s)):int(_to_num(s))+int(_to_num(l))] if isinstance(arr, list) else [],
             "mapSize": lambda m: len(m) if isinstance(m, dict) else 0,
             "isEmpty": lambda x: (len(x) == 0) if isinstance(x, (list, dict, str)) else x is None,
             "toDegrees": lambda x: math.degrees(_to_num(x)),
@@ -472,8 +474,8 @@ class Interpreter:
             "endsWith": lambda s, p: str(s).endswith(str(p)) if s is not None else False,
             # yaelMagnier builtins
             "pushAll": lambda arr, other: (arr.extend(other) or arr) if isinstance(arr, list) and isinstance(other, list) else arr,
-            "removeKey": lambda arr, key: (arr.pop(int(key)) if isinstance(arr, list) and 0 <= int(key) < len(arr) else arr.pop(key, None) if isinstance(arr, dict) else None),
-            "fill": lambda arr, val, n=None: [val] * int(n) if n is not None else arr,
+            "removeKey": lambda arr, key: (arr.pop(int(_to_num(key))) if isinstance(arr, list) and 0 <= int(_to_num(key)) < len(arr) else arr.pop(key, None) if isinstance(arr, dict) else None),
+            "fill": lambda arr, val, n=None: [val] * int(_to_num(n)) if n is not None else arr,
             "getKeys": lambda m: list(m.keys()) if isinstance(m, dict) else list(range(len(m))) if isinstance(m, list) else [],
             "getValues": lambda m: list(m.values()) if isinstance(m, dict) else list(m) if isinstance(m, list) else [],
             "arraySort": _sort,
@@ -489,7 +491,7 @@ class Interpreter:
             "mapMerge": lambda m1, m2: (m1.update(m2) or m1) if isinstance(m1, dict) and isinstance(m2, dict) else m1,
             "mapGet": lambda m, k, default=None: m.get(k, default) if isinstance(m, dict) else default,
             # chinafred/fauconv builtins — Set operations + map extras + range
-            "__range__": lambda start, end: list(range(int(start), int(end) + 1)),
+            "__range__": lambda start, end: list(range(int(_to_num(start)), int(_to_num(end)) + 1)),
             "setContains": lambda s, val: val in s if isinstance(s, (list, set)) else False,
             "setToArray": lambda s: list(s) if isinstance(s, (list, set)) else [],
             "mapFilter": lambda m, fn: {k: v for k, v in m.items() if fn(v, k)} if isinstance(m, dict) else m,
@@ -498,6 +500,10 @@ class Interpreter:
             "mark": lambda *args: None,  # debug visualization — no-op in sim
             "getCellFromXY": lambda x, y: None,  # grid helper — overridden by engine
             "isInsideWorld": lambda x, y: abs(x) + abs(y) <= 17,
+            # Numeric builtins
+            "sum": lambda arr: sum(_to_num(x) for x in arr) if isinstance(arr, list) else 0,
+            "average": lambda arr: (sum(_to_num(x) for x in arr) / len(arr)) if isinstance(arr, list) and arr else 0,
+            "integer": lambda x: int(_to_num(x)),  # LS integer cast (int())
         }
 
     def _charge_ops(self, cost: int) -> None:
@@ -616,7 +622,7 @@ class Interpreter:
             # Java runtime: array write = 2 ops, map write = 3 ops
             if isinstance(obj, list):
                 self._charge_ops(2)
-                idx = int(idx)
+                idx = int(_to_num(idx))
                 if -len(obj) <= idx < len(obj):
                     obj[idx] = new_val
             elif isinstance(obj, dict):
@@ -1191,6 +1197,11 @@ class Interpreter:
         return None
 
     def _call_user_function(self, name: str, args: list) -> Any:
+        self._call_depth += 1
+        if self._call_depth > MAX_CALL_DEPTH:
+            self._call_depth -= 1
+            raise LSRuntimeError(f"stack overflow: call depth exceeded {MAX_CALL_DEPTH} in '{name}'")
+
         func = self.functions[name]
         local_env = Environment(self.global_env)
 
@@ -1201,8 +1212,16 @@ class Interpreter:
         try:
             self._exec_block(func.body, local_env)
         except ReturnSignal as r:
+            self._call_depth -= 1
             return r.value
+        except (LSRuntimeError, OpsLimitExceeded):
+            self._call_depth -= 1
+            raise
+        except Exception:
+            self._call_depth -= 1
+            raise
 
+        self._call_depth -= 1
         return None
 
     def _eval_increment(self, expr: Increment, env: Environment) -> Any:
@@ -1230,7 +1249,7 @@ class Interpreter:
             new_val = old_num + delta
 
             if isinstance(obj, list):
-                idx_int = int(idx)
+                idx_int = int(_to_num(idx))
                 if 0 <= idx_int < len(obj):
                     obj[idx_int] = new_val
             elif isinstance(obj, dict):
@@ -1292,6 +1311,17 @@ class Interpreter:
                 if candidate.exists():
                     include_path = candidate
                     break
+
+        if not include_path.exists():
+            # Fuzzy match: in real LS, include("Main") refers to an AI name, not a file path.
+            # Search sibling files for names ending with the include name (e.g. shup1_main.leek).
+            name_lower = path_str.rsplit("/", 1)[-1].lower()
+            for f in base_dir.iterdir():
+                if f.is_file() and f.suffix in (".leek", ".lk"):
+                    stem = f.stem.lower()
+                    if stem.endswith(name_lower) or stem == name_lower:
+                        include_path = f
+                        break
 
         if not include_path.exists():
             return None
@@ -1414,6 +1444,11 @@ class Interpreter:
                           this_obj: LSObjectInstance | None,
                           cls: LSClassValue) -> Any:
         """Execute a method/constructor body with `this` and `class` context."""
+        self._call_depth += 1
+        if self._call_depth > MAX_CALL_DEPTH:
+            self._call_depth -= 1
+            raise LSRuntimeError(f"stack overflow: call depth exceeded {MAX_CALL_DEPTH}")
+
         params, defaults, body, access = method_tuple
 
         # Save context
@@ -1441,16 +1476,18 @@ class Interpreter:
         except ReturnSignal as r:
             self._current_this = saved_this
             self._current_class = saved_class
+            self._call_depth -= 1
             return r.value
         finally:
             self._current_this = saved_this
             self._current_class = saved_class
+            self._call_depth -= 1
 
         return None
 
     def _subscript_get(self, obj: Any, idx: Any) -> Any:
         if isinstance(obj, list):
-            i = int(idx)
+            i = int(_to_num(idx))
             if -len(obj) <= i < len(obj):
                 return obj[i]  # Python handles negative indexing
             return None

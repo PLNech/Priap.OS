@@ -322,8 +322,13 @@ class FightEngine:
             c = _find_chip(chip_id)
             return c["cost"] if c else 0
 
-        def getCooldown(chip_id):
+        def getCooldown(chip_id, target=None):
+            """Get remaining cooldown for a chip. target param ignored (always checks own cooldowns)."""
             chip_id = _safe_int(chip_id)
+            if target is not None:
+                t = engine.entities.get(_safe_int(target))
+                if t:
+                    return t.cooldowns.get(chip_id, 0)
             return me.cooldowns.get(chip_id, 0)
 
         def getChipMinRange(chip_id):
@@ -439,7 +444,7 @@ class FightEngine:
             """Turn entity was created. 0 for leeks, summon turn for bulbs."""
             return 0
 
-        def addOperation():
+        def addOperation(*args):
             """No-op — internal debug counter, not meaningful in sim."""
             pass
 
@@ -1673,6 +1678,16 @@ class FightEngine:
 
     def run(self) -> dict:
         """Execute the full fight. Returns outcome dict."""
+        import sys
+        old_limit = sys.getrecursionlimit()
+        sys.setrecursionlimit(max(old_limit, 4000))  # allow deep AI recursion (e.g. beam search)
+        try:
+            return self._run_inner()
+        finally:
+            sys.setrecursionlimit(old_limit)
+
+    def _run_inner(self) -> dict:
+        """Inner fight loop — called with elevated recursion limit."""
         # Determine turn order by frequency (higher = first)
         # Equal frequency → randomize (matches real game behavior)
         eids = [e.id for e in self.entity_list]
@@ -1724,6 +1739,9 @@ class FightEngine:
                             self.debug_logs[eid].append(
                                 f"[ops] Turn ended: {interp.ops:,} ops (limit {MAX_OPS:,})"
                             )
+                        except RecursionError:
+                            # Deep recursion in AI — log as stack overflow (like real LS runtime)
+                            self.debug_logs[eid].append("AI ERROR: stack overflow (deep recursion)")
                         except Exception as exc:
                             # AI crashed — log and continue
                             self.debug_logs[eid].append(f"AI ERROR: {exc}")
