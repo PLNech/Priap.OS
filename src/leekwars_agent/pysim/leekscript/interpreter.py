@@ -482,6 +482,16 @@ class Interpreter:
             "isNumber": lambda x: isinstance(x, (int, float)),
             "isString": lambda x: isinstance(x, str),
             "arrayReverse": lambda arr: (arr.reverse() or arr) if isinstance(arr, list) else arr,
+            # chinafred/fauconv builtins — Set operations + map extras + range
+            "__range__": lambda start, end: list(range(int(start), int(end) + 1)),
+            "setContains": lambda s, val: val in s if isinstance(s, (list, set)) else False,
+            "setToArray": lambda s: list(s) if isinstance(s, (list, set)) else [],
+            "mapFilter": lambda m, fn: {k: v for k, v in m.items() if fn(v, k)} if isinstance(m, dict) else m,
+            "mapFirst": lambda m: next(iter(m.values())) if isinstance(m, dict) and m else None,
+            "mapContainsKey": lambda m, k: k in m if isinstance(m, dict) else False,
+            "mark": lambda *args: None,  # debug visualization — no-op in sim
+            "getCellFromXY": lambda x, y: None,  # grid helper — overridden by engine
+            "isInsideWorld": lambda x, y: abs(x) + abs(y) <= 17,
         }
 
     def _charge_ops(self, cost: int) -> None:
@@ -1272,7 +1282,7 @@ class Interpreter:
             return None  # already included (prevent circular)
         self._included_files.add(resolved)
 
-        source = include_path.read_text()
+        source = include_path.read_text(errors="replace")
         tokens = tokenize(source)
         program = Parser(tokens).parse()
 

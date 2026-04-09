@@ -90,6 +90,9 @@ class TokenType(Enum):
     ARROW = auto()       # ->
     FAT_ARROW = auto()   # =>
 
+    # Range operator
+    DOTDOT = auto()  # ..
+
     # Keyword-based operators
     XOR = auto()
     IS = auto()
@@ -141,7 +144,7 @@ KEYWORDS = {
     "private": TokenType.PRIVATE,
     "protected": TokenType.PROTECTED,
     "public": TokenType.PUBLIC,
-    "final": TokenType.FINAL,
+    # "final" deliberately excluded — context-sensitive, handled by parser in class bodies only
 }
 
 
@@ -251,6 +254,13 @@ def tokenize(source: str) -> list[Token]:
             i += 1  # closing quote
             col += 1
             tokens.append(Token(TokenType.STRING, "".join(s), line, start_col))
+            continue
+
+        # Range operator: ..  (must check BEFORE number literals — `.5` is a number, `..` is not)
+        if ch == "." and i + 1 < length and source[i + 1] == ".":
+            tokens.append(Token(TokenType.DOTDOT, "..", line, col))
+            i += 2
+            col += 2
             continue
 
         # Number literals

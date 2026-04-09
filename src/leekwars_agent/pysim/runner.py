@@ -210,8 +210,8 @@ class PySimRunner:
         engine = FightEngine(grid, [e1, e2], seed=seed)
 
         # Load AI files
-        ai1_source = Path(ai1_path).read_text()
-        ai2_source = Path(ai2_path).read_text()
+        ai1_source = Path(ai1_path).read_text(errors="replace")
+        ai2_source = Path(ai2_path).read_text(errors="replace")
         engine.load_ai(1, ai1_source, source_path=str(ai1_path))
         engine.load_ai(2, ai2_source, source_path=str(ai2_path))
 
