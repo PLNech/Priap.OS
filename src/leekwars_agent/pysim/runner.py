@@ -31,7 +31,8 @@ def _build_weapon_dict(weapon) -> dict:
         "launch_type": weapon.launch_type,
         "effects": [
             {
-                "type": e.type,
+                "id": e.id,        # Effect type constant (Effect.TYPE_* = EFFECT_*)
+                "type": e.type,    # Chip category (kept for backwards compat)
                 "value1": e.value1,
                 "value2": e.value2,
                 "turns": e.turns,
@@ -60,7 +61,8 @@ def _build_chip_dict(chip) -> dict:
         "launch_type": chip.launch_type,
         "effects": [
             {
-                "type": e.type,
+                "id": e.id,        # Effect type constant (Effect.TYPE_* = EFFECT_*)
+                "type": e.type,    # Chip category (kept for backwards compat)
                 "value1": e.value1,
                 "value2": e.value2,
                 "turns": e.turns,
@@ -114,6 +116,14 @@ class PySimRunner:
                 chips.append(_build_chip_dict(c))
         return chips
 
+    def _all_weapons(self) -> list[dict]:
+        """Return ALL weapons from registry — for opponent AIs that may use any weapon."""
+        return [_build_weapon_dict(w) for w in self._weapon_reg._items]
+
+    def _all_chips(self) -> list[dict]:
+        """Return ALL chips from registry — for opponent AIs that may use any chip."""
+        return [_build_chip_dict(c) for c in self._chip_reg._items]
+
     def run_1v1(
         self,
         ai1_path: str | Path,
@@ -156,18 +166,18 @@ class PySimRunner:
         """
         self._load_registries()
 
-        # Default equipment: our current build
-        if weapon_ids is None:
-            weapon_ids = [45, 42, 60]  # Magnum, Laser, b_laser
-        if chip_ids is None:
-            chip_ids = [94, 5, 22, 88, 20, 21]  # Tranq, Flame, Armor, Whip, Shield, Helmet
+        # Equipment: give ALL weapons and chips to both entities.
+        # Each AI's code decides what to use via setWeapon()/useChip().
+        # This prevents false negatives where an AI calls setWeapon(WEAPON_SHOTGUN)
+        # but the entity doesn't have it in their inventory.
+        all_weapons = self._all_weapons()
+        all_chips = self._all_chips()
 
-        weapons1 = self._resolve_weapons(weapon_ids)
-        chips1 = self._resolve_chips(chip_ids)
-
-        # Team 2: use overrides if provided, otherwise same as team 1
-        weapons2 = self._resolve_weapons(weapon_ids_2) if weapon_ids_2 else weapons1
-        chips2 = self._resolve_chips(chip_ids_2) if chip_ids_2 else chips1
+        # Allow overrides for specific A/B tests (e.g., Whip vs no-Whip)
+        weapons1 = self._resolve_weapons(weapon_ids) if weapon_ids is not None else all_weapons
+        chips1 = self._resolve_chips(chip_ids) if chip_ids is not None else all_chips
+        weapons2 = self._resolve_weapons(weapon_ids_2) if weapon_ids_2 is not None else weapons1
+        chips2 = self._resolve_chips(chip_ids_2) if chip_ids_2 is not None else chips1
 
         # Create entities
         e1 = Entity(
