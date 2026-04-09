@@ -1,19 +1,21 @@
 """PySim Round-Robin Tournament with ELO Ratings.
 
-Runs all pairs of AIs against each other (50 fights per side, 100 per matchup).
-Computes ELO ratings and writes results to docs/research/pysim_elo_tournament.md.
+Runs all pairs of AIs against each other (FIGHTS_PER_SIDE fights per side).
+Parallelized with ProcessPoolExecutor for ~10-15x speedup on multi-core.
+Results written to docs/research/pysim_elo_tournament.md.
 """
 
 import math
+import os
 import sys
 import time
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from datetime import date
 from pathlib import Path
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from src.leekwars_agent.pysim.runner import PySimRunner
 
 
 # ── Tournament participants ─────────────────────────────────────────
@@ -52,6 +54,69 @@ PARTICIPANTS = [
 ]
 
 FIGHTS_PER_SIDE = 20  # 20 per side = 40 per matchup
+MAX_WORKERS = max(1, (os.cpu_count() or 4) // 2)  # 50% of cores — keep machine responsive
+
+
+# ── Worker function (runs in subprocess) ───────────────────────────
+
+def run_matchup(i: int, j: int, matchup_idx: int) -> dict:
+    """Run all fights for one matchup (i vs j). Returns results dict.
+    This function runs in a worker process — creates its own PySimRunner."""
+    from src.leekwars_agent.pysim.runner import PySimRunner
+
+    runner = PySimRunner()
+    name_i, path_i = PARTICIPANTS[i]
+    name_j, path_j = PARTICIPANTS[j]
+
+    w_i, w_j, d = 0, 0, 0
+    matchup_errors = defaultdict(set)
+
+    for side in [0, 1]:
+        if side == 0:
+            p1_name, p1_path = name_i, path_i
+            p2_name, p2_path = name_j, path_j
+        else:
+            p1_name, p1_path = name_j, path_j
+            p2_name, p2_path = name_i, path_i
+
+        for fight_idx in range(FIGHTS_PER_SIDE):
+            seed = matchup_idx * 1000 + side * 500 + fight_idx
+            try:
+                result = runner.run_1v1(p1_path, p2_path, seed=seed)
+                winner = result["winner"]
+
+                if side == 0:
+                    if winner == 1:
+                        w_i += 1
+                    elif winner == 2:
+                        w_j += 1
+                    else:
+                        d += 1
+                else:
+                    if winner == 1:
+                        w_j += 1
+                    elif winner == 2:
+                        w_i += 1
+                    else:
+                        d += 1
+
+                # Collect errors
+                for eid in [1, 2]:
+                    ai_name = p1_name if eid == 1 else p2_name
+                    for log in result["debug_logs"].get(eid, []):
+                        if "ERROR" in log:
+                            matchup_errors[ai_name].add(log[:100])
+
+            except Exception as exc:
+                d += 1
+                matchup_errors[name_i if side == 0 else name_j].add(f"CRASH: {exc}")
+
+    return {
+        "i": i, "j": j,
+        "w_i": w_i, "w_j": w_j, "d": d,
+        "name_i": name_i, "name_j": name_j,
+        "errors": {k: list(v) for k, v in matchup_errors.items()},
+    }
 
 
 # ── ELO computation ─────────────────────────────────────────────────
@@ -70,86 +135,68 @@ def update_elo(elo_a: float, elo_b: float, score_a: float, k: float = 32) -> tup
 
 
 def run_tournament():
-    runner = PySimRunner()
     n = len(PARTICIPANTS)
 
-    # Results matrix: wins[i][j] = number of wins for player i against player j
+    # Results matrix
     wins = [[0] * n for _ in range(n)]
     draws = [[0] * n for _ in range(n)]
-    errors = defaultdict(set)  # name -> set of unique error messages
+    errors = defaultdict(set)
 
-    print(f"Round-robin tournament: {n} participants, {n*(n-1)//2} matchups, "
-          f"{FIGHTS_PER_SIDE*2} fights each")
-    print()
-
-    total_matchups = n * (n - 1) // 2
+    # Build matchup list
+    matchups = []
     matchup_idx = 0
-    start_time = time.time()
-
     for i in range(n):
         for j in range(i + 1, n):
             matchup_idx += 1
-            name_i, path_i = PARTICIPANTS[i]
-            name_j, path_j = PARTICIPANTS[j]
+            matchups.append((i, j, matchup_idx))
 
-            w_i, w_j, d = 0, 0, 0
+    total_matchups = len(matchups)
+    total_fights = total_matchups * FIGHTS_PER_SIDE * 2
 
-            # Run fights: FIGHTS_PER_SIDE with i as team 1, FIGHTS_PER_SIDE with j as team 1
-            for side in [0, 1]:
-                if side == 0:
-                    p1_name, p1_path = name_i, path_i
-                    p2_name, p2_path = name_j, path_j
-                else:
-                    p1_name, p1_path = name_j, path_j
-                    p2_name, p2_path = name_i, path_i
+    print(f"Round-robin tournament: {n} participants, {total_matchups} matchups, "
+          f"{FIGHTS_PER_SIDE*2} fights each = {total_fights} total")
+    print(f"Workers: {MAX_WORKERS} processes")
+    print(flush=True)
 
-                for fight_idx in range(FIGHTS_PER_SIDE):
-                    seed = matchup_idx * 1000 + side * 500 + fight_idx
-                    try:
-                        result = runner.run_1v1(p1_path, p2_path, seed=seed)
-                        winner = result["winner"]
+    start_time = time.time()
+    completed = 0
 
-                        # Map back to i/j
-                        if side == 0:
-                            if winner == 1:
-                                w_i += 1
-                            elif winner == 2:
-                                w_j += 1
-                            else:
-                                d += 1
-                        else:
-                            if winner == 1:
-                                w_j += 1
-                            elif winner == 2:
-                                w_i += 1
-                            else:
-                                d += 1
+    with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(run_matchup, i, j, idx): (i, j)
+            for i, j, idx in matchups
+        }
 
-                        # Collect errors
-                        for eid in [1, 2]:
-                            ai_name = p1_name if eid == 1 else p2_name
-                            for log in result["debug_logs"].get(eid, []):
-                                if "ERROR" in log:
-                                    errors[ai_name].add(log[:100])
-
-                    except Exception as exc:
-                        d += 1  # count crashes as draws
-                        errors[name_i if side == 0 else name_j].add(f"CRASH: {exc}")
+        for future in as_completed(futures):
+            completed += 1
+            result = future.result()
+            i, j = result["i"], result["j"]
+            w_i, w_j, d = result["w_i"], result["w_j"], result["d"]
 
             wins[i][j] = w_i
             wins[j][i] = w_j
             draws[i][j] = draws[j][i] = d
 
+            for name, errs in result["errors"].items():
+                errors[name].update(errs)
+
             elapsed = time.time() - start_time
-            rate = (matchup_idx * FIGHTS_PER_SIDE * 2) / elapsed
-            print(f"  [{matchup_idx}/{total_matchups}] {name_i} vs {name_j}: "
-                  f"{w_i}-{d}-{w_j} ({rate:.0f} fights/sec)")
+            fights_done = completed * FIGHTS_PER_SIDE * 2
+            rate = fights_done / elapsed
+            eta = (total_fights - fights_done) / rate if rate > 0 else 0
+
+            print(f"  [{completed}/{total_matchups}] {result['name_i']} vs {result['name_j']}: "
+                  f"{w_i}-{d}-{w_j}  ({rate:.0f} fights/sec, ETA {eta:.0f}s)",
+                  flush=True)
+
+    elapsed = time.time() - start_time
+    print(f"\nAll {total_fights} fights completed in {elapsed:.1f}s "
+          f"({total_fights/elapsed:.0f} fights/sec)", flush=True)
 
     # ── Compute ELO ─────────────────────────────────────────────────
 
     elo = {name: 1500.0 for name, _ in PARTICIPANTS}
 
-    # Process all games chronologically (approximate: iterate matchups)
     for i in range(n):
         for j in range(i + 1, n):
             name_i = PARTICIPANTS[i][0]
@@ -159,7 +206,6 @@ def run_tournament():
             if total == 0:
                 continue
 
-            # Process each game
             for _ in range(wins[i][j]):
                 elo[name_i], elo[name_j] = update_elo(elo[name_i], elo[name_j], 1.0)
             for _ in range(wins[j][i]):
@@ -172,9 +218,9 @@ def run_tournament():
     ranking = sorted(elo.items(), key=lambda x: -x[1])
 
     print()
-    print("=" * 50)
+    print("=" * 60)
     print("  FINAL ELO RANKINGS")
-    print("=" * 50)
+    print("=" * 60)
     for rank, (name, rating) in enumerate(ranking, 1):
         idx = next(k for k, (nm, _) in enumerate(PARTICIPANTS) if nm == name)
         total_w = sum(wins[idx][j] for j in range(n) if j != idx)
@@ -191,10 +237,11 @@ def run_tournament():
 
     with open(output_path, "w") as f:
         f.write("# PySim ELO Tournament Results\n\n")
-        f.write(f"**Date**: 2026-04-07 (S42)\n")
+        f.write(f"**Date**: {date.today().isoformat()} (S45)\n")
         f.write(f"**Participants**: {n}\n")
         f.write(f"**Fights per matchup**: {FIGHTS_PER_SIDE * 2} ({FIGHTS_PER_SIDE}/side)\n")
-        f.write(f"**Total fights**: {total_matchups * FIGHTS_PER_SIDE * 2}\n\n")
+        f.write(f"**Total fights**: {total_fights}\n")
+        f.write(f"**Duration**: {elapsed:.1f}s ({total_fights/elapsed:.0f} fights/sec, {MAX_WORKERS} workers)\n\n")
 
         f.write("## ELO Rankings\n\n")
         f.write("| Rank | AI | ELO | WR% | W | L | D |\n")
@@ -218,7 +265,6 @@ def run_tournament():
                 if i == j:
                     row += " - |"
                 else:
-                    total = wins[i][j] + wins[j][i] + draws[i][j]
                     row += f" {wins[i][j]}-{draws[i][j]}-{wins[j][i]} |"
             f.write(row + "\n")
 
@@ -230,17 +276,8 @@ def run_tournament():
                     f.write(f"- `{err}`\n")
                 f.write("\n")
 
-        f.write("\n## Analysis\n\n")
-        f.write("**Expected tier order** (from code analysis):\n")
-        f.write("1. v14 (multi-weapon, chips, BFS pathfinding, dynamic strategy)\n")
-        f.write("2. pbondoer (weapon selection + heal + shield logic)\n")
-        f.write("3. shup1_main (danger map, position optimization)\n")
-        f.write("4. shup1_pata (delegating to shared framework)\n")
-        f.write("5. Archetypes (pistol-only, single strategy)\n")
-
     print(f"\nResults written to {output_path}")
 
-    # Also print errors
     if errors:
         print("\nRuntime errors by AI:")
         for name in sorted(errors.keys()):
