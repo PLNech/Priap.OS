@@ -262,6 +262,7 @@ class ParseError(Exception):
 PRECEDENCE = {
     # Assignment (right-assoc)
     "=": 0, "+=": 0, "-=": 0, "*=": 0, "/=": 0, "\\=": 0, "%=": 0, "**=": 0,
+    "|=": 0, "&=": 0, "^=": 0, "<<=": 0, ">>=": 0,
     # Logical
     "||": 2,
     "xor": 2,
@@ -272,6 +273,8 @@ PRECEDENCE = {
     "==": 7, "!=": 7, "===": 7, "!==": 7, "is": 7, "is not": 7,
     # Relational + membership
     "in": 8, "<": 8, ">": 8, "<=": 8, ">=": 8, "instanceof": 8,
+    # Shift
+    "<<": 9, ">>": 9, ">>>": 9,
     # Arithmetic
     "+": 10, "-": 10,
     "*": 11, "/": 11, "\\": 11, "%": 11,
@@ -313,6 +316,16 @@ BINARY_OPS = {
     TokenType.BITWISE_XOR: "^",
     TokenType.INTDIV: "\\",
     TokenType.INTDIV_ASSIGN: "\\=",
+    # Bitwise compound assignment
+    TokenType.BITWISE_OR_ASSIGN: "|=",
+    TokenType.BITWISE_AND_ASSIGN: "&=",
+    TokenType.BITWISE_XOR_ASSIGN: "^=",
+    # Shift
+    TokenType.LSHIFT: "<<",
+    TokenType.RSHIFT: ">>",
+    TokenType.UNSIGNED_RSHIFT: ">>>",
+    TokenType.LSHIFT_ASSIGN: "<<=",
+    TokenType.RSHIFT_ASSIGN: ">>=",
     # Identity + membership
     TokenType.IS: "is",
     TokenType.IN: "in",
@@ -320,10 +333,10 @@ BINARY_OPS = {
 }
 
 # Right-associative operators
-RIGHT_ASSOC = {"**", "=", "+=", "-=", "*=", "/=", "\\=", "%=", "**="}
+RIGHT_ASSOC = {"**", "=", "+=", "-=", "*=", "/=", "\\=", "%=", "**=", "|=", "&=", "^=", "<<=", ">>="}
 
 # Assignment operators (produce Assignment node, not BinaryOp)
-ASSIGN_OPS = {"=", "+=", "-=", "*=", "/=", "\\=", "%=", "**="}
+ASSIGN_OPS = {"=", "+=", "-=", "*=", "/=", "\\=", "%=", "**=", "|=", "&=", "^=", "<<=", ">>="}
 
 
 class Parser:

@@ -504,6 +504,8 @@ class Interpreter:
             "sum": lambda arr: sum(_to_num(x) for x in arr) if isinstance(arr, list) else 0,
             "average": lambda arr: (sum(_to_num(x) for x in arr) / len(arr)) if isinstance(arr, list) and arr else 0,
             "integer": lambda x: int(_to_num(x)),  # LS integer cast (int())
+            "removeElement": lambda arr, val: (arr.remove(val) or True) if isinstance(arr, list) and val in arr else False,
+            "rand": _random,  # alias for random()
         }
 
     def _charge_ops(self, cost: int) -> None:
@@ -699,6 +701,16 @@ class Interpreter:
             return old_n ** val_n
         if op == "\\=":
             return int(old_n) // int(val_n) if int(val_n) != 0 else 0
+        if op == "|=":
+            return int(old_n) | int(val_n)
+        if op == "&=":
+            return int(old_n) & int(val_n)
+        if op == "^=":
+            return int(old_n) ^ int(val_n)
+        if op == "<<=":
+            return int(old_n) << int(val_n)
+        if op == ">>=":
+            return int(old_n) >> int(val_n)
         return value
 
     def _exec_if(self, stmt: IfStmt, env: Environment):
@@ -1049,6 +1061,10 @@ class Interpreter:
             return int(l) & int(r)
         if expr.op == "^":
             return int(l) ^ int(r)
+        if expr.op == "<<":
+            return int(l) << int(r)
+        if expr.op == ">>" or expr.op == ">>>":
+            return int(l) >> int(r)
         if expr.op == "<":
             return l < r
         if expr.op == ">":

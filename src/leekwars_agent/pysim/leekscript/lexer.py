@@ -85,6 +85,14 @@ class TokenType(Enum):
     BITWISE_AND = auto()  # &
     BITWISE_XOR = auto()  # ^
     BITWISE_NOT = auto()  # ~
+    BITWISE_OR_ASSIGN = auto()   # |=
+    BITWISE_AND_ASSIGN = auto()  # &=
+    BITWISE_XOR_ASSIGN = auto()  # ^=
+    LSHIFT = auto()       # <<
+    RSHIFT = auto()       # >>
+    LSHIFT_ASSIGN = auto()  # <<=
+    RSHIFT_ASSIGN = auto()  # >>=
+    UNSIGNED_RSHIFT = auto()  # >>>
 
     # Arrow operators
     ARROW = auto()       # ->
@@ -305,14 +313,16 @@ def tokenize(source: str) -> list[Token]:
         # Three-character operators (check BEFORE two-char)
         if i + 2 < length:
             three = source[i : i + 3]
-            if three == "**=":
-                tokens.append(Token(TokenType.POWER_ASSIGN, three, line, start_col))
-                i += 3; col += 3; continue
-            if three == "===":
-                tokens.append(Token(TokenType.STRICT_EQ, three, line, start_col))
-                i += 3; col += 3; continue
-            if three == "!==":
-                tokens.append(Token(TokenType.STRICT_NEQ, three, line, start_col))
+            tt3 = {
+                "**=": TokenType.POWER_ASSIGN,
+                "===": TokenType.STRICT_EQ,
+                "!==": TokenType.STRICT_NEQ,
+                "<<=": TokenType.LSHIFT_ASSIGN,
+                ">>=": TokenType.RSHIFT_ASSIGN,
+                ">>>": TokenType.UNSIGNED_RSHIFT,
+            }.get(three)
+            if tt3 is not None:
+                tokens.append(Token(tt3, three, line, start_col))
                 i += 3; col += 3; continue
 
         # Two-character operators (check BEFORE single-character)
@@ -336,6 +346,11 @@ def tokenize(source: str) -> list[Token]:
                 "->": TokenType.ARROW,
                 "=>": TokenType.FAT_ARROW,
                 "\\=": TokenType.INTDIV_ASSIGN,
+                "|=": TokenType.BITWISE_OR_ASSIGN,
+                "&=": TokenType.BITWISE_AND_ASSIGN,
+                "^=": TokenType.BITWISE_XOR_ASSIGN,
+                "<<": TokenType.LSHIFT,
+                ">>": TokenType.RSHIFT,
             }.get(two)
             if tt2 is not None:
                 tokens.append(Token(tt2, two, line, start_col))
