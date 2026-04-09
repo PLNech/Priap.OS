@@ -216,4 +216,5 @@ class PySimRunner:
         engine.load_ai(2, ai2_source, source_path=str(ai2_path))
 
         # Run fight
+        self._last_engine = engine  # expose for debugging/diagnostics
         return engine.run()

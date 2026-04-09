@@ -482,6 +482,12 @@ class Interpreter:
             "isNumber": lambda x: isinstance(x, (int, float)),
             "isString": lambda x: isinstance(x, str),
             "arrayReverse": lambda arr: (arr.reverse() or arr) if isinstance(arr, list) else arr,
+            # Map mutation builtins
+            "mapPut": lambda m, k, v: m.update({k: v}) or m if isinstance(m, dict) else m,
+            "mapRemove": lambda m, k: (m.pop(k, None) or True) and m if isinstance(m, dict) else m,
+            "mapReplace": lambda m, k, v: (m.__setitem__(k, v) if k in m else None) or m if isinstance(m, dict) else m,
+            "mapMerge": lambda m1, m2: (m1.update(m2) or m1) if isinstance(m1, dict) and isinstance(m2, dict) else m1,
+            "mapGet": lambda m, k, default=None: m.get(k, default) if isinstance(m, dict) else default,
             # chinafred/fauconv builtins — Set operations + map extras + range
             "__range__": lambda start, end: list(range(int(start), int(end) + 1)),
             "setContains": lambda s, val: val in s if isinstance(s, (list, set)) else False,
@@ -507,22 +513,25 @@ class Interpreter:
     def run(self, program: Program) -> Any:
         """Execute a parsed program. Called once per turn.
 
-        First call: register functions + init globals + run main block.
-        Subsequent calls: re-run the entire program (functions re-register,
-        globals already exist so re-assignment updates them).
+        Two-pass execution (matching real LS compiler):
+        Pass 1: Hoist all function declarations and class declarations.
+        Pass 2: Execute remaining statements (includes, expressions, etc.).
         """
         self.ops = 0
         result = None
 
+        # Pass 1: Hoist functions and classes (available before any execution)
         for stmt in program.stmts:
+            if isinstance(stmt, FunctionDecl):
+                self.functions[stmt.name] = stmt
+            elif isinstance(stmt, ClassDecl):
+                self._register_class(stmt)
+
+        # Pass 2: Execute non-declaration statements
+        for stmt in program.stmts:
+            if isinstance(stmt, (FunctionDecl, ClassDecl)):
+                continue  # already processed in pass 1
             try:
-                # First pass on first run: register function signatures and classes
-                if isinstance(stmt, FunctionDecl):
-                    self.functions[stmt.name] = stmt
-                    continue
-                if isinstance(stmt, ClassDecl):
-                    self._register_class(stmt)
-                    continue
                 result = self._exec_stmt(stmt, self.global_env)
             except ReturnSignal as r:
                 return r.value
@@ -1100,7 +1109,17 @@ class Interpreter:
         if name in self._builtins:
             return self._builtins[name](*args)
 
-        # Unknown function — return null (lenient, like real LS runtime)
+        # Implicit this: inside a method, `foo(args)` can mean `this.foo(args)`
+        if self._current_this is not None and isinstance(self._current_this, LSObjectInstance):
+            method_key = f"{name}_{len(args)}"
+            m = self._current_this.clazz.get_method(method_key)
+            if m is not None:
+                return self._call_method_body(m, args, self._current_this, self._current_this.clazz)
+
+        # Unknown function — track it and return null (lenient, like real LS runtime)
+        if not hasattr(self, '_missing_calls'):
+            self._missing_calls = {}
+        self._missing_calls[name] = self._missing_calls.get(name, 0) + 1
         return None
 
     def _eval_method_call(self, expr: MethodCall, env: Environment) -> Any:
@@ -1283,13 +1302,21 @@ class Interpreter:
         self._included_files.add(resolved)
 
         source = include_path.read_text(errors="replace")
-        tokens = tokenize(source)
-        program = Parser(tokens).parse()
+        try:
+            tokens = tokenize(source)
+            program = Parser(tokens).parse()
+        except Exception as exc:
+            # Parse error in included file — log and continue (don't break the include chain)
+            self.debug_log.append(f"INCLUDE PARSE ERROR ({include_path.name}): {exc}")
+            return None
 
         # Execute in same global scope; temporarily swap source_path
         old_path = self.source_path
         self.source_path = include_path
-        self.run(program)
+        try:
+            self.run(program)
+        except Exception as exc:
+            self.debug_log.append(f"INCLUDE RUNTIME ERROR ({include_path.name}): {exc}")
         self.source_path = old_path
         return None
 

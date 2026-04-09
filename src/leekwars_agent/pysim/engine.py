@@ -351,6 +351,98 @@ class FightEngine:
                     return c
             return None
 
+        def getChipMaxUses(chip_id):
+            c = _find_chip(chip_id)
+            return c.get("max_uses", -1) if c else -1
+
+        def getChipInitialCooldown(chip_id):
+            c = _find_chip(chip_id)
+            return c.get("initial_cooldown", 0) if c else 0
+
+        def getWeaponMaxUses(w_id=None):
+            w = _find_weapon(w_id)
+            return w.get("max_uses", -1) if w else -1
+
+        def getWeaponLaunchType(w_id=None):
+            w = _find_weapon(w_id)
+            return w.get("launch_type", 1) if w else 1
+
+        def getChipLaunchType(chip_id):
+            c = _find_chip(chip_id)
+            return c.get("launch_type", 1) if c else 1
+
+        def getAllChips(target=None):
+            """Get all chip template IDs (same as getChips but using templates)."""
+            if target is None:
+                return [c["template"] for c in me.chips]
+            t = engine.entities.get(_safe_int(target))
+            return [c["template"] for c in t.chips] if t else []
+
+        def getAllWeapons(target=None):
+            """Get all weapon template IDs."""
+            if target is None:
+                return [w["template"] for w in me.weapons]
+            t = engine.entities.get(_safe_int(target))
+            return [w["template"] for w in t.weapons] if t else []
+
+        def getCores(target=None):
+            """Get entity cores (determines ops budget). Default 1 in sim."""
+            return 1
+
+        def getRAM(target=None):
+            """Get entity RAM (determines max chip slots). Default 6 in sim."""
+            return 6
+
+        def getStates(target=None):
+            """Get entity state bitfield. Returns list of active state IDs."""
+            if target is None:
+                return list(me.states) if hasattr(me, 'states') and me.states else []
+            t = engine.entities.get(_safe_int(target))
+            if t and hasattr(t, 'states') and t.states:
+                return list(t.states)
+            return []
+
+        # ── Summons ────────────────────────────────────────────────
+
+        def getSummons(target=None):
+            """Get summon entity IDs — always empty in our sim (no summon support)."""
+            return []
+
+        # ── Registers (persistent AI state) ────────────────────────
+
+        _registers = {}
+
+        def getRegister(key):
+            return _registers.get(str(key))
+
+        def setRegister(key, value):
+            _registers[str(key)] = str(value) if value is not None else None
+
+        # ── Resource monitoring ────────────────────────────────────
+
+        def getUsedRAM():
+            return 0  # Not tracked in sim
+
+        def getMaxRAM():
+            return 100  # Default RAM
+
+        def getMaxOperations():
+            return 10_000_000  # ops limit
+
+        def pause():
+            pass  # no-op in sim
+
+        def getInstructionsCount():
+            return 0
+
+        def getBirthTurn(target=None):
+            """Turn entity was created. 0 for leeks, summon turn for bulbs."""
+            return 0
+
+        def addOperation():
+            """No-op — internal debug counter, not meaningful in sim."""
+            pass
+
         # ── Map queries ─────────────────────────────────────────────
 
         def isEmptyCell(cell):
@@ -1286,8 +1378,20 @@ class FightEngine:
             "markText": markText,
             "unmark": unmark,
             "unmarkAll": unmarkAll,
+            # Chip/weapon extended queries
+            "getChipMaxUses": getChipMaxUses,
+            "getChipInitialCooldown": getChipInitialCooldown,
+            "getWeaponMaxUses": getWeaponMaxUses,
+            "getWeaponLaunchType": getWeaponLaunchType,
+            "getChipLaunchType": getChipLaunchType,
+            "getAllChips": getAllChips,
+            "getAllWeapons": getAllWeapons,
+            "getCores": getCores,
+            "getRAM": getRAM,
+            "getStates": getStates,
             # Summon stubs
             "summon": summon,
+            "getSummons": getSummons,
             "getBulbChips": getBulbChips,
             "getMapType": getMapType,
             # yaelMagnier additions — entity/stat queries
@@ -1317,6 +1421,18 @@ class FightEngine:
             # yaelMagnier additions — actions / spatial
             "useWeaponOnCell": useWeaponOnCell,
             "getAccessibleCells": getAccessibleCells,
+            # Registers (persistent AI state)
+            "getRegister": getRegister,
+            "setRegister": setRegister,
+            # Resource monitoring
+            "getUsedRAM": getUsedRAM,
+            "getMaxRAM": getMaxRAM,
+            "getMaxOperations": getMaxOperations,
+            "getInstructionsCount": getInstructionsCount,
+            "pause": pause,
+            "getBirthTurn": getBirthTurn,
+            "getPower": lambda target=None: 0,  # power stat (not tracked in sim)
+            "addOperation": addOperation,
             # Constants
             "CELL_EMPTY": CELL_EMPTY,
             "CELL_OBSTACLE": CELL_OBSTACLE,
