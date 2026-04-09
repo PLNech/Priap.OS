@@ -1,10 +1,20 @@
-"""PySim effects — pure combat formula functions from the Java generator."""
+"""PySim effects — generic combat formula driven by parsed Java metadata.
+
+All constants parsed from Effect.java. Per-effect formula metadata parsed from Effect*.java.
+One function computes all effect values: calc_effect_value().
+"""
 from __future__ import annotations
 
 import random
 
-# Critical hits multiply the base value by this factor.
-CRITICAL_FACTOR = 1.3
+from .java_formulas import get_constants, get_formula
+
+# Parsed from Effect.java
+_consts = get_constants()
+CRITICAL_FACTOR = _consts.critical_factor
+EROSION_BASE = _consts.erosion_base
+EROSION_POISON = _consts.erosion_poison
+EROSION_CRIT_BONUS = _consts.erosion_crit_bonus
 
 
 def roll_critical(agility: int, rng: random.Random) -> bool:
@@ -12,199 +22,46 @@ def roll_critical(agility: int, rng: random.Random) -> bool:
     return rng.random() < (agility / 1000)
 
 
-def calc_damage(
+def erosion_rate(is_poison: bool, is_critical: bool) -> float:
+    """Erosion rate from Effect.java:206-207."""
+    base = EROSION_POISON if is_poison else EROSION_BASE
+    return base + (EROSION_CRIT_BONUS if is_critical else 0.0)
+
+
+def calc_effect_value(
     v1: float,
     v2: float,
-    caster_str: int,
-    caster_agi: int,
+    effect_id: int,
+    caster_stats: dict[str, int],
     rng: random.Random,
 ) -> tuple[int, bool]:
-    """Calculate raw damage before shields.
+    """Calculate any effect's value using parsed Java formula metadata.
 
-    Returns (raw_damage, is_critical).
-    Formula: raw = (v1 + jet * v2) * (1 + max(0, STR) / 100) * crit_factor
-    where jet = uniform(0, 1).
+    Every Effect*.java formula follows the same template:
+        value = round((v1 + jet*v2) * (1 + stat/100) * critPower * (1 + power/100))
+
+    The parser tells us which stat and which flags to plug in.
+
+    Args:
+        caster_stats: {strength, agility, resistance, wisdom, magic, science, power}
+
+    Returns:
+        (value, is_critical)
     """
+    formula = get_formula(effect_id)
     jet = rng.random()
-    crit = roll_critical(caster_agi, rng)
-    factor = CRITICAL_FACTOR if crit else 1.0
-    raw = (v1 + jet * v2) * (1 + max(0, caster_str) / 100) * factor
-    return int(raw), crit
+    crit = roll_critical(caster_stats.get("agility", 0), rng)
+    crit_factor = CRITICAL_FACTOR if crit else 1.0
 
+    base = v1 + jet * v2
 
-def calc_heal(
-    v1: float,
-    v2: float,
-    caster_wis: int,
-    caster_agi: int,
-    rng: random.Random,
-) -> tuple[int, bool]:
-    """Calculate healing amount.
+    if formula and formula.primary_stat:
+        stat_val = caster_stats.get(formula.primary_stat, 0)
+        if formula.max_zero_stat:
+            stat_val = max(0, stat_val)
+        base *= (1 + stat_val / 100)
 
-    Returns (heal_amount, is_critical).
-    Formula: heal = (v1 + jet * v2) * (1 + WIS / 100) * crit_factor
-    """
-    jet = rng.random()
-    crit = roll_critical(caster_agi, rng)
-    factor = CRITICAL_FACTOR if crit else 1.0
-    heal = (v1 + jet * v2) * (1 + max(0, caster_wis) / 100) * factor
-    return int(heal), crit
+    if formula and formula.has_power:
+        base *= (1 + caster_stats.get("power", 0) / 100)
 
-
-def calc_abs_shield(
-    v1: float,
-    v2: float,
-    caster_res: int,
-    caster_agi: int,
-    rng: random.Random,
-) -> tuple[float, bool]:
-    """Calculate absolute shield value.
-
-    Returns (shield_value, is_critical).
-    Formula: shield = (v1 + jet * v2) * (1 + RES / 100) * crit_factor
-    """
-    jet = rng.random()
-    crit = roll_critical(caster_agi, rng)
-    factor = CRITICAL_FACTOR if crit else 1.0
-    shield = (v1 + jet * v2) * (1 + max(0, caster_res) / 100) * factor
-    return shield, crit
-
-
-def calc_rel_shield(
-    v1: float,
-    v2: float,
-    caster_res: int,
-    caster_agi: int,
-    rng: random.Random,
-) -> tuple[float, bool]:
-    """Calculate relative shield percentage.
-
-    Returns (shield_pct, is_critical). Same formula as abs_shield.
-    """
-    jet = rng.random()
-    crit = roll_critical(caster_agi, rng)
-    factor = CRITICAL_FACTOR if crit else 1.0
-    shield = (v1 + jet * v2) * (1 + max(0, caster_res) / 100) * factor
-    return shield, crit
-
-
-def calc_tp_shackle(
-    v1: float,
-    v2: float,
-    caster_mag: int,
-    target_base_tp: int,
-    caster_agi: int,
-    rng: random.Random,
-) -> tuple[int, bool]:
-    """Calculate TP shackle (e.g. Tranquilizer).
-
-    Returns (tp_lost, is_critical).
-    Formula: shackle_pct = (v1 + jet * v2) * (1 + max(0, MAG) / 100) * crit
-             shackle_tp  = round(target_base_tp * shackle_pct)
-
-    Tranquilizer has v1=0.5, v2=0.1 → 50-60% TP shackle before magic scaling.
-    """
-    jet = rng.random()
-    crit = roll_critical(caster_agi, rng)
-    factor = CRITICAL_FACTOR if crit else 1.0
-    shackle_pct = (v1 + jet * v2) * (1 + max(0, caster_mag) / 100) * factor
-    shackle_tp = round(target_base_tp * shackle_pct)
-    return shackle_tp, crit
-
-
-def calc_raw_tp_buff(
-    v1: float,
-    v2: float,
-    base_tp: int,
-    caster_agi: int,
-    rng: random.Random,
-) -> tuple[int, bool]:
-    """Calculate raw TP buff (e.g. Whip).
-
-    Returns (tp_gained, is_critical).
-    Formula: buff_pct = (v1 + jet * v2) * crit_factor
-             buff_tp  = round(base_tp * buff_pct)
-
-    Whip: v1=0.6, v2=0.1 → 60-70% TP buff. At base TP 14 → +8 to +10 TP.
-    """
-    jet = rng.random()
-    crit = roll_critical(caster_agi, rng)
-    factor = CRITICAL_FACTOR if crit else 1.0
-    buff_pct = (v1 + jet * v2) * factor
-    buff_tp = round(base_tp * buff_pct)
-    return buff_tp, crit
-
-
-def calc_stat_shackle(
-    v1: float,
-    v2: float,
-    caster_mag: int,
-    caster_agi: int,
-    rng: random.Random,
-) -> tuple[float, bool]:
-    """Calculate stat shackle (STR/AGI/WIS/MP/Magic).
-
-    Returns (shackle_value, is_critical).
-    Formula: value = (v1 + jet * v2) * (1 + max(0, MAG) / 100) * crit_factor
-    Same formula as TP shackle but returns raw value, not TP-scaled.
-    """
-    jet = rng.random()
-    crit = roll_critical(caster_agi, rng)
-    factor = CRITICAL_FACTOR if crit else 1.0
-    value = (v1 + jet * v2) * (1 + max(0, caster_mag) / 100) * factor
-    return value, crit
-
-
-def calc_stat_buff(
-    v1: float,
-    v2: float,
-    caster_agi: int,
-    rng: random.Random,
-) -> tuple[float, bool]:
-    """Calculate stat buff (MP/WIS/RES).
-
-    Returns (buff_value, is_critical).
-    Formula: value = (v1 + jet * v2) * crit_factor
-    """
-    jet = rng.random()
-    crit = roll_critical(caster_agi, rng)
-    factor = CRITICAL_FACTOR if crit else 1.0
-    value = (v1 + jet * v2) * factor
-    return value, crit
-
-
-def calc_vulnerability(
-    v1: float,
-    v2: float,
-    caster_mag: int,
-    caster_agi: int,
-    rng: random.Random,
-) -> tuple[float, bool]:
-    """Calculate vulnerability (reduces target shield effectiveness).
-
-    Returns (vuln_value, is_critical).
-    Formula: value = (v1 + jet * v2) * (1 + max(0, MAG) / 100) * crit_factor
-    """
-    jet = rng.random()
-    crit = roll_critical(caster_agi, rng)
-    factor = CRITICAL_FACTOR if crit else 1.0
-    value = (v1 + jet * v2) * (1 + max(0, caster_mag) / 100) * factor
-    return value, crit
-
-
-def calc_damage_return(
-    v1: float,
-    v2: float,
-    caster_agi: int,
-    rng: random.Random,
-) -> tuple[float, bool]:
-    """Calculate damage return percentage.
-
-    Returns (return_pct, is_critical).
-    Formula: value = (v1 + jet * v2) * (1 + AGI / 100) * crit_factor
-    """
-    jet = rng.random()
-    crit = roll_critical(caster_agi, rng)
-    factor = CRITICAL_FACTOR if crit else 1.0
-    value = (v1 + jet * v2) * (1 + max(0, caster_agi) / 100) * factor
-    return value, crit
+    return int(round(base * crit_factor)), crit

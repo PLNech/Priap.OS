@@ -32,6 +32,8 @@ class Entity:
         resistance: int = 0,
         wisdom: int = 0,
         magic: int = 0,
+        science: int = 0,
+        power: int = 0,
         frequency: int = 100,
         weapons: list | None = None,
         chips: list | None = None,
@@ -58,6 +60,8 @@ class Entity:
         self.resistance = resistance
         self.wisdom = wisdom
         self.magic = magic
+        self.science = science
+        self.power = power
         self.frequency = frequency
 
         # Equipment
@@ -132,6 +136,29 @@ class Entity:
         return max(0, self.magic - shackle)
 
     @property
+    def effective_science(self) -> int:
+        """Science stat (no known buffs/shackles currently)."""
+        return self.science
+
+    @property
+    def effective_power(self) -> int:
+        """Power including raw power buffs."""
+        buff = sum(int(e.value) for e in self.effects if e.effect_type == "pow_buff")
+        return self.power + buff
+
+    def stat_dict(self) -> dict[str, int]:
+        """All effective stats as a dict — for use with calc_effect_value()."""
+        return {
+            "strength": self.effective_strength,
+            "agility": self.effective_agility,
+            "resistance": self.resistance,
+            "wisdom": self.effective_wisdom,
+            "magic": self.effective_magic,
+            "science": self.effective_science,
+            "power": self.effective_power,
+        }
+
+    @property
     def abs_shield(self) -> float:
         """Total absolute shield, reduced by absolute vulnerability."""
         shield = sum(e.value for e in self.effects if e.effect_type == "abs_shield")
@@ -194,11 +221,18 @@ class Entity:
 
     # ── combat ────────────────────────────────────────────────────────
 
-    def take_damage(self, raw_damage: float) -> int:
+    def take_damage(self, raw_damage: float, erosion_rate: float = 0.05) -> int:
         """Apply damage after shields. Returns actual damage dealt.
 
-        Formula: final = max(0, raw * (1 - rel_shield/100) - abs_shield)
-        Erosion: 5% of final damage reduces max HP permanently.
+        Formula (Java EffectDamage.java):
+            after_shields = raw - raw*(rel_shield/100) - abs_shield
+            final = max(0, after_shields)
+            erosion = round(final * erosion_rate)
+
+        Erosion rates (parsed from Effect.java:206-207):
+            Normal damage: 5%
+            Poison damage: 10%
+            +10% if critical hit
         """
         if self.is_invincible:
             return 0
@@ -207,8 +241,12 @@ class Entity:
         after_rel = raw_damage * (1 - rel / 100) if rel > 0 else raw_damage
         final = int(max(0, after_rel - abs_s))
 
-        # Erosion: 5% of final damage permanently reduces max HP
-        erosion = int(final * 0.05)
+        # Cap at current life (Java: if (target.getLife() < value) value = target.getLife())
+        if self.life < final:
+            final = self.life
+
+        # Erosion: permanently reduces max HP
+        erosion = int(round(final * erosion_rate))
         self.max_life = max(1, self.max_life - erosion)
 
         self.life = max(0, self.life - final)

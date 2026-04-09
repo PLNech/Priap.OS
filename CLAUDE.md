@@ -78,8 +78,20 @@ No AI is "deployed successfully" until one fight's logs show no runtime errors.
 |------|--------|
 | Chip/Weapon IDs, templates, stats | `from leekwars_agent.models.equipment import CHIP_REGISTRY, WEAPON_REGISTRY` |
 | Raw chip/weapon TS definitions | `tools/leek-wars/src/model/{chips,weapons}.ts` |
-| Constants | `tools/leek-wars-generator/.../FightConstants.java` |
+| Game constants (315 values) | `from leekwars_agent.pysim.constants import get` (parses `constants.ts`) |
+| Effect formulas + metadata | `from leekwars_agent.pysim.java_formulas import get_effect_formulas` (parses `Effect*.java`) |
 | Our equipment | `docs/GROUND_TRUTH.md` |
+
+### Parse, Don't Rewrite (MANDATORY)
+**NEVER hand-write game constant values.** Parse them from canonical source files.
+If a value exists in `constants.ts`, `chips.ts`, `weapons.ts`, or `Effect*.java`, it MUST be loaded by a parser — not typed by hand. S47 audit found 19 wrong constants that silently broke opponent AI logic for weeks.
+
+Parsers:
+- `pysim/constants.py` → parses 315 constants from `tools/leek-wars/src/model/constants.ts`
+- `pysim/java_formulas.py` → parses `CRITICAL_FACTOR`, erosion rates, per-effect formula metadata from `Effect*.java`
+- `models/equipment.py` → parses chip/weapon definitions from `chips.ts`/`weapons.ts`
+
+If you see a magic number in PySim code (e.g. `erosion = 0.05`, `CRITICAL_FACTOR = 1.3`) — **that's a bug**. Replace with parsed value.
 
 ### Equipment Registry (MANDATORY)
 **NEVER hardcode chip_id↔template mappings.** Use the registry:

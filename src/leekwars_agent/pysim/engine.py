@@ -15,11 +15,7 @@ from .leekscript.parser import Parser, Program
 from .leekscript.interpreter import Interpreter, OpsLimitExceeded, MAX_OPS
 from .grid import Grid
 from .entity import Entity, ActiveEffect
-from .effects import (
-    calc_damage, calc_heal, calc_abs_shield, calc_rel_shield,
-    calc_tp_shackle, calc_raw_tp_buff, roll_critical,
-    calc_stat_shackle, calc_stat_buff, calc_vulnerability, calc_damage_return,
-)
+from .effects import calc_effect_value, erosion_rate, roll_critical
 from leekwars_agent.models.equipment import CHIP_REGISTRY, WEAPON_REGISTRY
 from . import constants as game_constants
 
@@ -1166,11 +1162,10 @@ class FightEngine:
             return t.base_mp if t else 0
 
         def getScience(target=None):
-            # Science maps to strength in sim (same scaling, different name)
             if target is None:
-                return me.strength
+                return me.effective_science
             t = engine.entities.get(_safe_int(target))
-            return t.strength if t else 0
+            return t.effective_science if t else 0
 
         def getAbsoluteShield(target=None):
             if target is None:
@@ -1473,7 +1468,7 @@ class FightEngine:
             "getInstructionsCount": getInstructionsCount,
             "pause": pause,
             "getBirthTurn": getBirthTurn,
-            "getPower": lambda target=None: 0,  # power stat (not tracked in sim)
+            "getPower": lambda target=None: me.effective_power if target is None else (engine.entities.get(_safe_int(target)).effective_power if engine.entities.get(_safe_int(target)) else 0),
             "addOperation": addOperation,
             # USE_* return codes (from FightFunctions.java, not in constants.ts)
             "USE_SUCCESS": USE_SUCCESS,
@@ -1536,160 +1531,112 @@ class FightEngine:
 
     # ── Effect application ──────────────────────────────────────────
 
+    # ── Effect ID → internal effect type name ────────────────────────
+    # Maps effect IDs to the ActiveEffect type string used by Entity.
+    # Buffs, shackles, shields, etc. are stored as named effects.
+    _EFFECT_NAMES: dict[int, str] = {
+        3: "str_buff", 4: "agi_buff", 5: "rel_shield", 6: "abs_shield",
+        7: "mp_buff", 8: "tp_buff", 12: "vitality",
+        17: "mp_shackle", 19: "str_shackle", 20: "damage_return",
+        21: "res_buff", 22: "wis_buff", 24: "mag_shackle",
+        26: "rel_vulnerability", 27: "abs_vulnerability",
+        31: "mp_buff", 32: "tp_buff",
+        37: "abs_shield", 38: "str_buff", 39: "mag_buff",
+        40: "sci_buff", 41: "agi_buff", 42: "res_buff", 44: "wis_buff",
+        47: "agi_shackle", 48: "wis_shackle", 52: "pow_buff",
+        54: "rel_shield",
+    }
+
     def _apply_effect(self, eff: dict, caster: Entity, target: Entity):
         """Apply a single effect from a weapon or chip.
 
-        Uses eff["id"] — the effect type constant matching Effect.TYPE_* (Java)
-        and EFFECT_* (constants.ts). NOT eff["type"] which is the chip category.
+        Uses eff["id"] — the effect type constant (EFFECT_* from constants.ts,
+        TYPE_* from Effect.java). Value computed via parsed Java formula metadata.
         """
         eff_id = eff["id"]
         v1 = eff["value1"]
         v2 = eff["value2"]
         turns = eff.get("turns", 0)
+        stats = caster.stat_dict()
 
+        # ── Damage effects (apply shields, erosion, life steal) ────
         if eff_id == 1:  # EFFECT_DAMAGE
-            raw, crit = calc_damage(v1, v2, caster.effective_strength, caster.effective_agility, self.rng)
-            actual = target.take_damage(raw)
-            self._emit(101, target.id, actual)  # LOST_LIFE
-            # Damage return: reflect % of actual damage back to attacker
+            raw, crit = calc_effect_value(v1, v2, eff_id, stats, self.rng)
+            er = erosion_rate(is_poison=False, is_critical=crit)
+            actual = target.take_damage(raw, erosion_rate=er)
+            self._emit(101, target.id, actual)
+            # Damage return
             dr = target.damage_return
             if dr > 0 and actual > 0:
                 reflected = int(actual * dr / 100)
                 if reflected > 0:
-                    reflected_actual = caster.take_damage(reflected)
-                    if reflected_actual > 0:
-                        self._emit(101, caster.id, reflected_actual)
-            # Life steal: WIS/1000 of damage dealt
+                    ref_actual = caster.take_damage(reflected, erosion_rate=er)
+                    if ref_actual > 0:
+                        self._emit(101, caster.id, ref_actual)
+            # Life steal: WIS/1000
             if caster.wisdom > 0 and actual > 0:
                 steal = int(actual * caster.wisdom / 1000)
                 if steal > 0:
                     healed = caster.heal(steal)
                     if healed > 0:
-                        self._emit(103, caster.id, healed)  # HEAL
+                        self._emit(103, caster.id, healed)
 
+        # ── Heal ───────────────────────────────────────────────────
         elif eff_id == 2:  # EFFECT_HEAL
-            raw, crit = calc_heal(v1, v2, caster.wisdom, caster.agility, self.rng)
+            raw, crit = calc_effect_value(v1, v2, eff_id, stats, self.rng)
             actual = target.heal(raw)
-            self._emit(103, target.id, actual)  # HEAL
+            self._emit(103, target.id, actual)
 
-        elif eff_id == 3:  # EFFECT_BUFF_STRENGTH
-            val, crit = calc_stat_buff(v1, v2, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("str_buff", int(val), turns, caster.id))
-            self._emit(14, target.id, 3, val, turns)
-
-        elif eff_id == 4:  # EFFECT_BUFF_AGILITY
-            val, crit = calc_stat_buff(v1, v2, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("agi_buff", int(val), turns, caster.id))
-            self._emit(14, target.id, 4, val, turns)
-
-        elif eff_id == 5:  # EFFECT_RELATIVE_SHIELD
-            value, crit = calc_rel_shield(v1, v2, caster.resistance, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("rel_shield", value, turns, caster.id))
-            self._emit(14, target.id, 5, value, turns)
-
-        elif eff_id == 6:  # EFFECT_ABSOLUTE_SHIELD
-            value, crit = calc_abs_shield(v1, v2, caster.resistance, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("abs_shield", value, turns, caster.id))
-            self._emit(14, target.id, 6, value, turns)
-
-        elif eff_id == 7:  # EFFECT_BUFF_MP
-            val, crit = calc_stat_buff(v1, v2, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("mp_buff", int(val), turns, caster.id))
-            self._emit(14, target.id, 7, val, turns)
-
-        elif eff_id == 8:  # EFFECT_BUFF_TP (Whip = raw TP buff uses id=8 internally)
-            tp_gained, crit = calc_raw_tp_buff(v1, v2, target.base_tp, caster.agility, self.rng)
+        # ── TP percentage effects (v1/v2 are fractions of base_tp) ─
+        elif eff_id in (8, 32):  # BUFF_TP / RAW_BUFF_TP (Whip)
+            jet = self.rng.random()
+            crit = roll_critical(caster.effective_agility, self.rng)
+            from .effects import CRITICAL_FACTOR
+            factor = CRITICAL_FACTOR if crit else 1.0
+            tp_gained = round(target.base_tp * (v1 + jet * v2) * factor)
             target.add_effect(ActiveEffect("tp_buff", tp_gained, turns, caster.id))
-            self._emit(14, target.id, 8, tp_gained, turns)
+            self._emit(14, target.id, eff_id, tp_gained, turns)
 
-        elif eff_id == 9:  # EFFECT_DEBUFF (stat reduction)
-            pass  # TODO: implement full debuff
+        elif eff_id == 18:  # SHACKLE_TP (Tranquilizer — v1/v2 are fractions)
+            jet = self.rng.random()
+            crit = roll_critical(caster.effective_agility, self.rng)
+            from .effects import CRITICAL_FACTOR
+            factor = CRITICAL_FACTOR if crit else 1.0
+            magic_scale = 1 + max(0, caster.effective_magic) / 100
+            tp_lost = round(target.base_tp * (v1 + jet * v2) * magic_scale * factor)
+            target.add_effect(ActiveEffect("tp_shackle", tp_lost, turns, caster.id))
+            self._emit(100, target.id, tp_lost)
 
+        # ── Poison (timed, magic+power, 10% erosion) ──────────────
         elif eff_id == 13:  # EFFECT_POISON
-            raw, crit = calc_damage(v1, v2, caster.magic, caster.agility, self.rng)
+            raw, crit = calc_effect_value(v1, v2, eff_id, stats, self.rng)
             target.add_effect(ActiveEffect("poison", raw, turns, caster.id))
+            target._poison_crit = crit  # track for erosion rate at start-of-turn
             self._emit(14, target.id, 13, raw, turns)
 
-        elif eff_id == 17:  # EFFECT_SHACKLE_MP
-            val, crit = calc_stat_shackle(v1, v2, caster.effective_magic, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("mp_shackle", val, turns, caster.id))
-            self._emit(14, target.id, 17, val, turns)
-
-        elif eff_id == 18:  # EFFECT_SHACKLE_TP (Tranquilizer)
-            tp_lost, crit = calc_tp_shackle(v1, v2, caster.magic, target.base_tp, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("tp_shackle", tp_lost, turns, caster.id))
-            self._emit(100, target.id, tp_lost)  # LOST_PT (TP)
-
-        elif eff_id == 19:  # EFFECT_SHACKLE_STRENGTH
-            val, crit = calc_stat_shackle(v1, v2, caster.effective_magic, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("str_shackle", val, turns, caster.id))
-            self._emit(14, target.id, 19, val, turns)
-
-        elif eff_id == 20:  # EFFECT_DAMAGE_RETURN
-            val, crit = calc_damage_return(v1, v2, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("damage_return", val, turns, caster.id))
-            self._emit(14, target.id, 20, val, turns)
-
-        elif eff_id == 21:  # EFFECT_BUFF_RESISTANCE
-            val, crit = calc_stat_buff(v1, v2, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("res_buff", int(val), turns, caster.id))
-            self._emit(14, target.id, 21, val, turns)
-
-        elif eff_id == 22:  # EFFECT_BUFF_WISDOM
-            val, crit = calc_stat_buff(v1, v2, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("wis_buff", int(val), turns, caster.id))
-            self._emit(14, target.id, 22, val, turns)
-
-        elif eff_id == 24:  # EFFECT_SHACKLE_MAGIC
-            val, crit = calc_stat_shackle(v1, v2, caster.effective_magic, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("mag_shackle", val, turns, caster.id))
-            self._emit(14, target.id, 24, val, turns)
-
+        # ── Aftereffect (timed, science-scaled) ────────────────────
         elif eff_id == 25:  # EFFECT_AFTEREFFECT
-            raw, crit = calc_damage(v1, v2, caster.strength, caster.agility, self.rng)
+            raw, crit = calc_effect_value(v1, v2, eff_id, stats, self.rng)
             target.add_effect(ActiveEffect("aftereffect", raw, turns, caster.id))
             self._emit(14, target.id, 25, raw, turns)
 
-        elif eff_id == 26:  # EFFECT_VULNERABILITY
-            val, crit = calc_vulnerability(v1, v2, caster.effective_magic, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("rel_vulnerability", val, turns, caster.id))
-            self._emit(14, target.id, 26, val, turns)
+        # ── Debuff (reduce existing buffs) ─────────────────────────
+        elif eff_id in (9, 60):  # DEBUFF / TOTAL_DEBUFF
+            pass  # TODO: remove/reduce target's active buffs
 
-        elif eff_id == 27:  # EFFECT_ABSOLUTE_VULNERABILITY
-            val, crit = calc_vulnerability(v1, v2, caster.effective_magic, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("abs_vulnerability", val, turns, caster.id))
-            self._emit(14, target.id, 27, val, turns)
-
-        elif eff_id == 32:  # EFFECT_RAW_BUFF_TP (Whip uses this)
-            tp_gained, crit = calc_raw_tp_buff(v1, v2, target.base_tp, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("tp_buff", tp_gained, turns, caster.id))
-            self._emit(14, target.id, 32, tp_gained, turns)
-
-        elif eff_id == 38:  # EFFECT_RAW_BUFF_STRENGTH (Steroid, Ferocity)
-            val = v1  # raw buffs don't scale with stats
-            target.add_effect(ActiveEffect("str_buff", int(val), turns, caster.id))
-            self._emit(14, target.id, 38, val, turns)
-
-        elif eff_id == 42:  # EFFECT_RAW_BUFF_RESISTANCE (Solidification)
-            val = v1
-            target.add_effect(ActiveEffect("res_buff", int(val), turns, caster.id))
-            self._emit(14, target.id, 42, val, turns)
-
-        elif eff_id == 47:  # EFFECT_SHACKLE_AGILITY
-            val, crit = calc_stat_shackle(v1, v2, caster.effective_magic, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("agi_shackle", val, turns, caster.id))
-            self._emit(14, target.id, 47, val, turns)
-
-        elif eff_id == 48:  # EFFECT_SHACKLE_WISDOM
-            val, crit = calc_stat_shackle(v1, v2, caster.effective_magic, caster.agility, self.rng)
-            target.add_effect(ActiveEffect("wis_shackle", val, turns, caster.id))
-            self._emit(14, target.id, 48, val, turns)
-
+        # ── Add state (invincible, rooted, etc.) ───────────────────
         elif eff_id == 59:  # EFFECT_ADD_STATE
             state_id = int(v1)
             target.states.add(state_id)
             target.add_effect(ActiveEffect(f"state_{state_id}", state_id, turns, caster.id))
             self._emit(14, target.id, 59, state_id, turns)
+
+        # ── Generic buff/shackle/shield/vulnerability ──────────────
+        elif eff_id in self._EFFECT_NAMES:
+            val, crit = calc_effect_value(v1, v2, eff_id, stats, self.rng)
+            name = self._EFFECT_NAMES[eff_id]
+            target.add_effect(ActiveEffect(name, val, turns, caster.id))
+            self._emit(14, target.id, eff_id, val, turns)
 
     # ── Turn loop ───────────────────────────────────────────────────
 
@@ -1743,7 +1690,10 @@ class FightEngine:
                 # Apply poison/aftereffect damage at turn start
                 for eff in entity.effects:
                     if eff.effect_type in ("poison", "aftereffect"):
-                        actual = entity.take_damage(eff.value)
+                        is_poison = eff.effect_type == "poison"
+                        is_crit = getattr(entity, '_poison_crit', False) if is_poison else False
+                        er = erosion_rate(is_poison=is_poison, is_critical=is_crit)
+                        actual = entity.take_damage(eff.value, erosion_rate=er)
                         if actual > 0:
                             self._emit(110, entity.id, actual)  # POISON_DAMAGE
                         if entity.dead:

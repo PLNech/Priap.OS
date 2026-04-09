@@ -138,6 +138,8 @@ class PySimRunner:
         resistance: int = 219,
         wisdom: int = 40,
         magic: int = 0,
+        science: int = 0,
+        power: int = 0,
         frequency: int = 140,
         weapon_ids: list[int] | None = None,
         chip_ids: list[int] | None = None,
@@ -183,13 +185,15 @@ class PySimRunner:
         e1 = Entity(
             id=1, name="Entity1", team=1, farmer=1, level=level,
             life=life, tp=tp, mp=mp, strength=strength, agility=agility,
-            resistance=resistance, wisdom=wisdom, magic=magic, frequency=frequency,
+            resistance=resistance, wisdom=wisdom, magic=magic,
+            science=science, power=power, frequency=frequency,
             weapons=weapons1, chips=chips1,
         )
         e2 = Entity(
             id=2, name="Entity2", team=2, farmer=2, level=level,
             life=life, tp=tp, mp=mp, strength=strength, agility=agility,
-            resistance=resistance, wisdom=wisdom, magic=magic, frequency=frequency,
+            resistance=resistance, wisdom=wisdom, magic=magic,
+            science=science, power=power, frequency=frequency,
             weapons=weapons2, chips=chips2,
         )
 
