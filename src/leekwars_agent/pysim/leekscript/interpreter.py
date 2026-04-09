@@ -867,6 +867,16 @@ class Interpreter:
                 return val
             if expr.name in self.game_api:
                 return self.game_api[expr.name]
+            # Builtins as first-class values (e.g. `var _c = contains`)
+            if expr.name in self._builtins:
+                return self._builtins[expr.name]
+            # User functions as first-class values
+            if expr.name in self.functions:
+                func = self.functions[expr.name]
+                interpreter = self
+                def closure(*args):
+                    return interpreter._call_user_function(expr.name, list(args))
+                return closure
             return None
 
         if isinstance(expr, ArrayLit):
