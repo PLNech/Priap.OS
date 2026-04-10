@@ -1,0 +1,234 @@
+[
+  {
+    "id": "7",
+    "subject": "Build MIDI layer (bridge client + parser + state manager)"
+  },
+  {
+    "id": "20",
+    "subject": "\ud83e\udde0 #0209: AI movement rework \u2014 Move\u2192Attack\u2192Defend"
+  },
+  {
+    "id": "22",
+    "subject": "\ud83e\udde0 #0209.1: Data mining \u2014 analyze_movement.py"
+  },
+  {
+    "id": "23",
+    "subject": "\ud83e\udde0 #0209.2a: Distance gate on shields"
+  },
+  {
+    "id": "24",
+    "subject": "\ud83e\udde0 #0209.2b: Weapon TP reservation"
+  },
+  {
+    "id": "25",
+    "subject": "\ud83e\udde0 #0209.2c: Restructure turn flow \u2192 Move\u2192Attack\u2192Defend"
+  },
+  {
+    "id": "26",
+    "subject": "\ud83e\udde0 #0209.3: A/B test \u2014 500 fights in simulator"
+  },
+  {
+    "id": "27",
+    "subject": "\ud83e\udde0 #0209.4: Deploy + online validation"
+  },
+  {
+    "id": "35",
+    "subject": "\ud83c\udfae #0408: Buy Ferocity chip (147,340 Habs)"
+  },
+  {
+    "id": "42",
+    "subject": "\ud83d\udd27 #0212: Add FightHistoryEntry model + fix CLI fight history"
+  },
+  {
+    "id": "43",
+    "subject": "\ud83e\udde0 #0213: Replace manual cooldown tracking with getCooldown() API"
+  },
+  {
+    "id": "44",
+    "subject": "\ud83d\udcca #0307: S37 online validation analysis + THESIS update"
+  },
+  {
+    "id": "46",
+    "subject": "\ud83c\udfae #0410: Spend 25 capital on RES (40\u219265) + buy Ferocity"
+  },
+  {
+    "id": "47",
+    "subject": "\ud83e\udde0 #0215: Integrate Ferocity into AI v14 + getCooldown migration"
+  },
+  {
+    "id": "49",
+    "subject": "\u2699\ufe0f #0511: Disable tournament auto-registration for IAdonis"
+  },
+  {
+    "id": "50",
+    "subject": "\ud83c\udfae #0411: Spend 87 capital \u2014 all into RES (66\u2192150+)"
+  },
+  {
+    "id": "51",
+    "subject": "\ud83e\udde0 #0216: Verify Ferocity actually fires in online fights"
+  },
+  {
+    "id": "53",
+    "subject": "\ud83e\udde0 #0218: Anti-stalemate strategy for v15 (18 draws in 710 fights)"
+  },
+  {
+    "id": "58",
+    "subject": "\ud83d\udd27 #0126: Fix debug_fight.py deprecated action codes (BLOCKER)"
+  },
+  {
+    "id": "59",
+    "subject": "\ud83e\udde0 #0220: Whip regression root cause analysis"
+  },
+  {
+    "id": "63",
+    "subject": "\ud83d\udd27 #0129: PySim \u2014 LeekScript interpreter + Python fight engine"
+  },
+  {
+    "id": "64",
+    "subject": "PySim Step 1: Lexer + Parser"
+  },
+  {
+    "id": "65",
+    "subject": "PySim Step 2: Interpreter + Java oracle tests"
+  },
+  {
+    "id": "66",
+    "subject": "PySim Step 3: Grid + Entity + Effects"
+  },
+  {
+    "id": "67",
+    "subject": "PySim Step 4: Engine + Game API (31 functions)"
+  },
+  {
+    "id": "68",
+    "subject": "PySim Step 5: v14 integration + debugging"
+  },
+  {
+    "id": "69",
+    "subject": "PySim Step 6: Validation + scoring vs broken Java sim"
+  },
+  {
+    "id": "72",
+    "subject": "PySim Bug: Weapons never fire \u2014 weapon ID mismatch between getWeapons() and setWeapon()"
+  },
+  {
+    "id": "73",
+    "subject": "PySim Bug: Chip damage too low \u2014 6 LOST_LIFE in 64 turns suggests shield/damage imbalance"
+  },
+  {
+    "id": "74",
+    "subject": "PySim: Wire runner with map library for realistic obstacle/spawn configs"
+  },
+  {
+    "id": "75",
+    "subject": "PySim: Fix parser for and/or keywords + multi-var declarations"
+  },
+  {
+    "id": "76",
+    "subject": "PySim: Add include() support for modular opponent AIs"
+  },
+  {
+    "id": "77",
+    "subject": "PySim: Fix remaining oracle test failures (** operator, anon functions, etc.)"
+  },
+  {
+    "id": "78",
+    "subject": "PySim: Build expected ELO gradient from opponent AI analysis"
+  },
+  {
+    "id": "79",
+    "subject": "PySim: Run tournament \u2014 v14 vs all opponents on real maps, compute ELO"
+  },
+  {
+    "id": "80",
+    "subject": "\ud83d\udd27 #0130: Complete PySim game API \u2014 implement all missing LS functions for opponent AI compatibility"
+  },
+  {
+    "id": "81",
+    "subject": "\ud83d\udcca #0309: ELO gradient validation \u2014 round-robin tournament with all opponent AIs on real maps"
+  },
+  {
+    "id": "85",
+    "subject": "\ud83d\udd27 #82: PySim realistic ops costing + stale loop detection"
+  },
+  {
+    "id": "86",
+    "subject": "\ud83d\udd27 Fix yaelMagnier opponent AI \u2014 stub REGISTERS.lk + handle @ operator"
+  },
+  {
+    "id": "87",
+    "subject": "\ud83d\udd27 #83: PySim missing mechanics \u2014 entity states, initial cooldown, stat shackles, vulnerability"
+  },
+  {
+    "id": "88",
+    "subject": "\ud83d\udcca #84: Rerun expanded ELO tournament \u2014 all AIs with ops limit + yaelMagnier + new mechanics"
+  },
+  {
+    "id": "89",
+    "subject": "\ud83d\udd27 #85: Lexer \u2014 add OOP keywords (class, extends, new, this, super, constructor, static, instanceof, private, protected, public, final)"
+  },
+  {
+    "id": "91",
+    "subject": "\ud83d\udd27 #87: Interpreter \u2014 class/object runtime (ClassValue, ObjectInstance, constructors, method dispatch, inheritance)"
+  },
+  {
+    "id": "92",
+    "subject": "\ud83d\udd27 #88: Oracle tests \u2014 extract class tests from Java TestClass + write comprehensive OOP test suite"
+  },
+  {
+    "id": "93",
+    "subject": "\ud83d\udd27 #89: Validate \u2014 parse + run all 3 blocked repos (fauconv, chinafred, tankyx_v8)"
+  },
+  {
+    "id": "94",
+    "subject": "Fix chinafred + fauconv parsing \u2014 generic types, typed C-style for, deeper annotations"
+  },
+  {
+    "id": "95",
+    "subject": "Fix OOP AI runtime gaps \u2014 0W tankyx/chinafred/fauconv need working game APIs"
+  },
+  {
+    "id": "96",
+    "subject": "\ud83d\udd27 #96: Fix OOP AI runtime errors \u2014 ternary assignment, null coercion, addOperation arity"
+  },
+  {
+    "id": "99",
+    "subject": "\ud83d\udd27 #99: Run 23-AI ELO tournament \u2014 all fixes + tagadanar AIs"
+  },
+  {
+    "id": "100",
+    "subject": "\ud83d\udd27 #100: PySim ground truth \u2014 parse constants.ts, fix effect IDs, fix getWeaponEffects, auto-equip opponents"
+  },
+  {
+    "id": "101",
+    "subject": "\ud83d\udd27 #101: BASI \u2014 Fix erosion rates (poison 10%, crit 15-20%)"
+  },
+  {
+    "id": "102",
+    "subject": "\ud83d\udd27 #102: BASI \u2014 Add science stat to Entity + fix buff scaling"
+  },
+  {
+    "id": "103",
+    "subject": "\ud83d\udd27 #103: BASI \u2014 Add power stat to Entity + fix damage multiplier"
+  },
+  {
+    "id": "104",
+    "subject": "\ud83d\udd27 #104: BASI \u2014 Dedicated poison formula (magic-scaled, 10% erosion)"
+  },
+  {
+    "id": "105",
+    "subject": "\ud83d\udcca #105: BASI validation \u2014 Rerun 23-AI tournament post-ground-truth"
+  },
+  {
+    "id": "106",
+    "subject": "\ud83d\udd27 #106: BASI \u2014 Create java_formulas.py parser (introspect Effect*.java)"
+  },
+  {
+    "id": "146",
+    "subject": "\ud83d\udd27 #0121: Multi-leek support in CLI + cron"
+  },
+  {
+    "id": "147",
+    "subject": "\ud83d\udd27 #0122: Fix fight CLI availability bug (garden.fights counter)"
+  }
+]

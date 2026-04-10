@@ -299,15 +299,17 @@ class FightEngine:
                 return me.current_weapon
             w_id = _safe_int(w_id)
             for w in me.weapons:
-                # LS constants use template IDs; also match on id for compat
-                if w["template"] == w_id or w["id"] == w_id:
+                # Three ID layers: template (fight actions), id (registry),
+                # item (constants.ts WEAPON_* values). Must match all.
+                if w["template"] == w_id or w["id"] == w_id or w.get("item") == w_id:
                     return w
-            # Fallback: look up in global registry by template (e.g. WEAPON_PISTOL
-            # is always equippable — every leek starts with one in the real game)
+            # Fallback: look up in global registry
             try:
                 from leekwars_agent.models.equipment import WEAPON_REGISTRY
                 from .runner import _build_weapon_dict
-                reg_w = WEAPON_REGISTRY.by_template(w_id)
+                reg_w = (WEAPON_REGISTRY.by_template(w_id) or
+                         WEAPON_REGISTRY.by_item(w_id) or
+                         WEAPON_REGISTRY.by_id(w_id))
                 if reg_w is not None:
                     return _build_weapon_dict(reg_w)
             except Exception:
@@ -363,8 +365,8 @@ class FightEngine:
                 return None
             chip_id = _safe_int(chip_id)
             for c in me.chips:
-                # LS constants use template IDs; also match on id for compat
-                if c["template"] == chip_id or c["id"] == chip_id:
+                # Three ID layers: template, id (registry), item (constants.ts CHIP_*)
+                if c["template"] == chip_id or c["id"] == chip_id or c.get("item") == chip_id:
                     return c
             return None
 
@@ -609,7 +611,7 @@ class FightEngine:
             if path:
                 me.mp_used += len(path)
                 me.cell = path[-1]
-                engine._emit(10, me.id, path)  # MOVE_TO
+                engine._emit(10, me.id, me.cell, path)  # MOVE_TO: [10, eid, dest, path]
 
             return len(path)
 
@@ -627,7 +629,7 @@ class FightEngine:
             if path:
                 me.mp_used += len(path)
                 me.cell = path[-1]
-                engine._emit(10, me.id, path)
+                engine._emit(10, me.id, me.cell, path)  # MOVE_TO
 
             return len(path)
 
@@ -650,7 +652,7 @@ class FightEngine:
             if path:
                 me.mp_used += len(path)
                 me.cell = path[-1]
-                engine._emit(10, me.id, path)
+                engine._emit(10, me.id, me.cell, path)  # MOVE_TO
 
             return len(path)
 
@@ -1020,7 +1022,7 @@ class FightEngine:
                 if actual_path:
                     me.mp_used += len(actual_path)
                     me.cell = actual_path[-1]
-                    engine._emit(10, me.id, actual_path)
+                    engine._emit(10, me.id, me.cell, actual_path)  # MOVE_TO
                     return len(actual_path)
             return 0
 
@@ -1707,26 +1709,26 @@ class FightEngine:
         elif eff_id == 10:  # TELEPORT — move caster to target's cell
             old_cell = caster.cell
             caster.cell = target.cell
-            self._emit(10, caster.id, [caster.cell])
+            self._emit(10, caster.id, caster.cell, [caster.cell])
 
         elif eff_id == 11:  # PERMUTATION — swap caster and target cells
             caster.cell, target.cell = target.cell, caster.cell
-            self._emit(10, caster.id, [caster.cell])
-            self._emit(10, target.id, [target.cell])
+            self._emit(10, caster.id, caster.cell, [caster.cell])
+            self._emit(10, target.id, target.cell, [target.cell])
 
         elif eff_id in (51, 53):  # PUSH / REPEL — push target away from caster
             blocked = self._entity_cells(exclude=target.id)
             path = self.grid.move_away_from(target.cell, caster.cell, 3, blocked)
             if path:
                 target.cell = path[-1]
-                self._emit(10, target.id, path)
+                self._emit(10, target.id, target.cell, path)
 
         elif eff_id == 46:  # ATTRACT — pull target toward caster
             blocked = self._entity_cells(exclude=target.id)
             path = self.grid.move_toward(target.cell, caster.cell, 3, blocked)
             if path:
                 target.cell = path[-1]
-                self._emit(10, target.id, path)
+                self._emit(10, target.id, target.cell, path)
 
         # ── Not yet simulated (summon, resurrect, propagation) ─────
         elif eff_id in self._NOOP_EFFECTS:
@@ -1744,6 +1746,275 @@ class FightEngine:
     # Action codes that represent meaningful combat progress
     _COMBAT_ACTION_CODES = {16, 12, 101, 110, 11}  # USE_WEAPON, USE_CHIP, LOST_LIFE, POISON_DAMAGE, KILL
     STALE_TURN_LIMIT = 10  # consecutive turns with 0 combat actions → declare draw
+
+    # ── Introspection API ─────────────────────────────────────────────
+
+    def snapshot(self) -> dict:
+        """Serializable snapshot of full fight state.
+
+        Use between turns to capture state for debugging, comparison,
+        or replay. All values are plain dicts/lists/ints.
+        """
+        return {
+            "turn": self.turn,
+            "actions_count": len(self.actions),
+            "fight_over": self._fight_over(),
+            "winner": self._get_winner() if self._fight_over() else None,
+            "entities": {eid: e.snapshot() for eid, e in self.entities.items()},
+        }
+
+    def inject_entity(self, entity_id: int, **overrides) -> None:
+        """Set arbitrary fields on an entity mid-fight.
+
+        Delegates to Entity.inject(). Use for state injection in replay/debugging.
+        Example: engine.inject_entity(1, life=500, cell=300)
+        """
+        self.entities[entity_id].inject(**overrides)
+
+    def _ensure_step_state(self) -> None:
+        """Initialize step-mode state on first call."""
+        if not hasattr(self, '_turn_order'):
+            eids = [e.id for e in self.entity_list]
+            self.rng.shuffle(eids)
+            self._turn_order = sorted(
+                eids, key=lambda eid: -self.entities[eid].frequency,
+            )
+            self._stale_turns = 0
+            self._step_started = False
+
+    def _run_entity_turn(self, eid: int) -> list[list]:
+        """Run one entity's turn: poison tick → AI → end_turn. Returns actions emitted."""
+        entity = self.entities[eid]
+        if entity.dead:
+            return []
+
+        actions_before = len(self.actions)
+
+        entity.start_turn()
+        self._current_entity_id = eid
+        self._emit(7, eid)  # LEEK_TURN
+
+        # Poison/aftereffect damage at turn start
+        for eff in entity.effects:
+            if eff.effect_type in ("poison", "aftereffect"):
+                is_poison = eff.effect_type == "poison"
+                is_crit = getattr(entity, '_poison_crit', False) if is_poison else False
+                er = erosion_rate(is_poison=is_poison, is_critical=is_crit)
+                actual = entity.take_damage(eff.value, erosion_rate=er)
+                if actual > 0:
+                    self._emit(110, entity.id, actual)
+                if entity.dead:
+                    self._emit(11, entity.id)
+                    break
+                if eff.effect_type == "poison":
+                    eff.value = int(eff.value * 0.9)
+
+        if not entity.dead:
+            interp = self.interpreters.get(eid)
+            program = self.programs.get(eid)
+            if interp and program:
+                try:
+                    interp.run(program)
+                except OpsLimitExceeded:
+                    self.debug_logs[eid].append(
+                        f"[ops] Turn ended: {interp.ops:,} ops (limit {MAX_OPS:,})")
+                except RecursionError:
+                    self.debug_logs[eid].append("AI ERROR: stack overflow (deep recursion)")
+                except Exception as exc:
+                    self.debug_logs[eid].append(f"AI ERROR: {exc}")
+                self.debug_logs[eid].extend(interp.debug_log)
+                interp.debug_log.clear()
+
+        entity.end_turn()
+        self._emit(8, eid, entity.tp_used, entity.mp_used)  # END_TURN
+        return self.actions[actions_before:]
+
+    def step_turn(self) -> dict:
+        """Run one full turn (all entities play). Returns turn summary.
+
+        Call repeatedly to step through a fight turn by turn.
+        First call emits START_FIGHT and initializes turn order.
+
+        Returns:
+            {
+                "turn": int,
+                "done": bool,
+                "winner": int | None,
+                "actions": list[list],  # actions emitted this turn only
+                "entities": {eid: snapshot},  # state after turn
+            }
+        """
+        import sys
+        old_limit = sys.getrecursionlimit()
+        sys.setrecursionlimit(max(old_limit, 10_000))
+        try:
+            return self._step_turn_inner()
+        finally:
+            sys.setrecursionlimit(old_limit)
+
+    def _step_turn_inner(self) -> dict:
+        self._ensure_step_state()
+
+        if not self._step_started:
+            self._emit(0)  # START_FIGHT
+            self._step_started = True
+
+        if self.turn >= MAX_TURNS or self._fight_over():
+            winner = self._get_winner()
+            self._emit(4, winner)
+            return {"turn": self.turn, "done": True, "winner": winner,
+                    "actions": [], "entities": self.snapshot()["entities"]}
+
+        self.turn += 1
+        actions_before = len(self.actions)
+        self._emit(6, self.turn)  # NEW_TURN
+
+        for eid in self._turn_order:
+            self._run_entity_turn(eid)
+            if self._fight_over():
+                break
+
+        turn_actions = self.actions[actions_before:]
+
+        # Stale fight detection
+        had_combat = any(a[0] in self._COMBAT_ACTION_CODES for a in turn_actions)
+        done = False
+        if had_combat:
+            self._stale_turns = 0
+        else:
+            self._stale_turns += 1
+            if self._stale_turns >= self.STALE_TURN_LIMIT:
+                done = True
+
+        done = done or self._fight_over()
+        winner = self._get_winner() if done else None
+        if done:
+            self._emit(4, winner or 0)
+
+        return {
+            "turn": self.turn,
+            "done": done,
+            "winner": winner,
+            "actions": turn_actions,
+            "entities": self.snapshot()["entities"],
+        }
+
+    # ── Action comparison ─────────────────────────────────────────────
+
+    @staticmethod
+    def compare_actions(real: list[list], pysim: list[list], *,
+                        damage_tolerance: int = 5) -> list[dict]:
+        """Compare two action sequences turn by turn. Returns list of divergences.
+
+        Each divergence is a dict:
+            {"turn": int, "entity": int, "index": int,
+             "real": action, "pysim": action, "type": str}
+
+        Comparison rules:
+        - MOVE_TO (10): compare destination cell (path may differ)
+        - USE_CHIP (12): compare chip template + target cell
+        - USE_WEAPON (16): compare target cell
+        - LOST_LIFE (101): compare within ±damage_tolerance
+        - Other codes: exact match
+        """
+        def _split_turns(actions):
+            """Group actions by turn. Returns list of (turn_num, actions)."""
+            turns = []
+            current = []
+            turn_num = 0
+            for a in actions:
+                if a[0] == 6:  # NEW_TURN
+                    if current:
+                        turns.append((turn_num, current))
+                    turn_num = a[1]
+                    current = []
+                elif a[0] in (0, 4):  # START/END_FIGHT
+                    continue
+                else:
+                    current.append(a)
+            if current:
+                turns.append((turn_num, current))
+            return turns
+
+        real_turns = _split_turns(real)
+        pysim_turns = _split_turns(pysim)
+        divergences = []
+
+        for i in range(min(len(real_turns), len(pysim_turns))):
+            rt_num, rt_actions = real_turns[i]
+            pt_num, pt_actions = pysim_turns[i]
+
+            if rt_num != pt_num:
+                divergences.append({
+                    "turn": rt_num, "entity": -1, "index": i,
+                    "real": f"turn {rt_num}", "pysim": f"turn {pt_num}",
+                    "type": "turn_number_mismatch",
+                })
+                break
+
+            # Compare action by action within the turn
+            current_entity = -1
+            for j in range(max(len(rt_actions), len(pt_actions))):
+                ra = rt_actions[j] if j < len(rt_actions) else None
+                pa = pt_actions[j] if j < len(pt_actions) else None
+
+                if ra and ra[0] == 7:  # LEEK_TURN
+                    current_entity = ra[1]
+                if pa and pa[0] == 7:
+                    current_entity = pa[1] if ra is None else current_entity
+
+                if ra is None or pa is None:
+                    divergences.append({
+                        "turn": rt_num, "entity": current_entity, "index": j,
+                        "real": ra, "pysim": pa,
+                        "type": "missing_action",
+                    })
+                    continue
+
+                # Same action code?
+                if ra[0] != pa[0]:
+                    divergences.append({
+                        "turn": rt_num, "entity": current_entity, "index": j,
+                        "real": ra, "pysim": pa,
+                        "type": "action_code_mismatch",
+                    })
+                    continue
+
+                code = ra[0]
+                match = True
+
+                if code == 10:  # MOVE_TO: compare destination (path may differ)
+                    # [10, entity, dest_cell, path]
+                    if len(ra) >= 3 and len(pa) >= 3:
+                        match = ra[2] == pa[2]  # destination cell
+                elif code == 12:  # USE_CHIP: compare template + target
+                    match = ra[1:3] == pa[1:3]  # [chip_template, target_cell]
+                elif code == 16:  # USE_WEAPON: compare target
+                    match = ra[1:3] == pa[1:3]
+                elif code == 101:  # LOST_LIFE: tolerance on damage
+                    if len(ra) >= 3 and len(pa) >= 3:
+                        match = ra[1] == pa[1] and abs(ra[2] - pa[2]) <= damage_tolerance
+                elif code in (7, 8):  # LEEK_TURN, END_TURN: entity must match
+                    match = ra[1] == pa[1]
+                else:
+                    match = ra == pa
+
+                if not match:
+                    divergences.append({
+                        "turn": rt_num, "entity": current_entity, "index": j,
+                        "real": ra, "pysim": pa,
+                        "type": f"value_mismatch_{code}",
+                    })
+
+        if len(real_turns) != len(pysim_turns):
+            divergences.append({
+                "turn": -1, "entity": -1, "index": -1,
+                "real": f"{len(real_turns)} turns",
+                "pysim": f"{len(pysim_turns)} turns",
+                "type": "turn_count_mismatch",
+            })
+
+        return divergences
 
     def run(self) -> dict:
         """Execute the full fight. Returns outcome dict.
@@ -1827,7 +2098,7 @@ class FightEngine:
                         interp.debug_log.clear()
 
                 entity.end_turn()
-                self._emit(8, eid)  # END_TURN
+                self._emit(8, eid, entity.tp_used, entity.mp_used)  # END_TURN
 
                 if self._fight_over():
                     break

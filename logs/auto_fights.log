@@ -1767,3 +1767,1151 @@ Rate limited on login, waiting 20s (attempt 2/3)...
 [2026-02-10 20:04:28] [buy_fights] Unauthorized response (status=401 body={"error":"already_bought_fights_with_habs"}), skipping purchase
 [2026-02-10 20:04:28] Status: 0/50 fights | L73 IAdonis | Talent: 67
 [2026-02-10 20:04:28] No fights to run
+[2026-03-13 20:59:46] ==================================================
+[2026-03-13 20:59:46] AUTO DAILY FIGHTS - Starting
+[2026-03-13 20:59:47] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-13 20:59:47] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-13 20:59:47] Status: 0/50 fights | L118 IAdonis | Talent: 328
+[2026-03-13 20:59:47] No fights to run
+[2026-03-13 20:59:46] ==================================================
+[2026-03-13 20:59:46] AUTO DAILY FIGHTS - Starting
+[2026-03-13 20:59:47] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-13 20:59:47] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-13 20:59:47] Status: 0/50 fights | L118 IAdonis | Talent: 328
+[2026-03-13 20:59:47] No fights to run
+[2026-03-13 21:00:02] ==================================================
+[2026-03-13 21:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-13 21:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-13 21:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-13 21:00:03] Status: 0/50 fights | L118 IAdonis | Talent: 328
+[2026-03-13 21:00:03] No fights to run
+[2026-03-13 21:00:02] ==================================================
+[2026-03-13 21:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-13 21:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-13 21:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-13 21:00:03] Status: 0/50 fights | L118 IAdonis | Talent: 328
+[2026-03-13 21:00:03] No fights to run
+[2026-03-13 22:00:03] ==================================================
+[2026-03-13 22:00:03] AUTO DAILY FIGHTS - Starting
+[2026-03-13 22:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-13 22:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-13 22:00:03] Status: 0/50 fights | L118 IAdonis | Talent: 328
+[2026-03-13 22:00:03] No fights to run
+[2026-03-13 22:00:03] ==================================================
+[2026-03-13 22:00:03] AUTO DAILY FIGHTS - Starting
+[2026-03-13 22:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-13 22:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-13 22:00:03] Status: 0/50 fights | L118 IAdonis | Talent: 328
+[2026-03-13 22:00:03] No fights to run
+[2026-03-14 20:00:03] ==================================================
+[2026-03-14 20:00:03] AUTO DAILY FIGHTS - Starting
+[2026-03-14 20:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-14 20:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-14 20:00:03] Status: 0/50 fights | L120 IAdonis | Talent: 321
+[2026-03-14 20:00:03] No fights to run
+[2026-03-14 20:00:03] ==================================================
+[2026-03-14 20:00:03] AUTO DAILY FIGHTS - Starting
+[2026-03-14 20:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-14 20:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-14 20:00:03] Status: 0/50 fights | L120 IAdonis | Talent: 321
+[2026-03-14 20:00:03] No fights to run
+[2026-03-14 21:00:03] ==================================================
+[2026-03-14 21:00:03] AUTO DAILY FIGHTS - Starting
+[2026-03-14 21:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-14 21:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-14 21:00:03] Status: 0/50 fights | L120 IAdonis | Talent: 321
+[2026-03-14 21:00:03] No fights to run
+[2026-03-14 21:00:03] ==================================================
+[2026-03-14 21:00:03] AUTO DAILY FIGHTS - Starting
+[2026-03-14 21:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-14 21:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-14 21:00:03] Status: 0/50 fights | L120 IAdonis | Talent: 321
+[2026-03-14 21:00:03] No fights to run
+[2026-03-14 22:00:02] ==================================================
+[2026-03-14 22:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-14 22:00:02] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-14 22:00:02] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-14 22:00:02] Status: 0/50 fights | L120 IAdonis | Talent: 321
+[2026-03-14 22:00:02] No fights to run
+[2026-03-14 22:00:02] ==================================================
+[2026-03-14 22:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-14 22:00:02] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-14 22:00:02] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-14 22:00:02] Status: 0/50 fights | L120 IAdonis | Talent: 321
+[2026-03-14 22:00:02] No fights to run
+[2026-03-15 20:00:02] ==================================================
+[2026-03-15 20:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-15 20:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-15 20:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-15 20:00:03] Status: 0/50 fights | L121 IAdonis | Talent: 371
+[2026-03-15 20:00:03] No fights to run
+[2026-03-15 20:00:02] ==================================================
+[2026-03-15 20:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-15 20:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-15 20:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-15 20:00:03] Status: 0/50 fights | L121 IAdonis | Talent: 371
+[2026-03-15 20:00:03] No fights to run
+[2026-03-15 21:00:02] ==================================================
+[2026-03-15 21:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-15 21:00:02] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-15 21:00:02] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-15 21:00:02] Status: 0/50 fights | L121 IAdonis | Talent: 371
+[2026-03-15 21:00:02] No fights to run
+[2026-03-15 21:00:02] ==================================================
+[2026-03-15 21:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-15 21:00:02] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-15 21:00:02] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-15 21:00:02] Status: 0/50 fights | L121 IAdonis | Talent: 371
+[2026-03-15 21:00:02] No fights to run
+[2026-03-16 20:00:03] ==================================================
+[2026-03-16 20:00:03] AUTO DAILY FIGHTS - Starting
+[2026-03-16 20:00:04] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-16 20:00:04] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-16 20:00:04] Status: 0/50 fights | L122 IAdonis | Talent: 328
+[2026-03-16 20:00:04] No fights to run
+[2026-03-16 20:00:03] ==================================================
+[2026-03-16 20:00:03] AUTO DAILY FIGHTS - Starting
+[2026-03-16 20:00:04] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-16 20:00:04] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-16 20:00:04] Status: 0/50 fights | L122 IAdonis | Talent: 328
+[2026-03-16 20:00:04] No fights to run
+[2026-03-16 21:00:03] ==================================================
+[2026-03-16 21:00:03] AUTO DAILY FIGHTS - Starting
+[2026-03-16 21:00:04] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-16 21:00:04] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-16 21:00:04] Status: 0/50 fights | L122 IAdonis | Talent: 328
+[2026-03-16 21:00:04] No fights to run
+[2026-03-16 21:00:03] ==================================================
+[2026-03-16 21:00:03] AUTO DAILY FIGHTS - Starting
+[2026-03-16 21:00:04] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-16 21:00:04] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-16 21:00:04] Status: 0/50 fights | L122 IAdonis | Talent: 328
+[2026-03-16 21:00:04] No fights to run
+[2026-03-16 22:00:03] ==================================================
+[2026-03-16 22:00:03] AUTO DAILY FIGHTS - Starting
+[2026-03-16 22:00:04] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-16 22:00:04] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-16 22:00:04] Status: 0/50 fights | L122 IAdonis | Talent: 328
+[2026-03-16 22:00:04] No fights to run
+[2026-03-16 22:00:03] ==================================================
+[2026-03-16 22:00:03] AUTO DAILY FIGHTS - Starting
+[2026-03-16 22:00:04] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-16 22:00:04] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-16 22:00:04] Status: 0/50 fights | L122 IAdonis | Talent: 328
+[2026-03-16 22:00:04] No fights to run
+[2026-03-16 23:30:03] ==================================================
+[2026-03-16 23:30:03] AUTO DAILY FIGHTS - Starting
+[2026-03-16 23:30:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-16 23:30:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-16 23:30:03] Status: 0/50 fights | L122 IAdonis | Talent: 328
+[2026-03-16 23:30:03] No fights to run
+[2026-03-16 23:30:03] ==================================================
+[2026-03-16 23:30:03] AUTO DAILY FIGHTS - Starting
+[2026-03-16 23:30:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-16 23:30:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-16 23:30:03] Status: 0/50 fights | L122 IAdonis | Talent: 328
+[2026-03-16 23:30:03] No fights to run
+[2026-03-17 20:00:02] ==================================================
+[2026-03-17 20:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-17 20:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-17 20:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-17 20:00:03] Status: 0/50 fights | L123 IAdonis | Talent: 350
+[2026-03-17 20:00:03] No fights to run
+[2026-03-17 20:00:02] ==================================================
+[2026-03-17 20:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-17 20:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-17 20:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-17 20:00:03] Status: 0/50 fights | L123 IAdonis | Talent: 350
+[2026-03-17 20:00:03] No fights to run
+[2026-03-17 21:00:02] ==================================================
+[2026-03-17 21:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-17 21:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-17 21:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-17 21:00:03] Status: 0/50 fights | L123 IAdonis | Talent: 350
+[2026-03-17 21:00:03] No fights to run
+[2026-03-17 21:00:02] ==================================================
+[2026-03-17 21:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-17 21:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-17 21:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-17 21:00:03] Status: 0/50 fights | L123 IAdonis | Talent: 350
+[2026-03-17 21:00:03] No fights to run
+[2026-03-17 22:00:02] ==================================================
+[2026-03-17 22:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-17 22:00:02] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-17 22:00:02] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-17 22:00:03] Status: 0/50 fights | L123 IAdonis | Talent: 350
+[2026-03-17 22:00:03] No fights to run
+[2026-03-17 22:00:02] ==================================================
+[2026-03-17 22:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-17 22:00:02] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-17 22:00:02] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-17 22:00:03] Status: 0/50 fights | L123 IAdonis | Talent: 350
+[2026-03-17 22:00:03] No fights to run
+[2026-03-17 23:30:02] ==================================================
+[2026-03-17 23:30:02] AUTO DAILY FIGHTS - Starting
+[2026-03-17 23:30:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-17 23:30:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-17 23:30:03] Status: 0/50 fights | L123 IAdonis | Talent: 350
+[2026-03-17 23:30:03] No fights to run
+[2026-03-17 23:30:02] ==================================================
+[2026-03-17 23:30:02] AUTO DAILY FIGHTS - Starting
+[2026-03-17 23:30:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-17 23:30:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-17 23:30:03] Status: 0/50 fights | L123 IAdonis | Talent: 350
+[2026-03-17 23:30:03] No fights to run
+[2026-03-18 20:00:02] ==================================================
+[2026-03-18 20:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-18 20:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-18 20:00:03] [buy_fights] Bought 50-fight pack! Result: {'money': 20878, 'fights': 50}
+[2026-03-18 20:00:03] Status: 50/50 fights | L124 IAdonis | Talent: 354
+[2026-03-18 20:00:03] Plan: Run 50 fights (100% of 50)
+[2026-03-18 20:00:09]   [1/50] W vs ouimaiswtf [kiter] (t3, HP:?/729)
+[2026-03-18 20:00:13]   [2/50] L vs Grouuut [aggro] (t5, HP:?/1269)
+[2026-03-18 20:00:17]   [3/50] L vs Alliacees [aggro] (t6, HP:?/861)
+[2026-03-18 20:00:20]   [4/50] L vs Leek@1432 [kiter] (t8, HP:?/617)
+[2026-03-18 20:00:24]   [5/50] W vs janot [balanced] (t7, HP:?/881)
+[2026-03-18 20:00:28]   [6/50] W vs recitisgood [kiter] (t9, HP:?/153)
+[2026-03-18 20:00:31]   [7/50] W vs Komtoi [aggro] (t7, HP:?/1273)
+[2026-03-18 20:00:35]   [8/50] W vs LaMoria [aggro] (t4, HP:?/669)
+[2026-03-18 20:00:39]   [9/50] W vs Axiome [balanced] (t3, HP:?/657)
+[2026-03-18 20:00:42]   [10/50] W vs ahminh [kiter] (t6, HP:?/153)
+[2026-03-18 20:00:46]   [11/50] L vs McWRAP [aggro] (t17, HP:?/153)
+[2026-03-18 20:00:50]   [12/50] W vs BIO [kiter] (t6, HP:?/797)
+[2026-03-18 20:00:53]   [13/50] L vs Kiba [aggro] (t5, HP:?/153)
+[2026-03-18 20:00:57]   [14/50] L vs Transeur [aggro] (t13, HP:?/859)
+[2026-03-18 20:01:01]   [15/50] L vs Looney [aggro] (t10, HP:?/1129)
+[2026-03-18 20:01:04]   [16/50] L vs Heliareau [aggro] (t9, HP:?/1101)
+[2026-03-18 20:01:08]   [17/50] L vs Asterute [aggro] (t6, HP:?/989)
+[2026-03-18 20:01:12]   [18/50] W vs Xamoriop [kiter] (t6, HP:?/1332)
+[2026-03-18 20:01:15]   [19/50] W vs ManonVI [balanced] (t6, HP:?/532)
+[2026-03-18 20:01:19]   [20/50] L vs 1764 [kiter] (t12, HP:?/154)
+[2026-03-18 20:01:23]   [21/50] L vs professeurmoustache [aggro] (t10, HP:?/154)
+[2026-03-18 20:01:26]   [22/50] W vs Pizza [kiter] (t6, HP:?/1252)
+[2026-03-18 20:01:30]   [23/50] W vs ElPiwii [aggro] (t4, HP:?/1184)
+[2026-03-18 20:01:34]   [24/50] L vs Oelendra [balanced] (t7, HP:?/1036)
+[2026-03-18 20:01:37]   [25/50] W vs Fetil [kiter] (t12, HP:?/472)
+[2026-03-18 20:01:41]   [26/50] W vs Bandit650 [aggro] (t7, HP:?/1871)
+[2026-03-18 20:01:45]   [27/50] L vs aejii [aggro] (t3, HP:?/154)
+[2026-03-18 20:01:48]   [28/50] L vs MolkyLePoireau [aggro] (t3, HP:?/154)
+[2026-03-18 20:01:52]   [29/50] W vs CatoLeek [aggro] (t12, HP:?/1817)
+[2026-03-18 20:01:56]   [30/50] D vs matheu [aggro] (t63, HP:?/154)
+[2026-03-18 20:01:59]   [31/50] W vs JohnnySkinz [aggro] (t6, HP:?/1260)
+[2026-03-18 20:02:03]   [32/50] L vs Toffuts [balanced] (t7, HP:?/154)
+[2026-03-18 20:02:07]   [33/50] W vs P0bL4K3N [aggro] (t6, HP:?/1092)
+[2026-03-18 20:02:10]   [34/50] L vs tbzgraphical [aggro] (t5, HP:?/483)
+[2026-03-18 20:02:14]   [35/50] L vs PoireauBaignoire [balanced] (t3, HP:?/888)
+[2026-03-18 20:02:18]   [36/50] L vs LeakyLeek [aggro] (t6, HP:?/588)
+[2026-03-18 20:02:21]   [37/50] L vs Calice [balanced] (t24, HP:?/154)
+[2026-03-18 20:02:25]   [38/50] L vs ApprentiPopol [kiter] (t7, HP:?/154)
+[2026-03-18 20:02:29]   [39/50] W vs Urfreau [balanced] (t9, HP:?/154)
+[2026-03-18 20:02:32]   [40/50] W vs Pot0Water [aggro] (t8, HP:?/992)
+[2026-03-18 20:02:36]   [41/50] L vs Const [kiter] (t10, HP:?/672)
+[2026-03-18 20:02:40]   [42/50] L vs GraceLeek [kiter] (t29, HP:?/472)
+[2026-03-18 20:02:43]   [43/50] W vs Poireautage [aggro] (t3, HP:?/888)
+[2026-03-18 20:02:47]   [44/50] W vs Googleek [balanced] (t4, HP:?/1204)
+[2026-03-18 20:02:51]   [45/50] L vs PoiRoteur [aggro] (t6, HP:?/668)
+[2026-03-18 20:02:54]   [46/50] W vs LeonaLeekMe [aggro] (t16, HP:?/154)
+[2026-03-18 20:02:58]   [47/50] L vs roosevelt [aggro] (t5, HP:?/872)
+[2026-03-18 20:03:02]   [48/50] W vs AppIeJack [kiter] (t7, HP:?/1231)
+[2026-03-18 20:03:05]   [49/50] W vs CyberPhysicalLeek [kiter] (t9, HP:?/20000)
+[2026-03-18 20:03:09]   [50/50] W vs bibio [aggro] (t14, HP:?/154)
+[2026-03-18 20:03:10]   Archetype breakdown:
+[2026-03-18 20:03:10]     vs aggro: 11W-15L-1D (42% WR)
+[2026-03-18 20:03:10]     vs balanced: 5W-4L-0D (56% WR)
+[2026-03-18 20:03:10]     vs kiter: 9W-5L-0D (64% WR)
+[2026-03-18 20:03:10] Results: 25W-24L-1D (51.0% WR) | 0 crashes
+[2026-03-18 20:03:10] Scraping recent fights to meta DB...
+Rate limited, waiting 10s (attempt 1/3)...
+Rate limited, waiting 10s (attempt 1/3)...
+Rate limited, waiting 10s (attempt 1/3)...
+[2026-03-18 20:03:50]   Scraped 0/60 fights to meta DB
+[2026-03-18 20:03:50] Final: 0 fights remaining | L124 | Talent: 354
+[2026-03-18 20:03:50] AUTO DAILY FIGHTS - Complete
+[2026-03-18 20:03:50] ==================================================
+[2026-03-18 20:00:02] ==================================================
+[2026-03-18 20:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-18 20:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-18 20:00:03] [buy_fights] Bought 50-fight pack! Result: {'money': 20878, 'fights': 50}
+[2026-03-18 20:00:03] Status: 50/50 fights | L124 IAdonis | Talent: 354
+[2026-03-18 20:00:03] Plan: Run 50 fights (100% of 50)
+[2026-03-18 20:00:09]   [1/50] W vs ouimaiswtf [kiter] (t3, HP:?/729)
+[2026-03-18 20:00:13]   [2/50] L vs Grouuut [aggro] (t5, HP:?/1269)
+[2026-03-18 20:00:17]   [3/50] L vs Alliacees [aggro] (t6, HP:?/861)
+[2026-03-18 20:00:20]   [4/50] L vs Leek@1432 [kiter] (t8, HP:?/617)
+[2026-03-18 20:00:24]   [5/50] W vs janot [balanced] (t7, HP:?/881)
+[2026-03-18 20:00:28]   [6/50] W vs recitisgood [kiter] (t9, HP:?/153)
+[2026-03-18 20:00:31]   [7/50] W vs Komtoi [aggro] (t7, HP:?/1273)
+[2026-03-18 20:00:35]   [8/50] W vs LaMoria [aggro] (t4, HP:?/669)
+[2026-03-18 20:00:39]   [9/50] W vs Axiome [balanced] (t3, HP:?/657)
+[2026-03-18 20:00:42]   [10/50] W vs ahminh [kiter] (t6, HP:?/153)
+[2026-03-18 20:00:46]   [11/50] L vs McWRAP [aggro] (t17, HP:?/153)
+[2026-03-18 20:00:50]   [12/50] W vs BIO [kiter] (t6, HP:?/797)
+[2026-03-18 20:00:53]   [13/50] L vs Kiba [aggro] (t5, HP:?/153)
+[2026-03-18 20:00:57]   [14/50] L vs Transeur [aggro] (t13, HP:?/859)
+[2026-03-18 20:01:01]   [15/50] L vs Looney [aggro] (t10, HP:?/1129)
+[2026-03-18 20:01:04]   [16/50] L vs Heliareau [aggro] (t9, HP:?/1101)
+[2026-03-18 20:01:08]   [17/50] L vs Asterute [aggro] (t6, HP:?/989)
+[2026-03-18 20:01:12]   [18/50] W vs Xamoriop [kiter] (t6, HP:?/1332)
+[2026-03-18 20:01:15]   [19/50] W vs ManonVI [balanced] (t6, HP:?/532)
+[2026-03-18 20:01:19]   [20/50] L vs 1764 [kiter] (t12, HP:?/154)
+[2026-03-18 20:01:23]   [21/50] L vs professeurmoustache [aggro] (t10, HP:?/154)
+[2026-03-18 20:01:26]   [22/50] W vs Pizza [kiter] (t6, HP:?/1252)
+[2026-03-18 20:01:30]   [23/50] W vs ElPiwii [aggro] (t4, HP:?/1184)
+[2026-03-18 20:01:34]   [24/50] L vs Oelendra [balanced] (t7, HP:?/1036)
+[2026-03-18 20:01:37]   [25/50] W vs Fetil [kiter] (t12, HP:?/472)
+[2026-03-18 20:01:41]   [26/50] W vs Bandit650 [aggro] (t7, HP:?/1871)
+[2026-03-18 20:01:45]   [27/50] L vs aejii [aggro] (t3, HP:?/154)
+[2026-03-18 20:01:48]   [28/50] L vs MolkyLePoireau [aggro] (t3, HP:?/154)
+[2026-03-18 20:01:52]   [29/50] W vs CatoLeek [aggro] (t12, HP:?/1817)
+[2026-03-18 20:01:56]   [30/50] D vs matheu [aggro] (t63, HP:?/154)
+[2026-03-18 20:01:59]   [31/50] W vs JohnnySkinz [aggro] (t6, HP:?/1260)
+[2026-03-18 20:02:03]   [32/50] L vs Toffuts [balanced] (t7, HP:?/154)
+[2026-03-18 20:02:07]   [33/50] W vs P0bL4K3N [aggro] (t6, HP:?/1092)
+[2026-03-18 20:02:10]   [34/50] L vs tbzgraphical [aggro] (t5, HP:?/483)
+[2026-03-18 20:02:14]   [35/50] L vs PoireauBaignoire [balanced] (t3, HP:?/888)
+[2026-03-18 20:02:18]   [36/50] L vs LeakyLeek [aggro] (t6, HP:?/588)
+[2026-03-18 20:02:21]   [37/50] L vs Calice [balanced] (t24, HP:?/154)
+[2026-03-18 20:02:25]   [38/50] L vs ApprentiPopol [kiter] (t7, HP:?/154)
+[2026-03-18 20:02:29]   [39/50] W vs Urfreau [balanced] (t9, HP:?/154)
+[2026-03-18 20:02:32]   [40/50] W vs Pot0Water [aggro] (t8, HP:?/992)
+[2026-03-18 20:02:36]   [41/50] L vs Const [kiter] (t10, HP:?/672)
+[2026-03-18 20:02:40]   [42/50] L vs GraceLeek [kiter] (t29, HP:?/472)
+[2026-03-18 20:02:43]   [43/50] W vs Poireautage [aggro] (t3, HP:?/888)
+[2026-03-18 20:02:47]   [44/50] W vs Googleek [balanced] (t4, HP:?/1204)
+[2026-03-18 20:02:51]   [45/50] L vs PoiRoteur [aggro] (t6, HP:?/668)
+[2026-03-18 20:02:54]   [46/50] W vs LeonaLeekMe [aggro] (t16, HP:?/154)
+[2026-03-18 20:02:58]   [47/50] L vs roosevelt [aggro] (t5, HP:?/872)
+[2026-03-18 20:03:02]   [48/50] W vs AppIeJack [kiter] (t7, HP:?/1231)
+[2026-03-18 20:03:05]   [49/50] W vs CyberPhysicalLeek [kiter] (t9, HP:?/20000)
+[2026-03-18 20:03:09]   [50/50] W vs bibio [aggro] (t14, HP:?/154)
+[2026-03-18 20:03:10]   Archetype breakdown:
+[2026-03-18 20:03:10]     vs aggro: 11W-15L-1D (42% WR)
+[2026-03-18 20:03:10]     vs balanced: 5W-4L-0D (56% WR)
+[2026-03-18 20:03:10]     vs kiter: 9W-5L-0D (64% WR)
+[2026-03-18 20:03:10] Results: 25W-24L-1D (51.0% WR) | 0 crashes
+[2026-03-18 20:03:10] Scraping recent fights to meta DB...
+[2026-03-18 20:03:50]   Scraped 0/60 fights to meta DB
+[2026-03-18 20:03:50] Final: 0 fights remaining | L124 | Talent: 354
+[2026-03-18 20:03:50] AUTO DAILY FIGHTS - Complete
+[2026-03-18 20:03:50] ==================================================
+[2026-03-18 21:00:02] ==================================================
+[2026-03-18 21:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-18 21:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-18 21:00:03] [buy_fights] Already purchased today, skipping
+[2026-03-18 21:00:03] Status: 0/50 fights | L125 IAdonis | Talent: 369
+[2026-03-18 21:00:03] No fights to run
+[2026-03-18 21:00:02] ==================================================
+[2026-03-18 21:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-18 21:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-18 21:00:03] [buy_fights] Already purchased today, skipping
+[2026-03-18 21:00:03] Status: 0/50 fights | L125 IAdonis | Talent: 369
+[2026-03-18 21:00:03] No fights to run
+[2026-03-18 22:00:02] ==================================================
+[2026-03-18 22:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-18 22:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-18 22:00:03] [buy_fights] Already purchased today, skipping
+[2026-03-18 22:00:03] Status: 0/50 fights | L125 IAdonis | Talent: 369
+[2026-03-18 22:00:03] No fights to run
+[2026-03-18 22:00:02] ==================================================
+[2026-03-18 22:00:02] AUTO DAILY FIGHTS - Starting
+[2026-03-18 22:00:03] Logged in as PriapOS | AI: fighter_v14_flat
+[2026-03-18 22:00:03] [buy_fights] Already purchased today, skipping
+[2026-03-18 22:00:03] Status: 0/50 fights | L125 IAdonis | Talent: 369
+[2026-03-18 22:00:03] No fights to run
+[2026-03-18 23:30:02] ==================================================
+[2026-03-18 23:30:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-18 23:30:03] Logged in as PriapOS
+[2026-03-18 23:30:03] [buy_fights] Already purchased today, skipping
+[2026-03-18 23:30:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-18 23:30:03] Status: 0/50 fights | L125 IAdonis | Talent: 369
+[2026-03-18 23:30:03] No fights to run for this leek
+[2026-03-18 23:30:03] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-18 23:30:06] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-18 23:30:06] No fights to run for this leek
+[2026-03-18 23:30:06] 
+Final: 0 fights remaining
+[2026-03-18 23:30:06] AUTO DAILY FIGHTS - Complete
+[2026-03-18 23:30:06] ==================================================
+[2026-03-18 23:30:02] ==================================================
+[2026-03-18 23:30:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-18 23:30:03] Logged in as PriapOS
+[2026-03-18 23:30:03] [buy_fights] Already purchased today, skipping
+[2026-03-18 23:30:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-18 23:30:03] Status: 0/50 fights | L125 IAdonis | Talent: 369
+[2026-03-18 23:30:03] No fights to run for this leek
+[2026-03-18 23:30:03] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-18 23:30:06] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-18 23:30:06] No fights to run for this leek
+[2026-03-18 23:30:06] 
+Final: 0 fights remaining
+[2026-03-18 23:30:06] AUTO DAILY FIGHTS - Complete
+[2026-03-18 23:30:06] ==================================================
+[2026-03-19 20:00:03] ==================================================
+[2026-03-19 20:00:03] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-19 20:00:04] Logged in as PriapOS
+[2026-03-19 20:00:04] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-19 20:00:04] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-19 20:00:05] Status: 0/50 fights | L126 IAdonis | Talent: 362
+[2026-03-19 20:00:05] No fights to run for this leek
+[2026-03-19 20:00:05] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-19 20:00:05] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-19 20:00:05] No fights to run for this leek
+[2026-03-19 20:00:05] 
+Final: 0 fights remaining
+[2026-03-19 20:00:05] AUTO DAILY FIGHTS - Complete
+[2026-03-19 20:00:05] ==================================================
+[2026-03-19 20:00:03] ==================================================
+[2026-03-19 20:00:03] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-19 20:00:04] Logged in as PriapOS
+[2026-03-19 20:00:04] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-19 20:00:04] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-19 20:00:05] Status: 0/50 fights | L126 IAdonis | Talent: 362
+[2026-03-19 20:00:05] No fights to run for this leek
+[2026-03-19 20:00:05] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-19 20:00:05] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-19 20:00:05] No fights to run for this leek
+[2026-03-19 20:00:05] 
+Final: 0 fights remaining
+[2026-03-19 20:00:05] AUTO DAILY FIGHTS - Complete
+[2026-03-19 20:00:05] ==================================================
+[2026-03-19 21:00:03] ==================================================
+[2026-03-19 21:00:03] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-19 21:00:04] Logged in as PriapOS
+[2026-03-19 21:00:04] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-19 21:00:04] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-19 21:00:04] Status: 0/50 fights | L126 IAdonis | Talent: 362
+[2026-03-19 21:00:04] No fights to run for this leek
+[2026-03-19 21:00:04] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-19 21:00:07] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-19 21:00:07] No fights to run for this leek
+[2026-03-19 21:00:07] 
+Final: 0 fights remaining
+[2026-03-19 21:00:07] AUTO DAILY FIGHTS - Complete
+[2026-03-19 21:00:07] ==================================================
+[2026-03-19 21:00:03] ==================================================
+[2026-03-19 21:00:03] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-19 21:00:04] Logged in as PriapOS
+[2026-03-19 21:00:04] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-19 21:00:04] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-19 21:00:04] Status: 0/50 fights | L126 IAdonis | Talent: 362
+[2026-03-19 21:00:04] No fights to run for this leek
+[2026-03-19 21:00:04] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-19 21:00:07] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-19 21:00:07] No fights to run for this leek
+[2026-03-19 21:00:07] 
+Final: 0 fights remaining
+[2026-03-19 21:00:07] AUTO DAILY FIGHTS - Complete
+[2026-03-19 21:00:07] ==================================================
+[2026-03-19 22:00:03] ==================================================
+[2026-03-19 22:00:03] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-19 22:00:04] Logged in as PriapOS
+[2026-03-19 22:00:04] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-19 22:00:04] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-19 22:00:05] Status: 0/50 fights | L126 IAdonis | Talent: 362
+[2026-03-19 22:00:05] No fights to run for this leek
+[2026-03-19 22:00:05] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-19 22:00:05] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-19 22:00:05] No fights to run for this leek
+[2026-03-19 22:00:05] 
+Final: 0 fights remaining
+[2026-03-19 22:00:05] AUTO DAILY FIGHTS - Complete
+[2026-03-19 22:00:05] ==================================================
+[2026-03-19 22:00:03] ==================================================
+[2026-03-19 22:00:03] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-19 22:00:04] Logged in as PriapOS
+[2026-03-19 22:00:04] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-19 22:00:04] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-19 22:00:05] Status: 0/50 fights | L126 IAdonis | Talent: 362
+[2026-03-19 22:00:05] No fights to run for this leek
+[2026-03-19 22:00:05] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-19 22:00:05] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-19 22:00:05] No fights to run for this leek
+[2026-03-19 22:00:05] 
+Final: 0 fights remaining
+[2026-03-19 22:00:05] AUTO DAILY FIGHTS - Complete
+[2026-03-19 22:00:05] ==================================================
+[2026-03-20 20:00:02] ==================================================
+[2026-03-20 20:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-20 20:00:02] Logged in as PriapOS
+[2026-03-20 20:00:02] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-20 20:00:02] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-20 20:00:02] Status: 0/50 fights | L128 IAdonis | Talent: 348
+[2026-03-20 20:00:02] No fights to run for this leek
+[2026-03-20 20:00:06] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-20 20:00:06] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-20 20:00:06] No fights to run for this leek
+[2026-03-20 20:00:06] 
+Final: 0 fights remaining
+[2026-03-20 20:00:06] AUTO DAILY FIGHTS - Complete
+[2026-03-20 20:00:06] ==================================================
+[2026-03-20 20:00:02] ==================================================
+[2026-03-20 20:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-20 20:00:02] Logged in as PriapOS
+[2026-03-20 20:00:02] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-20 20:00:02] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-20 20:00:02] Status: 0/50 fights | L128 IAdonis | Talent: 348
+[2026-03-20 20:00:02] No fights to run for this leek
+[2026-03-20 20:00:06] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-20 20:00:06] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-20 20:00:06] No fights to run for this leek
+[2026-03-20 20:00:06] 
+Final: 0 fights remaining
+[2026-03-20 20:00:06] AUTO DAILY FIGHTS - Complete
+[2026-03-20 20:00:06] ==================================================
+[2026-03-20 21:00:02] ==================================================
+[2026-03-20 21:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-20 21:00:03] Logged in as PriapOS
+[2026-03-20 21:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-20 21:00:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-20 21:00:03] Status: 0/50 fights | L128 IAdonis | Talent: 348
+[2026-03-20 21:00:03] No fights to run for this leek
+[2026-03-20 21:00:03] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-20 21:00:06] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-20 21:00:06] No fights to run for this leek
+[2026-03-20 21:00:06] 
+Final: 0 fights remaining
+[2026-03-20 21:00:06] AUTO DAILY FIGHTS - Complete
+[2026-03-20 21:00:06] ==================================================
+[2026-03-20 21:00:02] ==================================================
+[2026-03-20 21:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-20 21:00:03] Logged in as PriapOS
+[2026-03-20 21:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-20 21:00:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-20 21:00:03] Status: 0/50 fights | L128 IAdonis | Talent: 348
+[2026-03-20 21:00:03] No fights to run for this leek
+[2026-03-20 21:00:03] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-20 21:00:06] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-20 21:00:06] No fights to run for this leek
+[2026-03-20 21:00:06] 
+Final: 0 fights remaining
+[2026-03-20 21:00:06] AUTO DAILY FIGHTS - Complete
+[2026-03-20 21:00:06] ==================================================
+[2026-03-21 20:00:03] ==================================================
+[2026-03-21 20:00:03] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-21 20:00:03] Logged in as PriapOS
+[2026-03-21 20:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-21 20:00:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-21 20:00:06] Status: 0/50 fights | L129 IAdonis | Talent: 375
+[2026-03-21 20:00:06] No fights to run for this leek
+[2026-03-21 20:00:06] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-21 20:00:07] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-21 20:00:07] No fights to run for this leek
+[2026-03-21 20:00:07] 
+Final: 0 fights remaining
+[2026-03-21 20:00:07] AUTO DAILY FIGHTS - Complete
+[2026-03-21 20:00:07] ==================================================
+[2026-03-21 20:00:03] ==================================================
+[2026-03-21 20:00:03] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-21 20:00:03] Logged in as PriapOS
+[2026-03-21 20:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-21 20:00:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-21 20:00:06] Status: 0/50 fights | L129 IAdonis | Talent: 375
+[2026-03-21 20:00:06] No fights to run for this leek
+[2026-03-21 20:00:06] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-21 20:00:07] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-21 20:00:07] No fights to run for this leek
+[2026-03-21 20:00:07] 
+Final: 0 fights remaining
+[2026-03-21 20:00:07] AUTO DAILY FIGHTS - Complete
+[2026-03-21 20:00:07] ==================================================
+[2026-03-21 21:00:03] ==================================================
+[2026-03-21 21:00:03] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-21 21:00:03] Logged in as PriapOS
+[2026-03-21 21:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-21 21:00:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-21 21:00:03] Status: 0/50 fights | L129 IAdonis | Talent: 375
+[2026-03-21 21:00:03] No fights to run for this leek
+[2026-03-21 21:00:06] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-21 21:00:06] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-21 21:00:06] No fights to run for this leek
+[2026-03-21 21:00:06] 
+Final: 0 fights remaining
+[2026-03-21 21:00:06] AUTO DAILY FIGHTS - Complete
+[2026-03-21 21:00:06] ==================================================
+[2026-03-21 21:00:03] ==================================================
+[2026-03-21 21:00:03] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-21 21:00:03] Logged in as PriapOS
+[2026-03-21 21:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-21 21:00:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-21 21:00:03] Status: 0/50 fights | L129 IAdonis | Talent: 375
+[2026-03-21 21:00:03] No fights to run for this leek
+[2026-03-21 21:00:06] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-21 21:00:06] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-21 21:00:06] No fights to run for this leek
+[2026-03-21 21:00:06] 
+Final: 0 fights remaining
+[2026-03-21 21:00:06] AUTO DAILY FIGHTS - Complete
+[2026-03-21 21:00:06] ==================================================
+[2026-03-21 22:00:02] ==================================================
+[2026-03-21 22:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-21 22:00:03] Logged in as PriapOS
+[2026-03-21 22:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-21 22:00:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-21 22:00:03] Status: 0/50 fights | L129 IAdonis | Talent: 375
+[2026-03-21 22:00:03] No fights to run for this leek
+[2026-03-21 22:00:03] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-21 22:00:06] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-21 22:00:06] No fights to run for this leek
+[2026-03-21 22:00:06] 
+Final: 0 fights remaining
+[2026-03-21 22:00:06] AUTO DAILY FIGHTS - Complete
+[2026-03-21 22:00:06] ==================================================
+[2026-03-21 22:00:02] ==================================================
+[2026-03-21 22:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-21 22:00:03] Logged in as PriapOS
+[2026-03-21 22:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-21 22:00:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-21 22:00:03] Status: 0/50 fights | L129 IAdonis | Talent: 375
+[2026-03-21 22:00:03] No fights to run for this leek
+[2026-03-21 22:00:03] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-21 22:00:06] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-21 22:00:06] No fights to run for this leek
+[2026-03-21 22:00:06] 
+Final: 0 fights remaining
+[2026-03-21 22:00:06] AUTO DAILY FIGHTS - Complete
+[2026-03-21 22:00:06] ==================================================
+[2026-03-22 20:00:02] ==================================================
+[2026-03-22 20:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-22 20:00:03] Logged in as PriapOS
+[2026-03-22 20:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-22 20:00:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-22 20:00:03] Status: 0/50 fights | L130 IAdonis | Talent: 377
+[2026-03-22 20:00:03] No fights to run for this leek
+[2026-03-22 20:00:03] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-22 20:00:06] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-22 20:00:06] No fights to run for this leek
+[2026-03-22 20:00:06] 
+Final: 0 fights remaining
+[2026-03-22 20:00:06] AUTO DAILY FIGHTS - Complete
+[2026-03-22 20:00:06] ==================================================
+[2026-03-22 20:00:02] ==================================================
+[2026-03-22 20:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-22 20:00:03] Logged in as PriapOS
+[2026-03-22 20:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-22 20:00:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-22 20:00:03] Status: 0/50 fights | L130 IAdonis | Talent: 377
+[2026-03-22 20:00:03] No fights to run for this leek
+[2026-03-22 20:00:03] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-22 20:00:06] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-22 20:00:06] No fights to run for this leek
+[2026-03-22 20:00:06] 
+Final: 0 fights remaining
+[2026-03-22 20:00:06] AUTO DAILY FIGHTS - Complete
+[2026-03-22 20:00:06] ==================================================
+[2026-03-22 21:00:02] ==================================================
+[2026-03-22 21:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-22 21:00:02] Logged in as PriapOS
+[2026-03-22 21:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-22 21:00:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-22 21:00:03] Status: 0/50 fights | L130 IAdonis | Talent: 377
+[2026-03-22 21:00:03] No fights to run for this leek
+[2026-03-22 21:00:03] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-22 21:00:06] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-22 21:00:06] No fights to run for this leek
+[2026-03-22 21:00:06] 
+Final: 0 fights remaining
+[2026-03-22 21:00:06] AUTO DAILY FIGHTS - Complete
+[2026-03-22 21:00:06] ==================================================
+[2026-03-22 21:00:02] ==================================================
+[2026-03-22 21:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-22 21:00:02] Logged in as PriapOS
+[2026-03-22 21:00:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-22 21:00:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-22 21:00:03] Status: 0/50 fights | L130 IAdonis | Talent: 377
+[2026-03-22 21:00:03] No fights to run for this leek
+[2026-03-22 21:00:03] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-22 21:00:06] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-22 21:00:06] No fights to run for this leek
+[2026-03-22 21:00:06] 
+Final: 0 fights remaining
+[2026-03-22 21:00:06] AUTO DAILY FIGHTS - Complete
+[2026-03-22 21:00:06] ==================================================
+[2026-03-22 22:00:05] ==================================================
+[2026-03-22 22:00:05] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-22 22:00:06] Logged in as PriapOS
+[2026-03-22 22:00:06] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-22 22:00:06] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-22 22:00:06] Status: 0/50 fights | L130 IAdonis | Talent: 377
+[2026-03-22 22:00:06] No fights to run for this leek
+[2026-03-22 22:00:10] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-22 22:00:10] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-22 22:00:10] No fights to run for this leek
+[2026-03-22 22:00:10] 
+Final: 0 fights remaining
+[2026-03-22 22:00:10] AUTO DAILY FIGHTS - Complete
+[2026-03-22 22:00:10] ==================================================
+[2026-03-22 22:00:05] ==================================================
+[2026-03-22 22:00:05] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-22 22:00:06] Logged in as PriapOS
+[2026-03-22 22:00:06] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-22 22:00:06] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-22 22:00:06] Status: 0/50 fights | L130 IAdonis | Talent: 377
+[2026-03-22 22:00:06] No fights to run for this leek
+[2026-03-22 22:00:10] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-22 22:00:10] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-22 22:00:10] No fights to run for this leek
+[2026-03-22 22:00:10] 
+Final: 0 fights remaining
+[2026-03-22 22:00:10] AUTO DAILY FIGHTS - Complete
+[2026-03-22 22:00:10] ==================================================
+[2026-03-22 23:30:05] ==================================================
+[2026-03-22 23:30:05] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-22 23:30:06] Logged in as PriapOS
+[2026-03-22 23:30:06] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-22 23:30:06] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-22 23:30:06] Status: 0/50 fights | L130 IAdonis | Talent: 377
+[2026-03-22 23:30:06] No fights to run for this leek
+[2026-03-22 23:30:06] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-22 23:30:09] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-22 23:30:09] No fights to run for this leek
+[2026-03-22 23:30:09] 
+Final: 0 fights remaining
+[2026-03-22 23:30:09] AUTO DAILY FIGHTS - Complete
+[2026-03-22 23:30:09] ==================================================
+[2026-03-22 23:30:05] ==================================================
+[2026-03-22 23:30:05] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-22 23:30:06] Logged in as PriapOS
+[2026-03-22 23:30:06] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-22 23:30:06] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-22 23:30:06] Status: 0/50 fights | L130 IAdonis | Talent: 377
+[2026-03-22 23:30:06] No fights to run for this leek
+[2026-03-22 23:30:06] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-22 23:30:09] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-22 23:30:09] No fights to run for this leek
+[2026-03-22 23:30:09] 
+Final: 0 fights remaining
+[2026-03-22 23:30:09] AUTO DAILY FIGHTS - Complete
+[2026-03-22 23:30:09] ==================================================
+[2026-03-24 23:30:03] ==================================================
+[2026-03-24 23:30:03] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-24 23:30:03] Logged in as PriapOS
+[2026-03-24 23:30:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-24 23:30:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-24 23:30:04] Status: 0/50 fights | L132 IAdonis | Talent: 375
+[2026-03-24 23:30:04] No fights to run for this leek
+[2026-03-24 23:30:04] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-24 23:30:04] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-24 23:30:04] No fights to run for this leek
+[2026-03-24 23:30:07] 
+Final: 0 fights remaining
+[2026-03-24 23:30:07] AUTO DAILY FIGHTS - Complete
+[2026-03-24 23:30:07] ==================================================
+[2026-03-24 23:30:03] ==================================================
+[2026-03-24 23:30:03] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-03-24 23:30:03] Logged in as PriapOS
+[2026-03-24 23:30:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-03-24 23:30:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-03-24 23:30:04] Status: 0/50 fights | L132 IAdonis | Talent: 375
+[2026-03-24 23:30:04] No fights to run for this leek
+[2026-03-24 23:30:04] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-03-24 23:30:04] Status: 0/50 fights | L1 AnansAI | Talent: 100
+[2026-03-24 23:30:04] No fights to run for this leek
+[2026-03-24 23:30:07] 
+Final: 0 fights remaining
+[2026-03-24 23:30:07] AUTO DAILY FIGHTS - Complete
+[2026-03-24 23:30:07] ==================================================
+[2026-04-04 22:00:02] ==================================================
+[2026-04-04 22:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-04 22:00:04] Logged in as PriapOS
+[2026-04-04 22:00:04] [buy_fights] Bought 50-fight pack! Result: {'money': 171751, 'fights': 50}
+[2026-04-04 22:00:04] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-04 22:00:05] Status: 50/50 fights | L144 IAdonis | Talent: 327
+[2026-04-04 22:00:05] Plan: Run 6 fights (25% of 25)
+[2026-04-04 22:00:33]   [6/6] W vs Rosemonde [kiter] (t5, HP:?/689)
+[2026-04-04 22:00:34]   Archetype breakdown:
+[2026-04-04 22:00:34]     vs kiter: 1W-0L-0D (100% WR)
+[2026-04-04 22:00:34] Results: 1W-0L-0D (100.0% WR) | 5 crashes
+[2026-04-04 22:00:34] Scraping recent fights to meta DB...
+[2026-04-04 22:00:49]   Scraped 0/16 fights to meta DB
+[2026-04-04 22:00:50] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-04 22:00:50] Status: 44/50 fights | L1 AnansAI | Talent: 100
+[2026-04-04 22:00:50] Plan: Run 5 fights (25% of 22)
+[2026-04-04 22:00:54]   [1/5] W vs Nastyca130168 [balanced] (t4, HP:?/100)
+[2026-04-04 22:00:58]   [2/5] W vs Nastyca122461 [kiter] (t5, HP:?/100)
+[2026-04-04 22:01:03]   [3/5] W vs Nastyca64517 [balanced] (t5, HP:?/100)
+[2026-04-04 22:01:07]   [4/5] W vs Nastyca117019 [balanced] (t5, HP:?/100)
+[2026-04-04 22:01:11]   [5/5] W vs Nastyca147880 [balanced] (t4, HP:?/100)
+[2026-04-04 22:01:12]   Archetype breakdown:
+[2026-04-04 22:01:12]     vs balanced: 4W-0L-0D (100% WR)
+[2026-04-04 22:01:12]     vs kiter: 1W-0L-0D (100% WR)
+[2026-04-04 22:01:12] Results: 5W-0L-0D (100.0% WR) | 0 crashes
+[2026-04-04 22:01:12] Scraping recent fights to meta DB...
+[2026-04-04 22:01:14]   Scraped 0/5 fights to meta DB
+[2026-04-04 22:01:14] 
+Final: 39 fights remaining
+[2026-04-04 22:01:14] AUTO DAILY FIGHTS - Complete
+[2026-04-04 22:01:14] ==================================================
+[2026-04-04 22:00:02] ==================================================
+[2026-04-04 22:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-04 22:00:04] Logged in as PriapOS
+[2026-04-04 22:00:04] [buy_fights] Bought 50-fight pack! Result: {'money': 171751, 'fights': 50}
+[2026-04-04 22:00:04] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-04 22:00:05] Status: 50/50 fights | L144 IAdonis | Talent: 327
+[2026-04-04 22:00:05] Plan: Run 6 fights (25% of 25)
+[2026-04-04 22:00:33]   [6/6] W vs Rosemonde [kiter] (t5, HP:?/689)
+[2026-04-04 22:00:34]   Archetype breakdown:
+[2026-04-04 22:00:34]     vs kiter: 1W-0L-0D (100% WR)
+[2026-04-04 22:00:34] Results: 1W-0L-0D (100.0% WR) | 5 crashes
+[2026-04-04 22:00:34] Scraping recent fights to meta DB...
+[2026-04-04 22:00:49]   Scraped 0/16 fights to meta DB
+[2026-04-04 22:00:50] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-04 22:00:50] Status: 44/50 fights | L1 AnansAI | Talent: 100
+[2026-04-04 22:00:50] Plan: Run 5 fights (25% of 22)
+[2026-04-04 22:00:54]   [1/5] W vs Nastyca130168 [balanced] (t4, HP:?/100)
+[2026-04-04 22:00:58]   [2/5] W vs Nastyca122461 [kiter] (t5, HP:?/100)
+[2026-04-04 22:01:03]   [3/5] W vs Nastyca64517 [balanced] (t5, HP:?/100)
+[2026-04-04 22:01:07]   [4/5] W vs Nastyca117019 [balanced] (t5, HP:?/100)
+[2026-04-04 22:01:11]   [5/5] W vs Nastyca147880 [balanced] (t4, HP:?/100)
+[2026-04-04 22:01:12]   Archetype breakdown:
+[2026-04-04 22:01:12]     vs balanced: 4W-0L-0D (100% WR)
+[2026-04-04 22:01:12]     vs kiter: 1W-0L-0D (100% WR)
+[2026-04-04 22:01:12] Results: 5W-0L-0D (100.0% WR) | 0 crashes
+[2026-04-04 22:01:12] Scraping recent fights to meta DB...
+[2026-04-04 22:01:14]   Scraped 0/5 fights to meta DB
+[2026-04-04 22:01:14] 
+Final: 39 fights remaining
+[2026-04-04 22:01:14] AUTO DAILY FIGHTS - Complete
+[2026-04-04 22:01:14] ==================================================
+[2026-04-04 23:30:02] ==================================================
+[2026-04-04 23:30:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-04 23:30:05] Logged in as PriapOS
+[2026-04-04 23:30:05] [buy_fights] Already purchased today, skipping
+[2026-04-04 23:30:06] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-04 23:30:09] Status: 0/50 fights | L145 IAdonis | Talent: 368
+[2026-04-04 23:30:09] No fights to run for this leek
+[2026-04-04 23:30:10] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-04 23:30:11] Status: 0/50 fights | L2 AnansAI | Talent: 100
+[2026-04-04 23:30:11] No fights to run for this leek
+[2026-04-04 23:30:12] 
+Final: 0 fights remaining
+[2026-04-04 23:30:12] AUTO DAILY FIGHTS - Complete
+[2026-04-04 23:30:12] ==================================================
+[2026-04-04 23:30:02] ==================================================
+[2026-04-04 23:30:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-04 23:30:05] Logged in as PriapOS
+[2026-04-04 23:30:05] [buy_fights] Already purchased today, skipping
+[2026-04-04 23:30:06] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-04 23:30:09] Status: 0/50 fights | L145 IAdonis | Talent: 368
+[2026-04-04 23:30:09] No fights to run for this leek
+[2026-04-04 23:30:10] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-04 23:30:11] Status: 0/50 fights | L2 AnansAI | Talent: 100
+[2026-04-04 23:30:11] No fights to run for this leek
+[2026-04-04 23:30:12] 
+Final: 0 fights remaining
+[2026-04-04 23:30:12] AUTO DAILY FIGHTS - Complete
+[2026-04-04 23:30:12] ==================================================
+[2026-04-07 20:00:02] ==================================================
+[2026-04-07 20:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-07 20:00:02] Logged in as PriapOS
+[2026-04-07 20:00:02] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-04-07 20:00:02] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-07 20:00:02] Status: 0/50 fights | L148 IAdonis | Talent: 329
+[2026-04-07 20:00:02] No fights to run for this leek
+[2026-04-07 20:00:06] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-07 20:00:06] Status: 0/50 fights | L2 AnansAI | Talent: 100
+[2026-04-07 20:00:06] No fights to run for this leek
+[2026-04-07 20:00:06] 
+Final: 0 fights remaining
+[2026-04-07 20:00:06] AUTO DAILY FIGHTS - Complete
+[2026-04-07 20:00:06] ==================================================
+[2026-04-07 20:00:02] ==================================================
+[2026-04-07 20:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-07 20:00:02] Logged in as PriapOS
+[2026-04-07 20:00:02] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-04-07 20:00:02] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-07 20:00:02] Status: 0/50 fights | L148 IAdonis | Talent: 329
+[2026-04-07 20:00:02] No fights to run for this leek
+[2026-04-07 20:00:06] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-07 20:00:06] Status: 0/50 fights | L2 AnansAI | Talent: 100
+[2026-04-07 20:00:06] No fights to run for this leek
+[2026-04-07 20:00:06] 
+Final: 0 fights remaining
+[2026-04-07 20:00:06] AUTO DAILY FIGHTS - Complete
+[2026-04-07 20:00:06] ==================================================
+[2026-04-07 21:00:02] ==================================================
+[2026-04-07 21:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-07 21:00:02] Logged in as PriapOS
+[2026-04-07 21:00:02] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-04-07 21:00:02] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-07 21:00:02] Status: 0/50 fights | L148 IAdonis | Talent: 329
+[2026-04-07 21:00:02] No fights to run for this leek
+[2026-04-07 21:00:05] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-07 21:00:06] Status: 0/50 fights | L2 AnansAI | Talent: 100
+[2026-04-07 21:00:06] No fights to run for this leek
+[2026-04-07 21:00:06] 
+Final: 0 fights remaining
+[2026-04-07 21:00:06] AUTO DAILY FIGHTS - Complete
+[2026-04-07 21:00:06] ==================================================
+[2026-04-07 21:00:02] ==================================================
+[2026-04-07 21:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-07 21:00:02] Logged in as PriapOS
+[2026-04-07 21:00:02] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-04-07 21:00:02] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-07 21:00:02] Status: 0/50 fights | L148 IAdonis | Talent: 329
+[2026-04-07 21:00:02] No fights to run for this leek
+[2026-04-07 21:00:05] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-07 21:00:06] Status: 0/50 fights | L2 AnansAI | Talent: 100
+[2026-04-07 21:00:06] No fights to run for this leek
+[2026-04-07 21:00:06] 
+Final: 0 fights remaining
+[2026-04-07 21:00:06] AUTO DAILY FIGHTS - Complete
+[2026-04-07 21:00:06] ==================================================
+[2026-04-07 22:00:02] ==================================================
+[2026-04-07 22:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-07 22:00:02] Logged in as PriapOS
+[2026-04-07 22:00:02] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-04-07 22:00:02] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-07 22:00:02] Status: 0/50 fights | L148 IAdonis | Talent: 329
+[2026-04-07 22:00:02] No fights to run for this leek
+[2026-04-07 22:00:05] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-07 22:00:05] Status: 0/50 fights | L2 AnansAI | Talent: 100
+[2026-04-07 22:00:05] No fights to run for this leek
+[2026-04-07 22:00:05] 
+Final: 0 fights remaining
+[2026-04-07 22:00:05] AUTO DAILY FIGHTS - Complete
+[2026-04-07 22:00:05] ==================================================
+[2026-04-07 22:00:02] ==================================================
+[2026-04-07 22:00:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-07 22:00:02] Logged in as PriapOS
+[2026-04-07 22:00:02] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-04-07 22:00:02] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-07 22:00:02] Status: 0/50 fights | L148 IAdonis | Talent: 329
+[2026-04-07 22:00:02] No fights to run for this leek
+[2026-04-07 22:00:05] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-07 22:00:05] Status: 0/50 fights | L2 AnansAI | Talent: 100
+[2026-04-07 22:00:05] No fights to run for this leek
+[2026-04-07 22:00:05] 
+Final: 0 fights remaining
+[2026-04-07 22:00:05] AUTO DAILY FIGHTS - Complete
+[2026-04-07 22:00:05] ==================================================
+[2026-04-07 23:49:02] ==================================================
+[2026-04-07 23:49:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-07 23:49:03] Logged in as PriapOS
+[2026-04-07 23:49:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-04-07 23:49:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-07 23:49:03] Status: 0/50 fights | L148 IAdonis | Talent: 329
+[2026-04-07 23:49:03] No fights to run for this leek
+[2026-04-07 23:49:03] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-07 23:49:03] Status: 0/50 fights | L2 AnansAI | Talent: 100
+[2026-04-07 23:49:03] No fights to run for this leek
+[2026-04-07 23:49:07] 
+Final: 0 fights remaining
+[2026-04-07 23:49:07] AUTO DAILY FIGHTS - Complete
+[2026-04-07 23:49:07] ==================================================
+[2026-04-07 23:49:02] ==================================================
+[2026-04-07 23:49:02] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-07 23:49:03] Logged in as PriapOS
+[2026-04-07 23:49:03] [buy_fights] Error buying pack: not_enough_habs (HTTP 401 on /market/buy-habs-quantity)
+[2026-04-07 23:49:03] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-07 23:49:03] Status: 0/50 fights | L148 IAdonis | Talent: 329
+[2026-04-07 23:49:03] No fights to run for this leek
+[2026-04-07 23:49:03] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-07 23:49:03] Status: 0/50 fights | L2 AnansAI | Talent: 100
+[2026-04-07 23:49:03] No fights to run for this leek
+[2026-04-07 23:49:07] 
+Final: 0 fights remaining
+[2026-04-07 23:49:07] AUTO DAILY FIGHTS - Complete
+[2026-04-07 23:49:07] ==================================================
+[2026-04-09 21:06:04] ==================================================
+[2026-04-09 21:06:04] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-09 21:06:04] LOGIN FAILED: [Errno -2] Name or service not known
+[2026-04-09 21:06:04] ==================================================
+[2026-04-09 21:06:04] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-09 21:06:04] LOGIN FAILED: [Errno -2] Name or service not known
+[2026-04-09 21:06:06] ==================================================
+[2026-04-09 21:06:06] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-09 21:06:06] LOGIN FAILED: [Errno -2] Name or service not known
+[2026-04-09 21:06:06] ==================================================
+[2026-04-09 21:06:06] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-09 21:06:06] LOGIN FAILED: [Errno -2] Name or service not known
+[2026-04-09 22:00:05] ==================================================
+[2026-04-09 22:00:05] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-09 22:00:06] Logged in as PriapOS
+[2026-04-09 22:00:06] [buy_fights] Bought 50-fight pack! Result: {'money': 15435, 'fights': 50}
+[2026-04-09 22:00:06] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-09 22:00:06] Status: 50/50 fights | L150 IAdonis | Talent: 381
+[2026-04-09 22:00:06] Plan: Run 6 fights (25% of 25)
+[2026-04-09 22:00:12]   [1/6] L vs gnarkz [aggro] (t8, HP:?/1371)
+[2026-04-09 22:00:16]   [2/6] L vs Fido [balanced] (t8, HP:?/1403)
+[2026-04-09 22:00:19]   [3/6] L vs Tulype [aggro] (t7, HP:?/979)
+[2026-04-09 22:00:23]   [4/6] L vs Poireaugesier [aggro] (t6, HP:?/699)
+[2026-04-09 22:00:27]   [5/6] W vs PorrumDead [aggro] (t8, HP:?/927)
+[2026-04-09 22:00:31]   [6/6] D vs Leeken [aggro] (t63, HP:?/904)
+[2026-04-09 22:00:31]   Archetype breakdown:
+[2026-04-09 22:00:31]     vs aggro: 1W-3L-1D (25% WR)
+[2026-04-09 22:00:31]     vs balanced: 0W-1L-0D (0% WR)
+[2026-04-09 22:00:31] Results: 1W-4L-1D (20.0% WR) | 0 crashes
+[2026-04-09 22:00:31] Scraping recent fights to meta DB...
+Rate limited, waiting 10s (attempt 1/3)...
+[2026-04-09 22:00:45]   Scraped 0/16 fights to meta DB
+[2026-04-09 22:00:45] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-09 22:00:45] Status: 44/50 fights | L2 AnansAI | Talent: 100
+[2026-04-09 22:00:45] Plan: Run 5 fights (25% of 22)
+[2026-04-09 22:00:48]   [1/5] W vs Hugues [balanced] (t5, HP:?/103)
+[2026-04-09 22:00:52]   [2/5] W vs Nastyca106518 [kiter] (t5, HP:?/103)
+[2026-04-09 22:00:55]   [3/5] W vs Nastyca121724 [balanced] (t5, HP:?/103)
+[2026-04-09 22:00:59]   [4/5] W vs Nastyca145418 [balanced] (t7, HP:?/103)
+[2026-04-09 22:01:03]   [5/5] W vs Nastyca111997 [balanced] (t4, HP:?/103)
+[2026-04-09 22:01:03]   Archetype breakdown:
+[2026-04-09 22:01:03]     vs balanced: 4W-0L-0D (100% WR)
+[2026-04-09 22:01:03]     vs kiter: 1W-0L-0D (100% WR)
+[2026-04-09 22:01:03] Results: 5W-0L-0D (100.0% WR) | 0 crashes
+[2026-04-09 22:01:03] Scraping recent fights to meta DB...
+[2026-04-09 22:01:05]   Scraped 0/10 fights to meta DB
+[2026-04-09 22:01:08] 
+Final: 37 fights remaining
+[2026-04-09 22:01:08] AUTO DAILY FIGHTS - Complete
+[2026-04-09 22:01:08] ==================================================
+[2026-04-09 22:00:05] ==================================================
+[2026-04-09 22:00:05] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-09 22:00:06] Logged in as PriapOS
+[2026-04-09 22:00:06] [buy_fights] Bought 50-fight pack! Result: {'money': 15435, 'fights': 50}
+[2026-04-09 22:00:06] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-09 22:00:06] Status: 50/50 fights | L150 IAdonis | Talent: 381
+[2026-04-09 22:00:06] Plan: Run 6 fights (25% of 25)
+[2026-04-09 22:00:12]   [1/6] L vs gnarkz [aggro] (t8, HP:?/1371)
+[2026-04-09 22:00:16]   [2/6] L vs Fido [balanced] (t8, HP:?/1403)
+[2026-04-09 22:00:19]   [3/6] L vs Tulype [aggro] (t7, HP:?/979)
+[2026-04-09 22:00:23]   [4/6] L vs Poireaugesier [aggro] (t6, HP:?/699)
+[2026-04-09 22:00:27]   [5/6] W vs PorrumDead [aggro] (t8, HP:?/927)
+[2026-04-09 22:00:31]   [6/6] D vs Leeken [aggro] (t63, HP:?/904)
+[2026-04-09 22:00:31]   Archetype breakdown:
+[2026-04-09 22:00:31]     vs aggro: 1W-3L-1D (25% WR)
+[2026-04-09 22:00:31]     vs balanced: 0W-1L-0D (0% WR)
+[2026-04-09 22:00:31] Results: 1W-4L-1D (20.0% WR) | 0 crashes
+[2026-04-09 22:00:31] Scraping recent fights to meta DB...
+[2026-04-09 22:00:45]   Scraped 0/16 fights to meta DB
+[2026-04-09 22:00:45] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-09 22:00:45] Status: 44/50 fights | L2 AnansAI | Talent: 100
+[2026-04-09 22:00:45] Plan: Run 5 fights (25% of 22)
+[2026-04-09 22:00:48]   [1/5] W vs Hugues [balanced] (t5, HP:?/103)
+[2026-04-09 22:00:52]   [2/5] W vs Nastyca106518 [kiter] (t5, HP:?/103)
+[2026-04-09 22:00:55]   [3/5] W vs Nastyca121724 [balanced] (t5, HP:?/103)
+[2026-04-09 22:00:59]   [4/5] W vs Nastyca145418 [balanced] (t7, HP:?/103)
+[2026-04-09 22:01:03]   [5/5] W vs Nastyca111997 [balanced] (t4, HP:?/103)
+[2026-04-09 22:01:03]   Archetype breakdown:
+[2026-04-09 22:01:03]     vs balanced: 4W-0L-0D (100% WR)
+[2026-04-09 22:01:03]     vs kiter: 1W-0L-0D (100% WR)
+[2026-04-09 22:01:03] Results: 5W-0L-0D (100.0% WR) | 0 crashes
+[2026-04-09 22:01:03] Scraping recent fights to meta DB...
+[2026-04-09 22:01:05]   Scraped 0/10 fights to meta DB
+[2026-04-09 22:01:08] 
+Final: 37 fights remaining
+[2026-04-09 22:01:08] AUTO DAILY FIGHTS - Complete
+[2026-04-09 22:01:08] ==================================================
+[2026-04-09 23:30:04] ==================================================
+[2026-04-09 23:30:04] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-09 23:30:04] Logged in as PriapOS
+[2026-04-09 23:30:04] [buy_fights] Already purchased today, skipping
+[2026-04-09 23:30:04] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-09 23:30:04] Status: 0/50 fights | L151 IAdonis | Talent: 341
+[2026-04-09 23:30:04] No fights to run for this leek
+[2026-04-09 23:30:04] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-09 23:30:07] Status: 0/50 fights | L3 AnansAI | Talent: 100
+[2026-04-09 23:30:07] No fights to run for this leek
+[2026-04-09 23:30:08] 
+Final: 0 fights remaining
+[2026-04-09 23:30:08] AUTO DAILY FIGHTS - Complete
+[2026-04-09 23:30:08] ==================================================
+[2026-04-09 23:30:04] ==================================================
+[2026-04-09 23:30:04] AUTO DAILY FIGHTS - Starting (iadonis, anansai)
+[2026-04-09 23:30:04] Logged in as PriapOS
+[2026-04-09 23:30:04] [buy_fights] Already purchased today, skipping
+[2026-04-09 23:30:04] 
+--- IAdonis (#131321) | AI: fighter_v14_flat ---
+[2026-04-09 23:30:04] Status: 0/50 fights | L151 IAdonis | Talent: 341
+[2026-04-09 23:30:04] No fights to run for this leek
+[2026-04-09 23:30:04] 
+--- AnansAI (#132531) | AI: fighter_v14_flat ---
+[2026-04-09 23:30:07] Status: 0/50 fights | L3 AnansAI | Talent: 100
+[2026-04-09 23:30:07] No fights to run for this leek
+[2026-04-09 23:30:08] 
+Final: 0 fights remaining
+[2026-04-09 23:30:08] AUTO DAILY FIGHTS - Complete
+[2026-04-09 23:30:08] ==================================================

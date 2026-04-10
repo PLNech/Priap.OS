@@ -70,7 +70,7 @@ class Entity:
 
         # Fight state
         self.cell: int = 0
-        self.current_weapon: dict | None = weapons[0] if weapons else None
+        self.current_weapon: dict | None = None  # Real game: no weapon equipped at start
         self.effects: list[ActiveEffect] = []
         self.cooldowns: dict[int, int] = {}  # chip_template -> turns remaining
         # Initial cooldowns: some chips start the fight on cooldown
@@ -264,6 +264,58 @@ class Entity:
     def add_effect(self, effect: ActiveEffect) -> None:
         """Append a new active effect."""
         self.effects.append(effect)
+
+    # ── introspection ────────────────────────────────────────────────
+
+    def snapshot(self) -> dict:
+        """Serializable snapshot of full entity state."""
+        return {
+            "id": self.id, "name": self.name, "team": self.team,
+            "cell": self.cell, "dead": self.dead,
+            "life": self.life, "max_life": self.max_life,
+            "base_tp": self.base_tp, "tp": self.tp, "tp_used": self.tp_used,
+            "base_mp": self.base_mp, "mp": self.mp, "mp_used": self.mp_used,
+            "strength": self.strength, "agility": self.agility,
+            "resistance": self.resistance, "wisdom": self.wisdom,
+            "magic": self.magic, "science": self.science, "power": self.power,
+            "frequency": self.frequency,
+            "abs_shield": self.abs_shield, "rel_shield": self.rel_shield,
+            "effects": [
+                {"type": e.effect_type, "value": e.value,
+                 "turns": e.remaining_turns, "source": e.source_entity}
+                for e in self.effects
+            ],
+            "cooldowns": dict(self.cooldowns),
+            "chip_fight_uses": dict(self.chip_fight_uses),
+            "states": sorted(self.states),
+            "weapon": self.current_weapon["name"] if self.current_weapon else None,
+        }
+
+    def inject(self, **overrides) -> None:
+        """Set arbitrary entity fields. For state injection in replay/debugging.
+
+        Supports: life, max_life, cell, dead, tp_used, mp_used, effects, cooldowns,
+                  strength, agility, resistance, wisdom, magic, science, power.
+        """
+        simple_fields = {
+            "life", "max_life", "cell", "dead", "tp_used", "mp_used",
+            "strength", "agility", "resistance", "wisdom", "magic",
+            "science", "power", "frequency", "base_tp", "base_mp",
+        }
+        for k, v in overrides.items():
+            if k in simple_fields:
+                setattr(self, k, v)
+            elif k == "effects":
+                self.effects = [
+                    ActiveEffect(e["type"], e["value"], e["turns"], e.get("source", 0))
+                    for e in v
+                ]
+            elif k == "cooldowns":
+                self.cooldowns = dict(v)
+            elif k == "states":
+                self.states = set(v)
+            else:
+                raise ValueError(f"Unknown entity field: {k}")
 
     # ── display ───────────────────────────────────────────────────────
 

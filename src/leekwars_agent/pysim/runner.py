@@ -20,6 +20,7 @@ def _build_weapon_dict(weapon) -> dict:
     """Convert equipment.Weapon to engine-compatible dict."""
     return {
         "id": weapon.id,
+        "item": weapon.item,  # constants.ts value (WEAPON_B_LASER = 60)
         "name": weapon.name,
         "template": weapon.template,
         "cost": weapon.cost,
@@ -45,7 +46,11 @@ def _build_weapon_dict(weapon) -> dict:
 
 
 def _build_chip_dict(chip) -> dict:
-    """Convert equipment.Chip to engine-compatible dict."""
+    """Convert equipment.Chip to engine-compatible dict.
+
+    Note: for chips, constants.ts CHIP_* = chip.id (same as registry id).
+    No 'item' field needed — unlike weapons where constants.ts uses item_id.
+    """
     return {
         "id": chip.id,
         "name": chip.name,
@@ -232,3 +237,122 @@ class PySimRunner:
         # Run fight
         self._last_engine = engine  # expose for debugging/diagnostics
         return engine.run()
+
+    def setup_from_fight(
+        self,
+        fight_data: dict,
+        ai_path: str | Path,
+        *,
+        ai_path_2: str | Path | None = None,
+        seed: int | None = None,
+    ) -> FightEngine:
+        """Create a PySim engine matching a real fight's initial conditions.
+
+        Parses the fight JSON (from API) to extract:
+        - Map: width, height, obstacles, entity spawn positions
+        - Entity stats: life, TP, MP, STR, AGI, RES, WIS, MAG, SCI, frequency
+        - Equipment: via all-weapons/all-chips (since we can't know exact loadout)
+
+        Returns an initialized FightEngine ready for run() or step_turn().
+        Use engine.snapshot() to inspect, engine.step_turn() to single-step,
+        or engine.run() for full fight.
+
+        Args:
+            fight_data: Full fight JSON from API (with 'data' key containing leeks, map, actions)
+            ai_path: Path to .leek file for entity 0 (team 1)
+            ai_path_2: Path to .leek file for entity 1 (team 2). Defaults to ai_path.
+            seed: RNG seed override (default: from fight data if available)
+        """
+        self._load_registries()
+        data = fight_data.get("data", fight_data)
+
+        # Parse map
+        map_info = data.get("map", {})
+        width = map_info.get("width", 18)
+        height = map_info.get("height", 18)
+        obstacle_dict = map_info.get("obstacles", {})
+        obstacle_cells = {int(k) for k in obstacle_dict}
+
+        # Parse entities
+        leeks = data.get("leeks", [])
+        all_weapons = self._all_weapons()
+        all_chips = self._all_chips()
+
+        entities = []
+        for lk in leeks:
+            e = Entity(
+                id=lk["id"],
+                name=lk.get("name", f"Entity{lk['id']}"),
+                team=lk.get("team", 1),
+                farmer=lk.get("farmer", lk["id"]),
+                level=lk.get("level", 1),
+                life=lk.get("life", 100),
+                tp=lk.get("tp", 10),
+                mp=lk.get("mp", 3),
+                strength=lk.get("strength", 0),
+                agility=lk.get("agility", 0),
+                resistance=lk.get("resistance", 0),
+                wisdom=lk.get("wisdom", 0),
+                magic=lk.get("magic", 0),
+                science=lk.get("science", 0),
+                power=lk.get("power", 0),
+                frequency=lk.get("frequency", 100),
+                weapons=all_weapons,
+                chips=all_chips,
+            )
+            e.cell = lk.get("cellPos", 0)
+            entities.append(e)
+
+        grid = Grid(width, height, obstacles=obstacle_cells)
+        fight_seed = seed or fight_data.get("seed", 42)
+        engine = FightEngine(grid, entities, seed=fight_seed)
+
+        # Load AI files
+        ai1_source = Path(ai_path).read_text(errors="replace")
+        ai2_source = Path(ai_path_2 or ai_path).read_text(errors="replace")
+        if len(entities) >= 1:
+            engine.load_ai(entities[0].id, ai1_source, source_path=str(ai_path))
+        if len(entities) >= 2:
+            engine.load_ai(entities[1].id, ai2_source,
+                           source_path=str(ai_path_2 or ai_path))
+
+        self._last_engine = engine
+        return engine
+
+    def replay_and_compare(
+        self,
+        fight_data: dict,
+        ai_path: str | Path,
+        *,
+        ai_path_2: str | Path | None = None,
+        damage_tolerance: int = 5,
+    ) -> dict:
+        """Replay a real fight in PySim and compare action sequences.
+
+        Returns:
+            {
+                "real_winner": int, "pysim_winner": int,
+                "real_turns": int, "pysim_turns": int,
+                "divergences": list[dict],  # from FightEngine.compare_actions
+                "pysim_snapshot": dict,  # final state
+            }
+        """
+        data = fight_data.get("data", fight_data)
+        real_actions = data.get("actions", [])
+
+        engine = self.setup_from_fight(fight_data, ai_path, ai_path_2=ai_path_2)
+        result = engine.run()
+
+        divergences = FightEngine.compare_actions(
+            real_actions, result["actions"],
+            damage_tolerance=damage_tolerance,
+        )
+
+        return {
+            "real_winner": fight_data.get("winner", 0),
+            "pysim_winner": result["winner"],
+            "real_turns": sum(1 for a in real_actions if a[0] == 6),
+            "pysim_turns": result["turns"],
+            "divergences": divergences,
+            "pysim_snapshot": engine.snapshot(),
+        }
