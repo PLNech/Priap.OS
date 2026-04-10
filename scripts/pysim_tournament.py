@@ -56,7 +56,7 @@ PARTICIPANTS = [
     ("arch_tank", "ais/archetype_tank.leek"),
 ]
 
-FIGHTS_PER_SIDE = 20  # 20 per side = 40 per matchup
+FIGHTS_PER_SIDE = 5  # 5 per side = 10 per matchup (fast iteration, statistically adequate)
 MAX_WORKERS = max(1, (os.cpu_count() or 4) // 2)  # 50% of cores — keep machine responsive
 
 
@@ -72,6 +72,7 @@ def run_matchup(i: int, j: int, matchup_idx: int) -> dict:
     name_j, path_j = PARTICIPANTS[j]
 
     w_i, w_j, d = 0, 0, 0
+    consec_draws = 0
     matchup_errors = defaultdict(set)
 
     for side in [0, 1]:
@@ -83,6 +84,11 @@ def run_matchup(i: int, j: int, matchup_idx: int) -> dict:
             p2_name, p2_path = name_i, path_i
 
         for fight_idx in range(FIGHTS_PER_SIDE):
+            # Early exit: 5+ consecutive draws means this matchup is a stalemate
+            if consec_draws >= 5:
+                d += FIGHTS_PER_SIDE - fight_idx  # count remaining as draws
+                break
+
             seed = matchup_idx * 1000 + side * 500 + fight_idx
             try:
                 result = runner.run_1v1(p1_path, p2_path, seed=seed)
@@ -91,17 +97,23 @@ def run_matchup(i: int, j: int, matchup_idx: int) -> dict:
                 if side == 0:
                     if winner == 1:
                         w_i += 1
+                        consec_draws = 0
                     elif winner == 2:
                         w_j += 1
+                        consec_draws = 0
                     else:
                         d += 1
+                        consec_draws += 1
                 else:
                     if winner == 1:
                         w_j += 1
+                        consec_draws = 0
                     elif winner == 2:
                         w_i += 1
+                        consec_draws = 0
                     else:
                         d += 1
+                        consec_draws += 1
 
                 # Collect errors
                 for eid in [1, 2]:
@@ -112,6 +124,7 @@ def run_matchup(i: int, j: int, matchup_idx: int) -> dict:
 
             except Exception as exc:
                 d += 1
+                consec_draws += 1
                 matchup_errors[name_i if side == 0 else name_j].add(f"CRASH: {exc}")
 
     return {
