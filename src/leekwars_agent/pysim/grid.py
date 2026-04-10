@@ -451,8 +451,15 @@ class Grid:
         max_steps: int,
         blocked: set[int] | None = None,
     ) -> list[int]:
-        """Move up to max_steps cells toward target using BFS."""
+        """Move up to max_steps cells toward target using BFS.
+
+        If target cell is occupied (in blocked set), stops adjacent —
+        matching Java Map.java:1045-1048 which removes the last cell
+        from the path when occupied by an entity.
+        """
         path = self.find_path_bfs(start, target, blocked)
+        if path and blocked and path[-1] in blocked:
+            path = path[:-1]
         return path[:max_steps]
 
     def move_away_from(
