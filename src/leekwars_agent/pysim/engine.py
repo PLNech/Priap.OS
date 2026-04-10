@@ -109,6 +109,9 @@ class FightEngine:
         self.interpreters: dict[int, Interpreter] = {}
         self.programs: dict[int, Program] = {}
         self._current_entity_id: int = 0
+        # Cell index: cell_id → entity_id for O(1) entity-on-cell lookups.
+        # Updated by _move_entity() and when entities die.
+        self._cell_index: dict[int, int] = {e.cell: e.id for e in entities if not e.dead}
 
     def load_ai(self, entity_id: int, leek_source: str,
                 source_path: str | None = None):
@@ -125,10 +128,35 @@ class FightEngine:
     def _emit(self, *action):
         self.actions.append(list(action))
 
+    def _move_entity(self, entity: Entity, new_cell: int) -> None:
+        """Move entity and update cell index."""
+        old_cell = entity.cell
+        if old_cell in self._cell_index and self._cell_index[old_cell] == entity.id:
+            del self._cell_index[old_cell]
+        entity.cell = new_cell
+        if not entity.dead:
+            self._cell_index[new_cell] = entity.id
+
+    def _mark_dead(self, entity: Entity) -> None:
+        """Mark entity dead and remove from cell index."""
+        entity.dead = True
+        entity.life = 0
+        if entity.cell in self._cell_index and self._cell_index[entity.cell] == entity.id:
+            del self._cell_index[entity.cell]
+
+    def _apply_damage(self, entity: Entity, raw: float, erosion_rate: float = 0.05) -> int:
+        """Apply damage and update cell index if entity dies."""
+        actual = entity.take_damage(raw, erosion_rate=erosion_rate)
+        if entity.dead and entity.cell in self._cell_index:
+            if self._cell_index.get(entity.cell) == entity.id:
+                del self._cell_index[entity.cell]
+        return actual
+
     def _entity_cells(self, exclude: int | None = None) -> set[int]:
         """Cells occupied by living entities, optionally excluding one."""
-        return {e.cell for e in self.entities.values()
-                if not e.dead and e.id != exclude}
+        if exclude is None:
+            return set(self._cell_index.keys())
+        return {cell for cell, eid in self._cell_index.items() if eid != exclude}
 
     def _fight_over(self) -> bool:
         """Check if one team is eliminated."""
@@ -154,6 +182,20 @@ class FightEngine:
         """Build all game API functions for this entity as closures."""
         me = self.entities[entity_id]
         engine = self
+
+        # Build weapon/chip index for O(1) lookups by any ID layer
+        _weapon_index: dict[int, dict] = {}
+        for w in me.weapons:
+            _weapon_index[w["template"]] = w
+            _weapon_index[w["id"]] = w
+            if "item" in w:
+                _weapon_index[w["item"]] = w
+        _chip_index: dict[int, dict] = {}
+        for c in me.chips:
+            _chip_index[c["template"]] = c
+            _chip_index[c["id"]] = c
+            if "item" in c:
+                _chip_index[c["item"]] = c
 
         # ── State queries ───────────────────────────────────────────
 
@@ -298,11 +340,9 @@ class FightEngine:
             if w_id is None:
                 return me.current_weapon
             w_id = _safe_int(w_id)
-            for w in me.weapons:
-                # Three ID layers: template (fight actions), id (registry),
-                # item (constants.ts WEAPON_* values). Must match all.
-                if w["template"] == w_id or w["id"] == w_id or w.get("item") == w_id:
-                    return w
+            w = _weapon_index.get(w_id)
+            if w is not None:
+                return w
             # Fallback: look up in global registry
             try:
                 from leekwars_agent.models.equipment import WEAPON_REGISTRY
@@ -364,11 +404,7 @@ class FightEngine:
             if chip_id is None:
                 return None
             chip_id = _safe_int(chip_id)
-            for c in me.chips:
-                # Three ID layers: template, id (registry), item (constants.ts CHIP_*)
-                if c["template"] == chip_id or c["id"] == chip_id or c.get("item") == chip_id:
-                    return c
-            return None
+            return _chip_index.get(chip_id)
 
         def getChipMaxUses(chip_id):
             c = _find_chip(chip_id)
@@ -466,26 +502,20 @@ class FightEngine:
 
         def isEmptyCell(cell):
             cell = _safe_int(cell)
-            if cell < 0 or cell >= Grid.CELLS:
+            if cell < 0 or cell >= engine.grid.nb_cells:
                 return False
             if cell in engine.grid.obstacles:
                 return False
-            # Check for entities on that cell
-            for e in engine.entities.values():
-                if not e.dead and e.cell == cell:
-                    return False
-            return True
+            return cell not in engine._cell_index
 
         def getCellContent(cell):
             cell = _safe_int(cell)
-            if cell < 0 or cell >= Grid.CELLS:
+            if cell < 0 or cell >= engine.grid.nb_cells:
                 return CELL_OBSTACLE
             if cell in engine.grid.obstacles:
                 return CELL_OBSTACLE
-            for e in engine.entities.values():
-                if not e.dead and e.cell == cell:
-                    return e.id
-            return CELL_EMPTY
+            eid = engine._cell_index.get(cell)
+            return eid if eid is not None else CELL_EMPTY
 
         def lineOfSight(c1, c2=None, ignore=None):
             if c2 is None:
@@ -610,7 +640,7 @@ class FightEngine:
 
             if path:
                 me.mp_used += len(path)
-                me.cell = path[-1]
+                engine._move_entity(me, path[-1])
                 engine._emit(10, me.id, me.cell, path)  # MOVE_TO: [10, eid, dest, path]
 
             return len(path)
@@ -628,7 +658,7 @@ class FightEngine:
 
             if path:
                 me.mp_used += len(path)
-                me.cell = path[-1]
+                engine._move_entity(me, path[-1])
                 engine._emit(10, me.id, me.cell, path)  # MOVE_TO
 
             return len(path)
@@ -651,7 +681,7 @@ class FightEngine:
 
             if path:
                 me.mp_used += len(path)
-                me.cell = path[-1]
+                engine._move_entity(me, path[-1])
                 engine._emit(10, me.id, me.cell, path)  # MOVE_TO
 
             return len(path)
@@ -1021,7 +1051,7 @@ class FightEngine:
                     actual_path.append(cell)
                 if actual_path:
                     me.mp_used += len(actual_path)
-                    me.cell = actual_path[-1]
+                    engine._move_entity(me, actual_path[-1])
                     engine._emit(10, me.id, me.cell, actual_path)  # MOVE_TO
                     return len(actual_path)
             return 0
@@ -1071,10 +1101,7 @@ class FightEngine:
 
         def getLeekOnCell(cell):
             cell = _safe_int(cell)
-            for e in engine.entities.values():
-                if not e.dead and e.cell == cell:
-                    return e.id
-            return -1
+            return engine._cell_index.get(cell, -1)
 
         def getEntityOnCell(cell):
             return getLeekOnCell(cell)
@@ -1574,14 +1601,14 @@ class FightEngine:
         if eff_id == 1:  # EFFECT_DAMAGE
             raw, crit = calc_effect_value(v1, v2, eff_id, stats, self.rng)
             er = erosion_rate(is_poison=False, is_critical=crit)
-            actual = target.take_damage(raw, erosion_rate=er)
+            actual = self._apply_damage(target, raw, erosion_rate=er)
             self._emit(101, target.id, actual)
             # Damage return
             dr = target.damage_return
             if dr > 0 and actual > 0:
                 reflected = int(actual * dr / 100)
                 if reflected > 0:
-                    ref_actual = caster.take_damage(reflected, erosion_rate=er)
+                    ref_actual = self._apply_damage(caster, reflected, erosion_rate=er)
                     if ref_actual > 0:
                         self._emit(101, caster.id, ref_actual)
             # Life steal: WIS/1000
@@ -1653,13 +1680,13 @@ class FightEngine:
             pct = (v1 + jet * v2) / 100
             raw = int(round(caster.life * pct * factor * (1 + caster.effective_power / 100)))
             er = erosion_rate(is_poison=False, is_critical=crit)
-            actual = target.take_damage(raw, erosion_rate=er)
+            actual = self._apply_damage(target, raw, erosion_rate=er)
             self._emit(101, target.id, actual)
 
         elif eff_id == 30:  # NOVA_DAMAGE (science + power scaled)
             raw, crit = calc_effect_value(v1, v2, eff_id, stats, self.rng)
             er = erosion_rate(is_poison=False, is_critical=crit)
-            actual = target.take_damage(raw, erosion_rate=er)
+            actual = self._apply_damage(target, raw, erosion_rate=er)
             self._emit(101, target.id, actual)
 
         elif eff_id == 57:  # RAW_HEAL (no stat scaling)
@@ -1670,7 +1697,7 @@ class FightEngine:
         elif eff_id == 61:  # STEAL_LIFE
             raw, crit = calc_effect_value(v1, v2, eff_id, stats, self.rng)
             er = erosion_rate(is_poison=False, is_critical=crit)
-            actual = target.take_damage(raw, erosion_rate=er)
+            actual = self._apply_damage(target, raw, erosion_rate=er)
             self._emit(101, target.id, actual)
             if actual > 0 and not caster.dead:
                 healed = caster.heal(actual)
@@ -1686,8 +1713,7 @@ class FightEngine:
 
         # ── Kill ───────────────────────────────────────────────────
         elif eff_id == 16:  # EFFECT_KILL
-            target.life = 0
-            target.dead = True
+            self._mark_dead(target)
             self._emit(11, target.id)
 
         # ── Antidote (remove poisons) ──────────────────────────────
@@ -1707,12 +1733,13 @@ class FightEngine:
 
         # ── Spatial effects ─────────────────────────────────────────
         elif eff_id == 10:  # TELEPORT — move caster to target's cell
-            old_cell = caster.cell
-            caster.cell = target.cell
+            self._move_entity(caster, target.cell)
             self._emit(10, caster.id, caster.cell, [caster.cell])
 
         elif eff_id == 11:  # PERMUTATION — swap caster and target cells
-            caster.cell, target.cell = target.cell, caster.cell
+            c_cell, t_cell = caster.cell, target.cell
+            self._move_entity(caster, t_cell)
+            self._move_entity(target, c_cell)
             self._emit(10, caster.id, caster.cell, [caster.cell])
             self._emit(10, target.id, target.cell, [target.cell])
 
@@ -1720,14 +1747,14 @@ class FightEngine:
             blocked = self._entity_cells(exclude=target.id)
             path = self.grid.move_away_from(target.cell, caster.cell, 3, blocked)
             if path:
-                target.cell = path[-1]
+                self._move_entity(target, path[-1])
                 self._emit(10, target.id, target.cell, path)
 
         elif eff_id == 46:  # ATTRACT — pull target toward caster
             blocked = self._entity_cells(exclude=target.id)
             path = self.grid.move_toward(target.cell, caster.cell, 3, blocked)
             if path:
-                target.cell = path[-1]
+                self._move_entity(target, path[-1])
                 self._emit(10, target.id, target.cell, path)
 
         # ── Not yet simulated (summon, resurrect, propagation) ─────
@@ -1800,7 +1827,7 @@ class FightEngine:
                 is_poison = eff.effect_type == "poison"
                 is_crit = getattr(entity, '_poison_crit', False) if is_poison else False
                 er = erosion_rate(is_poison=is_poison, is_critical=is_crit)
-                actual = entity.take_damage(eff.value, erosion_rate=er)
+                actual = self._apply_damage(entity, eff.value, erosion_rate=er)
                 if actual > 0:
                     self._emit(110, entity.id, actual)
                 if entity.dead:
@@ -2065,7 +2092,7 @@ class FightEngine:
                         is_poison = eff.effect_type == "poison"
                         is_crit = getattr(entity, '_poison_crit', False) if is_poison else False
                         er = erosion_rate(is_poison=is_poison, is_critical=is_crit)
-                        actual = entity.take_damage(eff.value, erosion_rate=er)
+                        actual = self._apply_damage(entity, eff.value, erosion_rate=er)
                         if actual > 0:
                             self._emit(110, entity.id, actual)  # POISON_DAMAGE
                         if entity.dead:

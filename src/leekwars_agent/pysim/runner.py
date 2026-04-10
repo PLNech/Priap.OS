@@ -238,6 +238,30 @@ class PySimRunner:
         self._last_engine = engine  # expose for debugging/diagnostics
         return engine.run()
 
+    @staticmethod
+    def extract_equipment_from_actions(actions: list[list]) -> dict[int, dict]:
+        """Extract weapon/chip usage per entity from fight action log.
+
+        Scans for SET_WEAPON (13) and USE_CHIP (12) actions to infer
+        each entity's actual equipment loadout.
+
+        Returns:
+            {entity_id: {"weapon_templates": set[int], "chip_templates": set[int]}}
+        """
+        equipment: dict[int, dict] = {}
+        current_entity = -1
+        for action in actions:
+            code = action[0]
+            if code == 7:  # LEEK_TURN — [7, entity_id]
+                current_entity = action[1]
+            elif code == 13 and current_entity >= 0:  # SET_WEAPON — [13, template]
+                equipment.setdefault(current_entity, {"weapon_templates": set(), "chip_templates": set()})
+                equipment[current_entity]["weapon_templates"].add(action[1])
+            elif code == 12 and current_entity >= 0:  # USE_CHIP — [12, template, cell, success]
+                equipment.setdefault(current_entity, {"weapon_templates": set(), "chip_templates": set()})
+                equipment[current_entity]["chip_templates"].add(action[1])
+        return equipment
+
     def setup_from_fight(
         self,
         fight_data: dict,
@@ -245,13 +269,15 @@ class PySimRunner:
         *,
         ai_path_2: str | Path | None = None,
         seed: int | None = None,
+        restrict_equipment: bool = False,
     ) -> FightEngine:
         """Create a PySim engine matching a real fight's initial conditions.
 
         Parses the fight JSON (from API) to extract:
         - Map: width, height, obstacles, entity spawn positions
         - Entity stats: life, TP, MP, STR, AGI, RES, WIS, MAG, SCI, frequency
-        - Equipment: via all-weapons/all-chips (since we can't know exact loadout)
+        - Equipment: all weapons/chips by default, or restricted to actual
+          loadout if restrict_equipment=True (inferred from fight actions)
 
         Returns an initialized FightEngine ready for run() or step_turn().
         Use engine.snapshot() to inspect, engine.step_turn() to single-step,
@@ -262,6 +288,8 @@ class PySimRunner:
             ai_path: Path to .leek file for entity 0 (team 1)
             ai_path_2: Path to .leek file for entity 1 (team 2). Defaults to ai_path.
             seed: RNG seed override (default: from fight data if available)
+            restrict_equipment: If True, restrict weapons/chips to those observed
+                in the fight actions (SET_WEAPON/USE_CHIP). Default False.
         """
         self._load_registries()
         data = fight_data.get("data", fight_data)
@@ -273,18 +301,37 @@ class PySimRunner:
         obstacle_dict = map_info.get("obstacles", {})
         obstacle_cells = {int(k) for k in obstacle_dict}
 
-        # Parse entities
-        leeks = data.get("leeks", [])
+        # Equipment: infer from actions or give all
+        real_equipment = None
+        if restrict_equipment:
+            real_actions = data.get("actions", [])
+            if real_actions:
+                real_equipment = self.extract_equipment_from_actions(real_actions)
+
         all_weapons = self._all_weapons()
         all_chips = self._all_chips()
 
+        # Parse entities
+        leeks = data.get("leeks", [])
+
         entities = []
         for lk in leeks:
+            eid = lk["id"]
+
+            # Restrict equipment if we have action data
+            if real_equipment and eid in real_equipment:
+                eq = real_equipment[eid]
+                entity_weapons = [w for w in all_weapons if w["template"] in eq["weapon_templates"]]
+                entity_chips = [c for c in all_chips if c["template"] in eq["chip_templates"]]
+            else:
+                entity_weapons = all_weapons
+                entity_chips = all_chips
+
             e = Entity(
-                id=lk["id"],
-                name=lk.get("name", f"Entity{lk['id']}"),
+                id=eid,
+                name=lk.get("name", f"Entity{eid}"),
                 team=lk.get("team", 1),
-                farmer=lk.get("farmer", lk["id"]),
+                farmer=lk.get("farmer", eid),
                 level=lk.get("level", 1),
                 life=lk.get("life", 100),
                 tp=lk.get("tp", 10),
@@ -297,8 +344,8 @@ class PySimRunner:
                 science=lk.get("science", 0),
                 power=lk.get("power", 0),
                 frequency=lk.get("frequency", 100),
-                weapons=all_weapons,
-                chips=all_chips,
+                weapons=entity_weapons,
+                chips=entity_chips,
             )
             e.cell = lk.get("cellPos", 0)
             entities.append(e)
@@ -326,6 +373,7 @@ class PySimRunner:
         *,
         ai_path_2: str | Path | None = None,
         damage_tolerance: int = 5,
+        restrict_equipment: bool = False,
     ) -> dict:
         """Replay a real fight in PySim and compare action sequences.
 
@@ -340,7 +388,8 @@ class PySimRunner:
         data = fight_data.get("data", fight_data)
         real_actions = data.get("actions", [])
 
-        engine = self.setup_from_fight(fight_data, ai_path, ai_path_2=ai_path_2)
+        engine = self.setup_from_fight(fight_data, ai_path, ai_path_2=ai_path_2,
+                                       restrict_equipment=restrict_equipment)
         result = engine.run()
 
         divergences = FightEngine.compare_actions(

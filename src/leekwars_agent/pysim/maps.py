@@ -13,6 +13,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import pickle
 import random
 import sqlite3
 from dataclasses import dataclass
@@ -47,6 +48,18 @@ class RealMapLibrary:
     def _load(self):
         if self._maps is not None:
             return
+
+        # Try pickle cache first (>100x faster than JSON parsing)
+        cache_path = self._db_path.with_suffix(".maps.pkl")
+        if cache_path.exists() and self._db_path.exists():
+            if cache_path.stat().st_mtime >= self._db_path.stat().st_mtime:
+                try:
+                    with open(cache_path, "rb") as f:
+                        self._maps = pickle.load(f)
+                    return
+                except Exception:
+                    pass  # stale/corrupt cache — rebuild
+
         self._maps = []
 
         if not self._db_path.exists():
@@ -95,6 +108,14 @@ class RealMapLibrary:
                 continue
 
         conn.close()
+
+        # Save cache for next load
+        if self._maps:
+            try:
+                with open(cache_path, "wb") as f:
+                    pickle.dump(self._maps, f, protocol=pickle.HIGHEST_PROTOCOL)
+            except Exception:
+                pass
 
     @property
     def count(self) -> int:

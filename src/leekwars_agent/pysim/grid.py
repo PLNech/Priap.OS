@@ -35,8 +35,11 @@ class Grid:
         # Precompute game (x, y) for each cell
         self._x: list[int] = [0] * self.nb_cells
         self._y: list[int] = [0] * self.nb_cells
-        # Precompute neighbors (N/S/E/W) for each cell
+        # Precompute neighbors (N/S/E/W) for each cell — includes obstacles
         self._neighbors: list[list[int]] = [[] for _ in range(self.nb_cells)]
+        # Precompute walkable neighbors (obstacles pre-filtered) — since obstacles
+        # never change after Grid construction, this avoids the per-call filter.
+        self._walkable_neighbors: list[list[int]] = [[] for _ in range(self.nb_cells)]
         # Precompute direction availability (matching Cell.java boundary checks)
         self._init_cells()
 
@@ -103,6 +106,13 @@ class Grid:
 
             self._neighbors[cell_id] = neighbors
 
+        # Precompute walkable (non-obstacle) neighbors
+        obs = self.obstacles
+        for cell_id in range(self.nb_cells):
+            self._walkable_neighbors[cell_id] = [
+                nb for nb in self._neighbors[cell_id] if nb not in obs
+            ]
+
     # For backward compatibility
     WIDTH = 18
     HEIGHT = 18
@@ -141,7 +151,7 @@ class Grid:
     def neighbors(self, cell: int) -> list[int]:
         """4-directional walkable neighbors on the diamond grid."""
         if 0 <= cell < self.nb_cells:
-            return [nb for nb in self._neighbors[cell] if nb not in self.obstacles]
+            return self._walkable_neighbors[cell]
         return []
 
     # ── line of sight (Bresenham on game x,y) ─────────────────────────
@@ -385,12 +395,13 @@ class Grid:
         blocked_set = blocked or set()
         visited: set[int] = {start}
         parent: dict[int, int] = {}
-        queue = __import__("collections").deque([start])
+        queue = deque([start])
+        walkable = self._walkable_neighbors
 
         while queue:
             current = queue.popleft()
-            for nb in self._neighbors[current]:
-                if nb in visited or nb in self.obstacles:
+            for nb in walkable[current]:
+                if nb in visited:
                     continue
                 if nb not in goals and nb in blocked_set:
                     continue
@@ -422,11 +433,12 @@ class Grid:
         visited: set[int] = {start}
         parent: dict[int, int] = {}
         queue: deque[int] = deque([start])
+        walkable = self._walkable_neighbors  # local ref for speed
 
         while queue:
             current = queue.popleft()
-            for nb in self._neighbors[current]:
-                if nb in visited or nb in self.obstacles:
+            for nb in walkable[current]:
+                if nb in visited:
                     continue
                 if nb != goal and nb in blocked_set:
                     continue
@@ -474,14 +486,15 @@ class Grid:
         path: list[int] = []
         current = start
         visited = {start}
+        walkable = self._walkable_neighbors
 
         for _ in range(max_steps):
             cur_dist = self.distance(current, target)
             best_cell: int | None = None
             best_dist = cur_dist
 
-            for nb in self._neighbors[current]:
-                if nb in self.obstacles or nb in blocked_set or nb in visited:
+            for nb in walkable[current]:
+                if nb in blocked_set or nb in visited:
                     continue
                 d = self.distance(nb, target)
                 if d > best_dist:

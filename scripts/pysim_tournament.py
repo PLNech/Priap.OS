@@ -240,7 +240,7 @@ def run_tournament():
 
     with open(output_path, "w") as f:
         f.write("# PySim ELO Tournament Results\n\n")
-        f.write(f"**Date**: {date.today().isoformat()} (S45)\n")
+        f.write(f"**Date**: {date.today().isoformat()} (S51)\n")
         f.write(f"**Participants**: {n}\n")
         f.write(f"**Fights per matchup**: {FIGHTS_PER_SIDE * 2} ({FIGHTS_PER_SIDE}/side)\n")
         f.write(f"**Total fights**: {total_fights}\n")
