@@ -4,7 +4,7 @@
 **Participants**: 23
 **Fights per matchup**: 10 (5/side)
 **Total fights**: 2530
-**Duration**: 1400.3s (2 fights/sec, 10 workers)
+**Duration**: 1340.5s (2 fights/sec, 10 workers)
 
 ## ELO Rankings
 
