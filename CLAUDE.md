@@ -91,6 +91,18 @@ No AI is "deployed successfully" until one fight's logs show no runtime errors.
 | Effect formulas + metadata | `from leekwars_agent.pysim.java_formulas import get_effect_formulas` (parses `Effect*.java`) |
 | Our equipment | `docs/GROUND_TRUTH.md` |
 
+### Bug Discipline (MANDATORY)
+
+**Never leave a discovered bug buried in the conversation.** When you find a bug while investigating something else:
+
+1. **Trivial + in-context** → fix immediately, include in the current commit.
+2. **Non-trivial** → `TaskCreate` with: what you saw, file:line, why it matters, blast radius, what you tried. Then continue the original task.
+3. **Structurally critical** (corrupts data, blocks measurement, silently breaks AI logic) → STOP. Surface the bug to the user with the inventory (severity, status, plan). Ask whether to pivot. Accumulating silent data-corruption debt has cost us weeks in the past (S40 sim, S31 chip IDs, S47 constants audit).
+
+A "discovered bug" counts whether you introduced it or inherited it. Parser corner cases, stale-data surprises, test failures unrelated to your change — all qualify. The test is: *if a future session trusted this code/data without knowing what I know, would they be misled?* If yes, file it.
+
+**Living bug ledger**: the task system IS the ledger. Every bug gets a task. No `TODO:` comments in code, no "I'll remember", no mental TODOs. Tasks persist; memory doesn't.
+
 ### Parse, Don't Rewrite (MANDATORY)
 **NEVER hand-write game constant values.** Parse them from canonical source files.
 If a value exists in `constants.ts`, `chips.ts`, `weapons.ts`, or `Effect*.java`, it MUST be loaded by a parser — not typed by hand. S47 audit found 19 wrong constants that silently broke opponent AI logic for weeks.
