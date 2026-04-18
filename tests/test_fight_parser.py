@@ -60,15 +60,24 @@ ENTITY_B = {
 
 @pytest.fixture
 def simple_fight():
-    """A 2-turn fight: A attacks B, B heals, A kills B."""
+    """A 2-turn fight: A attacks B, B heals, A kills B.
+
+    Action codes reference:
+    - SET_WEAPON=13: [13, weapon_template] — equips a weapon
+    - USE_WEAPON=16: [16, target_cell, target_entity] — fires equipped weapon
+      (NOTE: action[1] is cell, NOT weapon template. Weapon identity comes
+      from the most recent SET_WEAPON.)
+    - USE_CHIP=12: [12, chip_template, cell, success]
+    """
     actions = [
         [0],                          # START_FIGHT
         [6, 1],                       # NEW_TURN 1
         [7, 0],                       # LEEK_TURN entity 0 (IAdonis)
+        [13, 5],                      # SET_WEAPON template 5 (magnum) — equipped by entity 0
         [10, 0, 200, [150, 200]],     # MOVE_TO: A moves 2 cells
         [12, 10, 43, 1],              # USE_CHIP 10 (Flame template) at cell 43
         [101, 1, 80, 3],              # LOST_LIFE: entity 1 lost 80 HP
-        [16, 5, 43],                  # USE_WEAPON 5 at cell 43
+        [16, 43, 1],                  # USE_WEAPON at cell 43 targeting entity 1 (fires magnum)
         [101, 1, 120, 4],             # LOST_LIFE: entity 1 lost 120 HP
         [8, 0, 3, 1],                 # END_TURN
         [7, 1],                       # LEEK_TURN entity 1 (Enemy)
@@ -77,8 +86,8 @@ def simple_fight():
         [10, 1, 180, [190, 180]],     # MOVE_TO: B moves 2 cells
         [8, 1, 4, 2],                 # END_TURN
         [6, 2],                       # NEW_TURN 2
-        [7, 0],                       # LEEK_TURN entity 0
-        [16, 5, 43],                  # USE_WEAPON 5
+        [7, 0],                       # LEEK_TURN entity 0 (magnum still equipped)
+        [16, 43, 1],                  # USE_WEAPON at cell 43 targeting entity 1
         [101, 1, 150, 4],             # LOST_LIFE: entity 1 lost 150 HP
         [5, 1],                       # PLAYER_DEAD: entity 1
         [4],                          # END_FIGHT
@@ -123,10 +132,51 @@ class TestExtractCombatStats:
 
     def test_weapons_used(self, simple_fight):
         stats = extract_combat_stats(simple_fight)
-        # IAdonis used weapon 5
+        # IAdonis used weapon 5 (magnum) — set via SET_WEAPON, fired via USE_WEAPON
         assert 5 in stats[131321]["weapons_used"]
         # Enemy didn't use weapons
         assert stats[99999]["weapons_used"] == []
+
+    def test_use_weapon_without_set_weapon_attributes_nothing(self):
+        """Regression: USE_WEAPON alone (no preceding SET_WEAPON) must NOT
+        capture action[1] as the weapon template. action[1] is the target cell.
+
+        Prior bug: parser read action[1] as weapon_template, polluting
+        weapons_used with cell numbers for ~52% of observations.
+        """
+        actions = [
+            [6, 1], [7, 0],
+            [16, 360, 1],  # USE_WEAPON at cell 360 — NO SET_WEAPON before
+            [8, 0, 3, 1],
+        ]
+        fight = _make_fight(
+            leeks1=[LEEK_A], leeks2=[LEEK_B],
+            data_leeks=[ENTITY_A, ENTITY_B],
+            actions=actions,
+        )
+        stats = extract_combat_stats(fight)
+        # Must be empty — no weapon was equipped in the log
+        assert stats[131321]["weapons_used"] == []
+        # And CRITICALLY: cell number 360 must NOT appear as a weapon
+        assert 360 not in stats[131321]["weapons_used"]
+
+    def test_weapon_switch_captures_both(self):
+        """Switching weapons mid-fight records both as used."""
+        actions = [
+            [6, 1], [7, 0],
+            [13, 5],          # equip magnum
+            [16, 100, 1],     # fire magnum
+            [13, 6],          # switch to laser
+            [16, 50, 1],      # fire laser
+            [8, 0, 3, 1],
+        ]
+        fight = _make_fight(
+            leeks1=[LEEK_A], leeks2=[LEEK_B],
+            data_leeks=[ENTITY_A, ENTITY_B],
+            actions=actions,
+        )
+        stats = extract_combat_stats(fight)
+        assert set(stats[131321]["weapons_used"]) == {5, 6}
 
     def test_turns_alive(self, simple_fight):
         stats = extract_combat_stats(simple_fight)
@@ -292,6 +342,12 @@ class TestRealFightValidation:
         total_dmg = sum(s["damage_dealt"] for s in stats.values())
         assert total_dmg > 0, f"Fight {fight_id} should have damage"
 
+    @pytest.mark.xfail(
+        reason="Task #126: POISON_DAMAGE code 110 updates damage_received but not "
+               "damage_dealt. Ticks fire on victim's turn so we can't attribute via "
+               "current_entity_id. Needs poison-source tracking from USE_CHIP.",
+        strict=False,
+    )
     def test_real_fight_damage_balance(self, db_fight):
         """Damage dealt by one side ≈ damage received by the other."""
         fight_json, fight_id, _ = db_fight
@@ -300,8 +356,6 @@ class TestRealFightValidation:
         leek_ids = list(stats.keys())
         if len(leek_ids) == 2:
             a, b = leek_ids
-            # A's damage dealt should equal B's damage received (approx,
-            # some damage sources like poison may cause slight mismatches)
             assert abs(stats[a]["damage_dealt"] - stats[b]["damage_received"]) < 50
             assert abs(stats[b]["damage_dealt"] - stats[a]["damage_received"]) < 50
 

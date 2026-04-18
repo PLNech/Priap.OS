@@ -296,6 +296,10 @@ def extract_combat_stats(fight_json: dict) -> dict[int, dict]:
 
     current_entity_id = None  # Track whose turn it is
     current_turn_num = 0
+    # entity_id → currently-equipped weapon template. USE_WEAPON (code 16)
+    # has action[1]=cell (NOT weapon template). Weapon identity comes from the
+    # most recent SET_WEAPON (code 13) for the acting entity.
+    current_weapons: dict[int, int] = {}
 
     for action in actions:
         if not action:
@@ -318,15 +322,22 @@ def extract_combat_stats(fight_json: dict) -> dict[int, dict]:
                 path = action[3] if len(action) > 3 and isinstance(action[3], list) else []
                 stats[leek_id]["cells_moved"] += len(path) if path else 1
 
-        elif code == 12:  # USE_CHIP — [12, chip_template_id, ...]
+        elif code == 12:  # USE_CHIP — [12, chip_template, cell, success]
             chip_id = action[1] if len(action) > 1 else None
             leek_id = entity_to_leek.get(current_entity_id)
             if leek_id and leek_id in stats and chip_id is not None:
                 stats[leek_id]["chips_used"].add(chip_id)
 
-        elif code == 16:  # USE_WEAPON — [16, weapon_template_id, ...]
-            weapon_id = action[1] if len(action) > 1 else None
+        elif code == 13:  # SET_WEAPON — [13, weapon_template]
+            weapon_template = action[1] if len(action) > 1 else None
+            if current_entity_id is not None and weapon_template is not None:
+                current_weapons[current_entity_id] = weapon_template
+
+        elif code == 16:  # USE_WEAPON — [16, target_cell, target_entity]
+            # action[1] is the TARGET CELL, not a weapon template. The acting
+            # entity's weapon comes from the most recent SET_WEAPON.
             leek_id = entity_to_leek.get(current_entity_id)
+            weapon_id = current_weapons.get(current_entity_id)
             if leek_id and leek_id in stats and weapon_id is not None:
                 stats[leek_id]["weapons_used"].add(weapon_id)
 
