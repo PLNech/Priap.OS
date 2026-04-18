@@ -417,9 +417,15 @@ class FightScraper:
 
         return True
 
-    def process_fight(self, fight_id: int) -> bool:
+    def process_fight(self, fight_id: int, force: bool = False) -> bool:
         """
         Download and process a single fight.
+
+        Args:
+            fight_id: LW fight id.
+            force: if True, bypass the level/context discovery filter.
+                Use for "I already know this fight is relevant" callsites
+                (e.g. our own history). BFS discovery sites should leave False.
 
         Returns True if fight was stored, False otherwise.
         """
@@ -435,9 +441,23 @@ class FightScraper:
         if not data:
             return False
 
-        # Check criteria
-        if not self._should_include_fight(data):
+        return self._store_fight_data(fight_id, data, force=force)
+
+    def _store_fight_data(self, fight_id: int, data: dict, force: bool = False) -> bool:
+        """
+        Persist a pre-fetched fight payload + observations + combat stats.
+
+        Split out so backfill paths (local JSON cache) can skip the API call.
+        """
+        # Check criteria (unless caller asserted relevance)
+        if not force and not self._should_include_fight(data):
             self.stats.fights_skipped += 1
+            fight = data.get("fight", data)
+            levels = [l.get("level", 0) for l in fight.get("leeks1", []) + fight.get("leeks2", [])]
+            logger.info(
+                f"Fight {fight_id} rejected by filter (levels={levels}, "
+                f"range={self.min_level}-{self.max_level})"
+            )
             return False
 
         # Store fight

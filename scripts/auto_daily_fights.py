@@ -438,7 +438,8 @@ def main():
                 scraper = FightScraper(api)
                 scraped = 0
                 for fid in missing[:50]:  # Limit to avoid rate limits
-                    if scraper.process_fight(fid):
+                    # force=True: these are OUR fights, always relevant regardless of bracket filter
+                    if scraper.process_fight(fid, force=True):
                         scraped += 1
                 log(f"  Scraped {scraped}/{len(missing)} fights to meta DB")
             else:

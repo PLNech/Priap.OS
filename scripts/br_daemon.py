@@ -104,7 +104,8 @@ def scrape_br_fight(api, fight_id: int):
     try:
         from leekwars_agent.scraper.scraper import FightScraper
         scraper = FightScraper(api)
-        if scraper.process_fight(fight_id):
+        # force=True: BR fights are ours, always relevant regardless of bracket filter
+        if scraper.process_fight(fight_id, force=True):
             log(f"  Scraped fight {fight_id} to meta DB")
         else:
             log(f"  Fight {fight_id} already in DB or failed to scrape")
