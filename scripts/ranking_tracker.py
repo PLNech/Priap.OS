@@ -317,18 +317,31 @@ def main():
         snap_id = snapshot(api, max_pages=args.pages)
         print(f"Snapshot #{snap_id} complete.")
 
-        # Persist our leek ranks (works even when outside top N)
+        # Persist our leek ranks (works even when outside top N).
+        # quick_rank endpoint returns only {rank, active} — talent/level must come
+        # from the bulk rankings table (if leek is in top-N) or a direct get_leek() call.
         conn = sqlite3.connect(DB_PATH)
         init_db(conn)
         for lid, rd in leek_ranks_live.items():
             name = leek_names.get(lid, str(lid))
+            row = conn.execute(
+                "SELECT talent, level FROM rankings WHERE snapshot_id=? AND leek_id=? LIMIT 1",
+                (snap_id, lid),
+            ).fetchone()
+            if row:
+                talent, level = row
+            else:
+                leek_data = api.get_leek(lid)
+                leek = leek_data.get("leek", leek_data)
+                talent = leek.get("talent", 0)
+                level = leek.get("level", 0)
             conn.execute("""
                 INSERT OR REPLACE INTO leek_ranks
                   (snapshot_id, leek_id, name, rank, talent, level, active)
                   VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (snap_id, lid, name,
-                  rd.get("rank", 0), rd.get("talent", 0),
-                  rd.get("level", 0), int(rd.get("active", False))))
+                  rd.get("rank", 0), talent, level,
+                  int(rd.get("active", False))))
         conn.commit()
         conn.close()
 
