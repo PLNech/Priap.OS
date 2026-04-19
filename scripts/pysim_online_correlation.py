@@ -56,11 +56,24 @@ ARCHETYPE_AI = {
 }
 
 
-def classify_archetype(strength, agility, magic, wisdom) -> str:
-    s, a, m, w = (strength or 0), (agility or 0), (magic or 0), (wisdom or 0)
-    top = max(s, a, m)
-    if top == 0:
+def classify_archetype(strength, agility, magic, wisdom, resistance=0) -> str:
+    """Assign an opponent to one of four sparring archetypes.
+
+    Tank classification comes first: high WIS+RES with low offense was
+    previously misfiring to str_heavy, e.g. (STR 70, WIS 380, RES 380)
+    which is a healer/tank, not a striker. For now we fold tanks into
+    `balanced` because we lack a dedicated tank proxy AI.
+    """
+    s = strength or 0
+    a = agility or 0
+    m = magic or 0
+    w = wisdom or 0
+    r = resistance or 0
+
+    if max(s, a, m) == 0:
         return "balanced"
+    if (w + r) >= 2 * max(s, a, m):
+        return "balanced"  # tank/healer — no dedicated proxy yet
     if s >= 1.5 * (a + m):
         return "str_heavy"
     if m > s and m >= a:
@@ -152,7 +165,8 @@ def run_study(n: int, k: int) -> dict:
 
     for i, f in enumerate(fights, start=1):
         archetype = classify_archetype(
-            f["strength"], f["agility"], f["magic"], f["wisdom"]
+            f["strength"], f["agility"], f["magic"], f["wisdom"],
+            f["resistance"],
         )
         archetype_counts[archetype] += 1
         opp_ai = ARCHETYPE_AI[archetype]
