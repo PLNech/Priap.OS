@@ -603,27 +603,36 @@ class FightScraper:
     # =========================================================================
 
     @staticmethod
-    def _build_entity_lookup(leeks_data: list[dict]) -> dict[tuple[int, int], dict]:
-        """Map (team, farmer_id) -> fight.data.leeks entry for quick lookup."""
-        lookup: dict[tuple[int, int], dict] = {}
+    def _build_entity_lookup(leeks_data: list[dict]) -> dict[tuple[int, str], dict]:
+        """Map (farmer_id, name) -> fight.data.leeks entry for quick lookup.
+
+        Keyed on (farmer, name) — unique within any fight and stable across
+        duel (teams 1/2), team match (1/2 with multiple leeks), and
+        tournament/BR (teams 1-9). The previous key (team, farmer) dropped
+        every tournament entity because of a `team in (1,2)` guard.
+        """
+        lookup: dict[tuple[int, str], dict] = {}
         for entity in leeks_data or []:
             if entity.get("summon"):
                 continue
-            team = entity.get("team")
             farmer = entity.get("farmer")
+            name = entity.get("name")
             entity_id = entity.get("id")
-            if farmer is None or entity_id is None:
+            if farmer is None or name is None or entity_id is None:
                 continue
-            if team not in (1, 2):
-                continue
-            lookup[(team, farmer)] = entity
+            lookup[(farmer, name)] = entity
         return lookup
 
     @staticmethod
-    def _enhance_leek(leek: dict, team: int, entity_lookup: dict[tuple[int, int], dict]) -> tuple[dict, int | None]:
-        """Merge stats from fight.data.leeks into the public leek payload."""
+    def _enhance_leek(leek: dict, team: int, entity_lookup: dict[tuple[int, str], dict]) -> tuple[dict, int | None]:
+        """Merge stats from fight.data.leeks into the public leek payload.
+
+        `team` is retained in the signature so callers can record side
+        membership for the observation row; the match itself is keyed on
+        (farmer, name) which is unique across all fight formats.
+        """
         merged = dict(leek)
-        stats = entity_lookup.get((team, leek.get("farmer")))
+        stats = entity_lookup.get((leek.get("farmer"), leek.get("name")))
         entity_id = None
         if stats:
             entity_id = stats.get("id")
