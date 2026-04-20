@@ -277,15 +277,19 @@ def history(ctx: click.Context, limit: int, since: str, context: str, stats_only
 @click.option("--analyze", is_flag=True, help="Show fight analysis")
 @click.option("--classify", is_flag=True, help="Classify opponent AI behavior")
 @click.option("-v", "--verbose", is_flag=True, help="Show turn-by-turn actions")
+@click.option("--spatial", is_flag=True,
+              help="Turn-by-turn with cell positions, distance, range and LOS checks")
 @click.pass_context
-def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool, classify: bool, verbose: bool) -> None:
+def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool,
+              classify: bool, verbose: bool, spatial: bool) -> None:
     """Fetch and display fight details by ID.
 
     Examples:
         leek fight get 50863105
         leek fight get 50863105 --save --analyze
         leek fight get 50863105 --classify  # Show opponent AI archetype
-        leek fight get 50863105 -v  # Show turn-by-turn
+        leek fight get 50863105 -v          # Show turn-by-turn
+        leek fight get 50863105 --spatial   # Turn-by-turn with grid/LOS/range
     """
     from leekwars_agent.fight_analyzer import classify_ai_behavior
 
@@ -433,6 +437,11 @@ def get_fight(ctx: click.Context, fight_id: int, save: bool, analyze: bool, clas
                     dead_entity = action[1]
                     dead_name = entity_names.get(dead_entity, f"E{dead_entity}")
                     console.print(f"      [red bold]💀 {dead_name} DIED[/red bold]")
+
+        if spatial:
+            from leekwars_agent.fight_spatial import SpatialFight
+            sf = SpatialFight(data, my_team=my_team)
+            sf.render(console)
 
         if analyze:
             console.print("\n[bold]Analysis:[/bold]")
