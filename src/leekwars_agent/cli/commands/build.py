@@ -5,6 +5,7 @@ from ..output import output_json, success, error, console
 from ..constants import LEEK_ID  # unused but kept for backward compat
 from leekwars_agent.auth import login_api
 from leekwars_agent.api import LeekWarsError
+from leekwars_agent.capital_audit import _budget_for_points, buy_points
 
 
 @click.group()
@@ -91,15 +92,18 @@ def show_build(ctx: click.Context) -> None:
 @click.option("--dry-run", is_flag=True, help="Show what would happen without spending")
 @click.pass_context
 def spend_capital(ctx: click.Context, stat: str, points: int, dry_run: bool) -> None:
-    """Spend capital points on a stat.
+    """Spend capital on a stat, measured in STAT POINTS gained.
 
     STAT is which stat to increase (strength/str, agility/agi, etc).
-    POINTS is how many points to spend.
+    POINTS is the number of stat points to GAIN (not capital to spend).
+
+    Capital cost is computed from the tiered cost curve (leek.ts COSTS).
+    E.g. at WIS 0, 82 stat points costs 41 capital (0.5 cap/pt at tier 0-200).
 
     Examples:
-        leek build spend str 50      # Add 50 strength
-        leek build spend agi 10      # Add 10 agility
-        leek build spend str 76 --dry-run  # Preview spending all capital
+        leek build spend str 50           # Add 50 STR, capital auto-computed
+        leek build spend wis 82 --dry-run # Preview: 82 WIS at cost 41 capital
+        leek build spend res 41           # Add 41 RES at cost ~41 capital (tier 200-400)
     """
     # Normalize stat names
     stat_map = {
@@ -125,21 +129,28 @@ def spend_capital(ctx: click.Context, stat: str, points: int, dry_run: bool) -> 
         available = leek.get("capital", 0)
         current = leek.get(stat_name, 0)
 
-        if points > available:
-            error(f"Not enough capital: need {points}, have {available}")
-            raise SystemExit(1)
-
         if points <= 0:
             error("Points must be positive")
             raise SystemExit(1)
 
+        # Compute actual capital cost from the tiered curve
+        cost = _budget_for_points(stat_name, current, points)
+
+        if cost > available:
+            affordable = buy_points(stat_name, current, available)
+            error(
+                f"Not enough capital: {points} {stat_name} pts costs {cost}, have {available}. "
+                f"At current tier, {available} cap buys {affordable.points_bought} pts."
+            )
+            raise SystemExit(1)
+
         if dry_run:
-            console.print(f"[yellow]Would spend {points} capital on {stat_name}[/yellow]")
+            console.print(f"[yellow]Would spend {cost} capital to gain {points} {stat_name}[/yellow]")
             console.print(f"  {stat_name}: {current} → {current + points}")
-            console.print(f"  Capital: {available} → {available - points}")
+            console.print(f"  Capital: {available} → {available - cost}")
             return
 
-        # Spend via API
+        # Spend via API — frontend sends stat-point counts, server charges capital
         try:
             api.spend_capital(leek_id, {stat_name: points})
         except LeekWarsError as e:
@@ -150,9 +161,9 @@ def spend_capital(ctx: click.Context, stat: str, points: int, dry_run: bool) -> 
         after = api.get_leek(leek_id)
         after_leek = after.get("leek", after)
         new_value = after_leek.get(stat_name, current + points)
-        new_capital = after_leek.get("capital", available - points)
+        new_capital = after_leek.get("capital", available - cost)
 
-        success(f"Spent {points} capital on {stat_name}!")
+        success(f"Spent {cost} capital on {stat_name} (+{points} pts)!")
         console.print(f"  {stat_name}: {current} → [bold green]{new_value}[/bold green]")
         console.print(f"  Capital: {available} → {new_capital}")
 

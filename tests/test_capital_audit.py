@@ -13,6 +13,7 @@ import pytest
 from leekwars_agent.capital_audit import (
     Allocation,
     StatSnapshot,
+    _budget_for_points,
     buy_points,
     critical_rate,
     damage_multiplier,
@@ -263,3 +264,36 @@ def test_allocation_multi_leg_respects_requested_points():
     assert new_snap.tp == 14, "TP unchanged: next step costs 50 > 41 budget"
     assert new_snap.wisdom == 22, "WIS gets exactly requested 22 pts (11 cap)"
     assert leftover == 30
+
+
+# ── CLI capital-cost regression (bug: spend-capital treated POINTS as capital) ──
+
+
+def test_budget_for_points_wis_82_at_0_costs_41():
+    """CLI regression: spending 82 WIS at WIS 0 must cost 41 cap (tier 0-200, 0.5 cap/pt).
+
+    Was broken: `leek build spend wisdom 82` compared 82 against 41 available capital and
+    rejected with "need 82, have 41" — confusing stat-points with capital cost.
+    Fixed by computing cost via `_budget_for_points`. This test guards the inverse calc.
+    """
+    assert _budget_for_points("wisdom", 0, 82) == 41
+
+
+def test_budget_for_points_res_at_219_tier_boundary():
+    """RES 219 is in tier 200-400 (1 cap/pt). 41 pts costs exactly 41 cap."""
+    assert _budget_for_points("resistance", 219, 41) == 41
+
+
+def test_budget_for_points_str_at_452_premium_tier():
+    """STR 452 is in tier 400-600 (2 cap/pt). 20 pts costs 40 cap."""
+    assert _budget_for_points("strength", 452, 20) == 40
+
+
+def test_budget_for_points_life_at_1020_3hp_per_cap():
+    """LIFE 1020 is in tier 1000-1999 (1 cap = 3 HP). 123 HP costs 41 cap."""
+    assert _budget_for_points("life", 1020, 123) == 41
+
+
+def test_budget_for_points_tp_staircase():
+    """TP 10 → 12 costs 30 + 35 = 65 cap (step 0 + step 1 in staircase)."""
+    assert _budget_for_points("tp", 10, 2) == 65
