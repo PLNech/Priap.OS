@@ -41,29 +41,30 @@ def resolve_include_path(include_name: str, base_dir: Path) -> Path | None:
     return None
 
 
-def get_or_create_ai(api, name: str, ais_cache: dict) -> int:
-    """Get existing AI ID by name or create new one.
+def get_or_create_ai(api, name: str, ais_cache: dict) -> str:
+    """Get existing AI path by name or create new one.
 
-    Returns AI ID. Uses ais_cache to avoid repeated API calls.
+    Post-April-2026 migration: AIs are keyed by `path` (string name), not
+    numeric ID. Returns the path. `ais_cache` now maps name -> path.
     """
     if name in ais_cache:
         return ais_cache[name]
 
-    # Fetch all AIs if cache is empty
+    # Populate cache from login response (no extra API call)
     if not ais_cache:
-        ais_data = api.get_farmer_ais()
-        for ai_item in ais_data.get("ais", []):
-            ais_cache[ai_item.get("name")] = ai_item.get("id")
+        for f in api.list_farmer_ais():
+            p = f.get("path")
+            if p:
+                ais_cache[p] = p
 
     if name in ais_cache:
         return ais_cache[name]
 
-    # Create new AI
+    # Create new AI; response carries the assigned path
     result = api.create_ai(name=name)
-    ai_id = result.get("ai", {}).get("id") or result.get("id")
-    if ai_id:
-        ais_cache[name] = ai_id
-    return ai_id
+    ai_path = result.get("path") or name
+    ais_cache[ai_path] = ai_path
+    return ai_path
 
 
 def upload_ai_with_deps(
@@ -74,14 +75,14 @@ def upload_ai_with_deps(
     uploaded: set,
     console,
     dry_run: bool = False
-) -> tuple[int | None, bool]:
+) -> tuple[str | None, bool]:
     """Upload an AI file and all its dependencies recursively.
 
-    Returns (ai_id, is_valid).
+    Returns (ai_path, is_valid). Post-April-2026: AIs are keyed by path.
     """
     # Avoid re-uploading
     if name in uploaded:
-        return ais_cache.get(name, 0), True
+        return ais_cache.get(name, name), True
 
     code = file_path.read_text()
     includes = parse_includes(code)
@@ -106,11 +107,11 @@ def upload_ai_with_deps(
     if dry_run:
         console.print(f"  [yellow]Would upload {name} ({len(code)} chars)[/yellow]")
         uploaded.add(name)
-        return 0, True  # Fake ID for dry-run
+        return name, True  # Path placeholder for dry-run
 
-    # Get or create AI for this file
-    ai_id = get_or_create_ai(api, name, ais_cache)
-    if not ai_id:
+    # Get or create AI for this file (returns path)
+    ai_path = get_or_create_ai(api, name, ais_cache)
+    if not ai_path:
         console.print(f"  [red]✗ Failed to get/create AI: {name}[/red]")
         return None, False
 
@@ -120,7 +121,7 @@ def upload_ai_with_deps(
     # Save code with retry on 429
     for attempt in range(3):
         try:
-            save_result = api.save_ai(ai_id, code)
+            save_result = api.write_ai(ai_path, code)
             break
         except Exception as e:
             if "429" in str(e) and attempt < 2:
@@ -130,24 +131,16 @@ def upload_ai_with_deps(
                 raise
     uploaded.add(name)
 
-    # Check validity
+    # Check validity. /ai/write returns {"result": {path: errors[]}, "modified": ts}.
+    # An empty error list means clean compile.
     result_data = save_result.get("result", {})
-    # Result can be {ai_id: errors} or {"valid": true}
-    is_valid = result_data.get("valid", False)
-    if not is_valid and isinstance(result_data, dict):
-        # Check if it's error format: {ai_id: [[errors]]}
-        for key, val in result_data.items():
-            if key != "valid" and isinstance(val, list) and len(val) > 0:
-                is_valid = False
-                break
-        else:
-            # No errors found in dict
-            is_valid = True if not result_data.get(str(ai_id)) else False
+    path_errors = result_data.get(ai_path, []) if isinstance(result_data, dict) else []
+    is_valid = isinstance(path_errors, list) and len(path_errors) == 0
 
     status = "[green]✓[/green]" if is_valid else "[red]✗[/red]"
-    console.print(f"  {status} {name} (#{ai_id})")
+    console.print(f"  {status} {name} (path={ai_path})")
 
-    return ai_id, is_valid
+    return ai_path, is_valid
 
 
 @click.group()
@@ -162,8 +155,7 @@ def list_ais(ctx: click.Context) -> None:
     """List all farmer's AIs on the server."""
     api = login_api()
     try:
-        data = api.get_farmer_ais()
-        ais = data.get("ais", [])
+        ais = api.list_farmer_ais()
 
         if ctx.obj.get("json"):
             output_json({"ais": ais})
@@ -171,11 +163,11 @@ def list_ais(ctx: click.Context) -> None:
 
         console.print("[bold]Your AIs[/bold]\n")
         for ai_item in ais:
-            ai_id = ai_item.get("id", "?")
-            name = ai_item.get("name", "?")
+            path = ai_item.get("path", "?")
             valid = "✓" if ai_item.get("valid") else "✗"
             lines = ai_item.get("total_lines", 0)
-            console.print(f"  [{valid}] #{ai_id:6d} {name:20s} ({lines} lines)")
+            entry = "↪" if ai_item.get("entrypoint") else " "
+            console.print(f"  [{valid}] {entry} {path:30s} ({lines} lines)")
 
     finally:
         api.close()
@@ -310,12 +302,12 @@ def deploy(ctx: click.Context, file_path: str, name: str | None, dry_run: bool, 
 
     api = login_api()
     try:
-        ais_cache = {}  # name -> id cache
-        uploaded = set()  # track uploaded files
+        ais_cache = {}  # name -> path cache (post-April-2026: path == name)
+        uploaded = set()
 
         if includes and not no_deps:
             # Multi-file upload with dependencies
-            ai_id, is_valid = upload_ai_with_deps(
+            ai_path, is_valid = upload_ai_with_deps(
                 api, path, name, ais_cache, uploaded, console, dry_run
             )
 
@@ -323,7 +315,7 @@ def deploy(ctx: click.Context, file_path: str, name: str | None, dry_run: bool, 
                 success(f"\nDry run complete: would upload {len(uploaded)} files")
                 return
 
-            if not ai_id:
+            if not ai_path:
                 error("Failed to upload AI")
                 raise SystemExit(1)
 
@@ -331,10 +323,10 @@ def deploy(ctx: click.Context, file_path: str, name: str | None, dry_run: bool, 
                 error("AI has compilation errors (check includes)")
                 raise SystemExit(1)
         else:
-            # Simple single-file upload (original logic)
-            ai_id = get_or_create_ai(api, name, ais_cache)
+            # Simple single-file upload
+            ai_path = get_or_create_ai(api, name, ais_cache)
 
-            if not ai_id:
+            if not ai_path:
                 error(f"Failed to get/create AI: {name}")
                 raise SystemExit(1)
 
@@ -342,41 +334,37 @@ def deploy(ctx: click.Context, file_path: str, name: str | None, dry_run: bool, 
                 console.print(f"[yellow]Would upload {name} ({len(code)} chars)[/yellow]")
                 return
 
-            save_result = api.save_ai(ai_id, code)
+            save_result = api.write_ai(ai_path, code)
             result_data = save_result.get("result", {})
-            is_valid = result_data.get("valid", False)
+            path_errors = result_data.get(ai_path, []) if isinstance(result_data, dict) else []
+            is_valid = isinstance(path_errors, list) and len(path_errors) == 0
 
-            # Check for error format: {ai_id: [[errors]]}
-            if not is_valid and str(ai_id) in result_data:
-                errors = result_data[str(ai_id)]
-                if errors:
-                    console.print(f"[red]Compilation errors:[/red]")
-                    for err in errors[:5]:  # Show first 5 errors
-                        if isinstance(err, list) and len(err) > 7:
-                            line, col, err_type = err[2], err[4], err[6]
-                            detail = err[7] if len(err) > 7 else ""
-                            console.print(f"  Line {line}:{col} - {detail}")
-                    error("AI has compilation errors")
-                    raise SystemExit(1)
+            if not is_valid and path_errors:
+                console.print(f"[red]Compilation errors:[/red]")
+                for err in path_errors[:5]:
+                    if isinstance(err, list) and len(err) > 7:
+                        line, col = err[2], err[4]
+                        detail = err[7] if len(err) > 7 else ""
+                        console.print(f"  Line {line}:{col} - {detail}")
+                error("AI has compilation errors")
+                raise SystemExit(1)
 
-            status = "[green]✓[/green]" if is_valid else "[yellow]?[/yellow]"
-            console.print(f"  {status} {name} (#{ai_id})")
+            status = "[green]✓[/green]"
+            console.print(f"  {status} {name} (path={ai_path})")
 
         if dry_run:
             return
 
-        # Set as leek's AI
+        # Assign to leek by path
         leek_id = ctx.obj["leek_id"]
-        api.set_leek_ai(leek_id, ai_id)
+        api.set_leek_ai(leek_id, ai_path)
 
-        # Update local SOTA symlink
         _update_sota_symlink(path)
-
         success(f"\nDeployed '{name}' to leek!")
 
         if ctx.obj.get("json"):
             output_json({
-                "ai_id": ai_id,
+                "ai_path": ai_path,
                 "name": name,
                 "deployed": True,
                 "dependencies": list(uploaded - {name}) if not no_deps else []

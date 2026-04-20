@@ -72,13 +72,14 @@ def parse_save_result(result: dict) -> list[ValidationError]:
     return errors
 
 
-def validate_code(api, ai_id: int, code: str) -> tuple[bool, list[ValidationError]]:
+def validate_code(api, ai_path: str, code: str) -> tuple[bool, list[ValidationError]]:
     """
-    Validate LeekScript code by saving it and checking for errors.
+    Validate LeekScript code by writing it and checking for errors.
 
+    Post-April-2026: AIs are keyed by path (string name), not numeric ai_id.
     Returns (is_valid, errors).
     """
-    result = api.save_ai(ai_id, code)
+    result = api.write_ai(ai_path, code)
     errors = parse_save_result(result)
 
     # Filter to only actual errors (severity 0), not warnings

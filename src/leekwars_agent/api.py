@@ -214,40 +214,73 @@ class LeekWarsAPI:
         return self._request("get", "/function/get-all").json()
 
     # AI Management
+    #
+    # April 2026 API migration: AIs are now keyed by `path` (string name),
+    # not numeric `ai_id`. Several endpoints were renamed/removed:
+    #   - GET  /ai/get-farmer-ais → REMOVED. Use farmer.ai_tree from login.
+    #   - POST /ai/save           → REMOVED. Replaced by POST /ai/write.
+    #   - POST /ai/new-name       → REMOVED. Replaced by POST /ai/create.
+    #   - POST /leek/set-ai       → now expects `ai_path` (not `ai_id`).
+    #   - /ai/delete              → now DELETE with body {path}.
+    #   - GET  /ai/get/<id>       → still works for legacy numeric-id lookups.
+
     def get_ai(self, ai_id: int) -> dict[str, Any]:
-        """Get AI code and metadata."""
+        """Get AI code and metadata by numeric ID (legacy, still supported)."""
         return self._request("get", f"/ai/get/{ai_id}", headers=self._headers()).json()
 
-    def get_farmer_ais(self) -> dict[str, Any]:
-        """Get all farmer's AIs."""
-        return self._request("get", "/ai/get-farmer-ais", headers=self._headers()).json()
+    def list_farmer_ais(self) -> list[dict[str, Any]]:
+        """Return the farmer's AI list.
 
-    def save_ai(self, ai_id: int, code: str) -> dict[str, Any]:
-        """Save AI code."""
+        The login response already contains `ai_tree.files[]` — each entry has
+        `path, mtime, valid, version, strict, entrypoint, total_lines,
+        total_chars, scenario`. No numeric IDs are exposed here; use `path`
+        as the identifier for write/assign/delete operations.
+        """
+        tree = self.farmer.get("ai_tree", {})
+        return list(tree.get("files", []))
+
+    def ai_exists(self, path: str) -> bool:
+        return any(f.get("path") == path for f in self.list_farmer_ais())
+
+    def write_ai(self, path: str, code: str) -> dict[str, Any]:
+        """Save AI code. Response: {"result": {path: errors[]}, "modified": ts}."""
         return self._request(
-            "post", "/ai/save", headers=self._headers(), data={"ai_id": ai_id, "code": code},
+            "post", "/ai/write", headers=self._headers(),
+            data={"path": path, "code": code},
         ).json()
 
-    def rename_ai(self, ai_id: int, name: str) -> dict[str, Any]:
-        """Rename an AI."""
+    def rename_ai(self, path: str, new_name: str) -> dict[str, Any]:
+        """Rename an AI by path."""
         return self._request(
-            "post", "/ai/rename", headers=self._headers(), data={"ai_id": ai_id, "name": name},
+            "post", "/ai/rename", headers=self._headers(),
+            data={"path": path, "new_name": new_name},
         ).json()
 
-    def create_ai(self, name: str = "NewAI", folder_id: int = 0, version: int = 4) -> dict[str, Any]:
-        """Create a new AI.
+    def create_ai(self, name: str, folder: int = 0, version: int = 4) -> dict[str, Any]:
+        """Create a new AI via POST /ai/create.
 
-        Source: tools/leek-wars/src/component/editor/editor-explorer.vue:351
+        Response: {"path": name, "code": starter_code}.
+        The server assigns path=name (collision returns a different error).
         """
         return self._request(
-            "post", "/ai/new-name", headers=self._headers(),
-            data={"name": name, "folder_id": folder_id, "version": version},
+            "post", "/ai/create", headers=self._headers(),
+            data={"name": name, "folder": folder, "version": version},
         ).json()
 
-    def set_leek_ai(self, leek_id: int, ai_id: int) -> dict[str, Any]:
-        """Set which AI a leek uses."""
+    def delete_ai(self, path: str) -> dict[str, Any]:
+        """Delete an AI by path (DELETE method with body). Returns {trash_name}."""
+        r = self._client.request(
+            "DELETE", "https://leekwars.com/api/ai/delete",
+            headers=self._headers(), data={"path": path},
+        )
+        r.raise_for_status()
+        return r.json()
+
+    def set_leek_ai(self, leek_id: int, ai_path: str) -> dict[str, Any]:
+        """Assign an AI to a leek. `ai_path` replaces the legacy `ai_id`."""
         return self._request(
-            "post", "/leek/set-ai", headers=self._headers(), data={"leek_id": leek_id, "ai_id": ai_id},
+            "post", "/leek/set-ai", headers=self._headers(),
+            data={"leek_id": leek_id, "ai_path": ai_path},
         ).json()
 
     # Market operations
