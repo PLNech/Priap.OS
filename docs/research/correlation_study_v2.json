@@ -1,0 +1,1141 @@
+{
+  "total": 50,
+  "agree": 23,
+  "accuracy": 0.46,
+  "confusion": {
+    "tp": 18,
+    "tn": 5,
+    "fp": 22,
+    "fn": 5
+  },
+  "per_archetype": {
+    "str_heavy": {
+      "n": 45,
+      "agree": 21,
+      "accuracy": 0.4666666666666667
+    },
+    "mag_heavy": {
+      "n": 0,
+      "agree": 0,
+      "accuracy": 0.0
+    },
+    "agi_heavy": {
+      "n": 0,
+      "agree": 0,
+      "accuracy": 0.0
+    },
+    "balanced": {
+      "n": 5,
+      "agree": 2,
+      "accuracy": 0.4
+    }
+  },
+  "archetype_distribution": {
+    "balanced": 5,
+    "str_heavy": 45
+  },
+  "skipped": 0,
+  "errors": 0,
+  "records": [
+    {
+      "fight_id": 52086880,
+      "archetype": "balanced",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 8.4,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 70,
+        "agi": 0,
+        "mag": 0,
+        "wis": 380,
+        "res": 380
+      }
+    },
+    {
+      "fight_id": 52086877,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 5,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 432,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 52086876,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 3,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 529,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 52086873,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 4,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 548,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 52086871,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 7.6,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 500,
+        "agi": 0,
+        "mag": 0,
+        "wis": 42,
+        "res": 42
+      }
+    },
+    {
+      "fight_id": 52086866,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": false,
+      "real_turns": null,
+      "pysim_turns_mean": 2,
+      "outcomes_raw": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "opp_stats": {
+        "str": 511,
+        "agi": 0,
+        "mag": 10,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 52040492,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 6.4,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 567,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864314,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 13,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 365,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864312,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 24.8,
+      "outcomes_raw": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 400,
+        "agi": 190,
+        "mag": 0,
+        "wis": 0,
+        "res": 200
+      }
+    },
+    {
+      "fight_id": 51864310,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": false,
+      "real_turns": null,
+      "pysim_turns_mean": 3.4,
+      "outcomes_raw": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "opp_stats": {
+        "str": 500,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864308,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 5,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 400,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864306,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 7,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 205,
+        "agi": 0,
+        "mag": 0,
+        "wis": 200,
+        "res": 200
+      }
+    },
+    {
+      "fight_id": 51864304,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 3,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 460,
+        "agi": 0,
+        "mag": 0,
+        "wis": 80,
+        "res": 80
+      }
+    },
+    {
+      "fight_id": 51864303,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 4,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 403,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864301,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": false,
+      "real_turns": null,
+      "pysim_turns_mean": 64,
+      "outcomes_raw": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "opp_stats": {
+        "str": 428,
+        "agi": 0,
+        "mag": 0,
+        "wis": 28,
+        "res": 28
+      }
+    },
+    {
+      "fight_id": 51864299,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": false,
+      "real_turns": null,
+      "pysim_turns_mean": 64,
+      "outcomes_raw": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "opp_stats": {
+        "str": 402,
+        "agi": 0,
+        "mag": 0,
+        "wis": 250,
+        "res": 250
+      }
+    },
+    {
+      "fight_id": 51864297,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": false,
+      "real_turns": null,
+      "pysim_turns_mean": 15.6,
+      "outcomes_raw": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "opp_stats": {
+        "str": 300,
+        "agi": 0,
+        "mag": 0,
+        "wis": 200,
+        "res": 200
+      }
+    },
+    {
+      "fight_id": 51864295,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 7,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 429,
+        "agi": 0,
+        "mag": 0,
+        "wis": 34,
+        "res": 32
+      }
+    },
+    {
+      "fight_id": 51864293,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 10.2,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 240,
+        "agi": 90,
+        "mag": 0,
+        "wis": 200,
+        "res": 230
+      }
+    },
+    {
+      "fight_id": 51864292,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 7,
+      "outcomes_raw": [
+        2,
+        1,
+        1,
+        2,
+        1
+      ],
+      "opp_stats": {
+        "str": 447,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864291,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 19.4,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 200,
+        "agi": 0,
+        "mag": 0,
+        "wis": 120,
+        "res": 200
+      }
+    },
+    {
+      "fight_id": 51864289,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 5,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 496,
+        "agi": 0,
+        "mag": 0,
+        "wis": 104,
+        "res": 104
+      }
+    },
+    {
+      "fight_id": 51864287,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": false,
+      "real_turns": null,
+      "pysim_turns_mean": 64,
+      "outcomes_raw": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "opp_stats": {
+        "str": 324,
+        "agi": 0,
+        "mag": 0,
+        "wis": 166,
+        "res": 309
+      }
+    },
+    {
+      "fight_id": 51864285,
+      "archetype": "balanced",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 9.8,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ],
+      "opp_stats": {
+        "str": 232,
+        "agi": 200,
+        "mag": 0,
+        "wis": 20,
+        "res": 201
+      }
+    },
+    {
+      "fight_id": 51864283,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 3.2,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 400,
+        "agi": 0,
+        "mag": 0,
+        "wis": 100,
+        "res": 70
+      }
+    },
+    {
+      "fight_id": 51864282,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 9.4,
+      "outcomes_raw": [
+        2,
+        1,
+        2,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 424,
+        "agi": 0,
+        "mag": 0,
+        "wis": 104,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864280,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": false,
+      "real_turns": null,
+      "pysim_turns_mean": 11.4,
+      "outcomes_raw": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "opp_stats": {
+        "str": 473,
+        "agi": 0,
+        "mag": 0,
+        "wis": 52,
+        "res": 52
+      }
+    },
+    {
+      "fight_id": 51864278,
+      "archetype": "balanced",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 13,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ],
+      "opp_stats": {
+        "str": 200,
+        "agi": 0,
+        "mag": 0,
+        "wis": 200,
+        "res": 200
+      }
+    },
+    {
+      "fight_id": 51864276,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 11.8,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 240,
+        "agi": 0,
+        "mag": 0,
+        "wis": 215,
+        "res": 140
+      }
+    },
+    {
+      "fight_id": 51864274,
+      "archetype": "balanced",
+      "real_won": false,
+      "pysim_won": false,
+      "real_turns": null,
+      "pysim_turns_mean": 21,
+      "outcomes_raw": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "opp_stats": {
+        "str": 350,
+        "agi": 0,
+        "mag": 260,
+        "wis": 0,
+        "res": 260
+      }
+    },
+    {
+      "fight_id": 51864273,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 5,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 320,
+        "agi": 0,
+        "mag": 0,
+        "wis": 54,
+        "res": 66
+      }
+    },
+    {
+      "fight_id": 51864271,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 3,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 411,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864269,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 5,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 371,
+        "agi": 0,
+        "mag": 0,
+        "wis": 204,
+        "res": 204
+      }
+    },
+    {
+      "fight_id": 51864267,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 6,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 309,
+        "agi": 0,
+        "mag": 0,
+        "wis": 262,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864265,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 3,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 407,
+        "agi": 0,
+        "mag": 0,
+        "wis": 104,
+        "res": 42
+      }
+    },
+    {
+      "fight_id": 51864263,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 6,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 495,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864261,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 11,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 265,
+        "agi": 22,
+        "mag": 20,
+        "wis": 144,
+        "res": 220
+      }
+    },
+    {
+      "fight_id": 51864260,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 7,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 280,
+        "agi": 0,
+        "mag": 0,
+        "wis": 220,
+        "res": 220
+      }
+    },
+    {
+      "fight_id": 51864258,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 6,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 400,
+        "agi": 0,
+        "mag": 0,
+        "wis": 160,
+        "res": 250
+      }
+    },
+    {
+      "fight_id": 51864256,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 3.2,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 350,
+        "agi": 0,
+        "mag": 0,
+        "wis": 100,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864254,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 7,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 415,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864252,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 3,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 253,
+        "agi": 0,
+        "mag": 0,
+        "wis": 205,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864251,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 3,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 299,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 259
+      }
+    },
+    {
+      "fight_id": 51864249,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 5.6,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 250,
+        "agi": 60,
+        "mag": 0,
+        "wis": 240,
+        "res": 170
+      }
+    },
+    {
+      "fight_id": 51864247,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 5.2,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 218,
+        "agi": 122,
+        "mag": 0,
+        "wis": 109,
+        "res": 65
+      }
+    },
+    {
+      "fight_id": 51864245,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": false,
+      "real_turns": null,
+      "pysim_turns_mean": 6,
+      "outcomes_raw": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "opp_stats": {
+        "str": 402,
+        "agi": 0,
+        "mag": 78,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864243,
+      "archetype": "str_heavy",
+      "real_won": false,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 10,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 375,
+        "agi": 0,
+        "mag": 0,
+        "wis": 200,
+        "res": 100
+      }
+    },
+    {
+      "fight_id": 51864241,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 8.4,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 402,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 180
+      }
+    },
+    {
+      "fight_id": 51864239,
+      "archetype": "str_heavy",
+      "real_won": true,
+      "pysim_won": false,
+      "real_turns": null,
+      "pysim_turns_mean": 3.4,
+      "outcomes_raw": [
+        1,
+        1,
+        2,
+        2,
+        2
+      ],
+      "opp_stats": {
+        "str": 458,
+        "agi": 0,
+        "mag": 0,
+        "wis": 0,
+        "res": 0
+      }
+    },
+    {
+      "fight_id": 51864238,
+      "archetype": "balanced",
+      "real_won": true,
+      "pysim_won": true,
+      "real_turns": null,
+      "pysim_turns_mean": 3,
+      "outcomes_raw": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "opp_stats": {
+        "str": 200,
+        "agi": 200,
+        "mag": 190,
+        "wis": 200,
+        "res": 200
+      }
+    }
+  ]
+}

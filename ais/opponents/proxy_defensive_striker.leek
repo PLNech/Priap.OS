@@ -1,0 +1,84 @@
+/**
+ * proxy_defensive_striker.leek — sparring partner for PySim correlation studies.
+ *
+ * Designed to imitate the common L140-200 "STR+SHIELDS" archetype we face
+ * in matchmaking: buff-stack turn 1, shield-stack every available turn,
+ * close with a line-of-sight weapon and fire while in range.
+ *
+ * NOT meant to be a strong AI — meant to be a REALISTIC sparring partner.
+ * If its behavior drifts from real opponents, the correlation study's
+ * turn-count fingerprint will flag it (PySim turns << real turns on FP
+ * cases).
+ *
+ * Written from first principles — no opponent-AI copying (see CLAUDE.md
+ * "Exercice de Style").
+ */
+
+var ME = getEntity()
+var enemy = getNearestEnemy()
+
+if (enemy == null) return;
+
+// ---------------------------------------------------------------------------
+// PHASE 1 — Defensive chips first, always, every turn they're available.
+// This is the key behavior real STR-heavy opponents exhibit that
+// cktang88_magnum1 does not: unconditional shield stacking.
+// ---------------------------------------------------------------------------
+if (canUseChip(CHIP_HELMET, ME))  useChip(CHIP_HELMET, ME)
+if (canUseChip(CHIP_SHIELD, ME))  useChip(CHIP_SHIELD, ME)
+if (canUseChip(CHIP_ARMOR, ME))   useChip(CHIP_ARMOR, ME)
+if (canUseChip(CHIP_ARMORING, ME)) useChip(CHIP_ARMORING, ME)
+if (canUseChip(CHIP_SOLIDIFICATION, ME)) useChip(CHIP_SOLIDIFICATION, ME)
+if (canUseChip(CHIP_WALL, ME))    useChip(CHIP_WALL, ME)
+
+// ---------------------------------------------------------------------------
+// PHASE 2 — Offensive buffs when possible, keep them before expensive
+// weapon casts.
+// ---------------------------------------------------------------------------
+if (canUseChip(CHIP_MOTIVATION, ME)) useChip(CHIP_MOTIVATION, ME)
+if (canUseChip(CHIP_PROTEIN, ME))    useChip(CHIP_PROTEIN, ME)
+if (canUseChip(CHIP_KNOWLEDGE, ME))  useChip(CHIP_KNOWLEDGE, ME)
+
+// ---------------------------------------------------------------------------
+// PHASE 3 — Pick the best weapon we have. Prefer LASER > B_LASER > MAGNUM
+// > PISTOL. Real L140-200 opponents most commonly run Laser.
+// ---------------------------------------------------------------------------
+var weapons = getWeapons()
+var preferred = [WEAPON_LASER, WEAPON_B_LASER, WEAPON_MAGNUM, WEAPON_PISTOL, WEAPON_SHOTGUN]
+var chosen = null
+for (var p in preferred) {
+    for (var w in weapons) {
+        if (w == p) { chosen = p; break; }
+    }
+    if (chosen != null) break
+}
+if (chosen == null && count(weapons) > 0) chosen = weapons[0]
+
+if (chosen != null && getWeapon(ME) != chosen) setWeapon(chosen)
+
+// ---------------------------------------------------------------------------
+// PHASE 4 — Move toward enemy until in weapon range.
+// ---------------------------------------------------------------------------
+while (getMP(ME) > 0 && !canUseWeapon(enemy)) {
+    moveToward(enemy, 1)
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 5 — Fire while we can.
+// ---------------------------------------------------------------------------
+if (chosen != null) {
+    var wcost = getWeaponCost(chosen)
+    while (canUseWeapon(enemy) && getTP(ME) >= wcost) {
+        if (useWeapon(enemy) != USE_SUCCESS) break
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 6 — Heal if hurt and TP remaining.
+// ---------------------------------------------------------------------------
+if (canUseChip(CHIP_CURE, ME) && getLife(ME) < getTotalLife(ME) * 0.7) {
+    useChip(CHIP_CURE, ME)
+}
+if (canUseChip(CHIP_BANDAGE, ME) && getLife(ME) < getTotalLife(ME) * 0.9) {
+    useChip(CHIP_BANDAGE, ME)
+}

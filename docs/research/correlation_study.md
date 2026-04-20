@@ -69,11 +69,46 @@ the real opponent.
   (2 days of our 50/day budget). The correlation study doesn't buy us a
   shortcut around this.
 
+## Follow-up v2 (2026-04-20): defensive proxy didn't help
+
+Hypothesis: replace cktang88_magnum1 with a simpler proxy that unconditionally
+stacks Helmet/Shield/Armor/Armoring turn 1. Built `proxy_defensive_striker.leek`
+and verified via action-log inspection that it does cast these chips (unlike
+cktang88 which has over-conditional gates).
+
+Result (`correlation_study_v2.md`):
+- **Accuracy 46% — slightly worse than 54%.**
+- FP count dropped 23 → 22, but 5 new FN cases appeared (proxy now
+  occasionally beats v14 in sim when real had us winning).
+- FP turn ratio barely moved: 0.48 → 0.53.
+
+Interpretation: the proxy's defense wasn't the bottleneck. When we inspected
+one FP fight (id 51864249), v14 in PySim dealt **~720 damage in 5 turns**
+regardless of whether the opponent cast 2 or 4 shield chips. Real fight:
+same matchup ran 13 turns and we lost. So v14 executes in PySim in a way
+that deals far more damage per turn than reality allows.
+
+**Likely real causes** (ordered by how much they'd explain):
+1. **Ops limit / TP starvation**: real v14 may hit ops cap and skip actions
+   PySim completes normally (see task #70, #98).
+2. **LOS / range failures in real maps**: PySim maps from our DB might have
+   friendlier geometry than live-game maps we actually play.
+3. **Frequency/initiative differences**: order-of-play matters when one side
+   has a glass cannon; PySim may always resolve our action first.
+4. **Chip effect fidelity**: subtle formula differences on Flame damage or
+   shield application stacking.
+
+None of these are quick proxy fixes. Real A/B testing v14 vs v15 on the
+50-fight/day budget remains the only decisive gate.
+
 ## Next steps
 
-1. Rebuild proxy roster — write or select defensive opponent AIs that
-   actually use shield/heal/buff chips. Re-run correlation.
-2. Independent of that, set up v14 vs v15 real A/B as the decisive gate.
-3. Archetype classifier bug fixed post-study (`f52086880` STR 70 /
-   WIS 380 / RES 380 was misclassified str_heavy — tank now routes to
-   `balanced`).
+1. **Abandon the "fix the proxy" path.** v2 disproved that hypothesis.
+2. Diagnose the v14-execution fidelity gap — instrument real vs sim
+   action counts per turn. Start with ops counts from fight_data.ops.
+3. Independent of sim work, set up v14 vs v15 real A/B as the decisive
+   gate. Sim tournaments remain useful for iterative A/B tests BETWEEN our
+   own AIs (both face the same skewed proxy pool), but not for absolute
+   prediction against humans.
+4. Classifier bug fixed post-study (`f52086880` STR 70 / WIS 380 / RES 380
+   now routes to `balanced`).

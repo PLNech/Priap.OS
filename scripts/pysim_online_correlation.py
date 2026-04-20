@@ -49,6 +49,13 @@ OUR_LEEK = 131321
 OUR_AI = ROOT / "ais" / "fighter_v14_flat.leek"
 
 ARCHETYPE_AI = {
+    # NOTE (2026-04-20): v2 run (correlation_study_v2.md) swapped
+    # str_heavy/balanced to proxy_defensive_striker.leek. Result was 46.0%
+    # — WORSE than 54.0% with cktang88_magnum1. The proxy swap fixed the
+    # "shield timing" surface problem but revealed the real gap is
+    # deeper: v14 executes too fast in PySim regardless of defense. FP
+    # ratio barely moved (0.48 → 0.53). Reverted here; the proxy file
+    # stays as an artifact.
     "str_heavy":  ROOT / "ais" / "opponents" / "cktang88_magnum1.leek",
     "mag_heavy":  ROOT / "ais" / "opponents" / "cktang88_flamethrower-destroyer.leek",
     "agi_heavy":  ROOT / "ais" / "opponents" / "cktang88_magnum-12.leek",
