@@ -123,6 +123,10 @@ class SpatialFight:
             self._snapshot_event(e) for e in self.entities.values()
         ]
         current_entity: int | None = None
+        # Per-turn TP/MP accounting (re-derived from action costs; END_TURN
+        # reports MAX values, not spent — we sum the costs ourselves).
+        tp_spent_this_turn = 0
+        mp_spent_this_turn = 0
 
         for action in self.actions:
             if not action:
@@ -140,6 +144,8 @@ class SpatialFight:
 
             elif code == 7:  # LEEK_TURN [7, entity_id]
                 current_entity = action[1]
+                tp_spent_this_turn = 0
+                mp_spent_this_turn = 0
                 ent = self.entities.get(current_entity)
                 if ent is None:
                     continue
@@ -160,6 +166,7 @@ class SpatialFight:
                 w = WEAPON_REGISTRY.by_template(tmpl)
                 name = w.name.upper() if w else f"W#{tmpl}"
                 self.entities[current_entity].weapon_template = tmpl
+                tp_spent_this_turn += 1
                 current_events.append(SpatialEvent(
                     kind="set_weapon", entity_id=current_entity,
                     text=f"  SET_WEAPON {name}  (-1 TP)",
@@ -174,6 +181,8 @@ class SpatialFight:
                     continue
                 from_cell = ent.cell
                 mp_used = len(path) if path else self._dist(from_cell, dest)
+                if eid == current_entity:
+                    mp_spent_this_turn += mp_used
                 enemy = self._enemy_of(ent.id)
                 dist_before = self._dist(from_cell, enemy.cell) if enemy else None
                 dist_after = self._dist(dest, enemy.cell) if enemy else None
@@ -203,6 +212,8 @@ class SpatialFight:
                 ent = self.entities[current_entity]
                 tmpl = ent.weapon_template
                 w = WEAPON_REGISTRY.by_template(tmpl) if tmpl else None
+                if w is not None:
+                    tp_spent_this_turn += w.cost
                 current_events.append(self._range_event(
                     kind="weapon",
                     actor=ent,
@@ -220,6 +231,8 @@ class SpatialFight:
                 target_cell = action[2]
                 chip = CHIP_REGISTRY.by_template(chip_tmpl)
                 ent = self.entities[current_entity]
+                if chip is not None:
+                    tp_spent_this_turn += chip.cost
                 current_events.append(self._range_event(
                     kind="chip",
                     actor=ent,
@@ -262,18 +275,29 @@ class SpatialFight:
                         text=f"    💀 {ent.name} DIED",
                     ))
 
-            elif code == 8:  # END_TURN [8, eid, tp_used, mp_used]
+            elif code == 8:  # END_TURN [8, eid, MAX_TP, MAX_MP]
+                # action[2]/[3] are the entity's MAX TP/MP (not spent).
+                # We sum actual costs through the turn ourselves.
                 eid = action[1] if len(action) > 1 else current_entity
-                tp_used = action[2] if len(action) > 2 else 0
-                mp_used = action[3] if len(action) > 3 else 0
+                max_tp = action[2] if len(action) > 2 else 0
+                max_mp = action[3] if len(action) > 3 else 0
                 if eid is not None and eid in self.entities:
                     name = self.entities[eid].name
+                    tp_unspent = max_tp - tp_spent_this_turn
+                    mp_unspent = max_mp - mp_spent_this_turn
+                    tail = ""
+                    if tp_unspent > 0 or mp_unspent > 0:
+                        tail = f"  ⚠ unspent: {tp_unspent} TP, {mp_unspent} MP"
                     current_events.append(SpatialEvent(
                         kind="end_turn", entity_id=eid,
-                        text=f"  ◂ {name} ends turn  (TP spent {tp_used}, MP spent {mp_used})",
+                        text=(
+                            f"  ◂ {name} ends turn  "
+                            f"(TP {tp_spent_this_turn}/{max_tp}, "
+                            f"MP {mp_spent_this_turn}/{max_mp}){tail}"
+                        ),
                     ))
 
-            elif code == 14:  # ADD_EFFECT [14, target, effect_id, value, turns]
+            elif code == 14:  # STACK_EFFECT — buff stacks (motivation, ferocity, etc.)
                 target = action[1] if len(action) > 1 else None
                 eff_id = action[2] if len(action) > 2 else -1
                 val = action[3] if len(action) > 3 else 0
@@ -281,7 +305,7 @@ class SpatialFight:
                 tname = self.entities[target].name if target in self.entities else f"E{target}"
                 current_events.append(SpatialEvent(
                     kind="effect", entity_id=target,
-                    text=f"    ⚑ effect on {tname}: id={eff_id} val={val} ({turns_left}t)",
+                    text=f"    ⚑ STACK_EFFECT on {tname}: id={eff_id} val={val} ({turns_left}t)",
                 ))
 
             elif code == 301:  # ADD_WEAPON_EFFECT — weapon passive fires
@@ -294,6 +318,15 @@ class SpatialFight:
                     text=f"    ⚑ weapon-effect on {tname}: id={eff_id} val={val}",
                 ))
 
+            elif code == 302:  # ADD_CHIP_EFFECT — shield/helmet/armor/etc. apply
+                target = action[1] if len(action) > 1 else None
+                eff_id = action[2] if len(action) > 2 else -1
+                tname = self.entities[target].name if target in self.entities else f"E{target}"
+                current_events.append(SpatialEvent(
+                    kind="effect", entity_id=target,
+                    text=f"    ⚑ chip-effect on {tname}: id={eff_id}",
+                ))
+
             elif code == 303:  # REMOVE_EFFECT [303, target, effect_id]
                 target = action[1] if len(action) > 1 else None
                 eff_id = action[2] if len(action) > 2 else -1
@@ -301,6 +334,15 @@ class SpatialFight:
                 current_events.append(SpatialEvent(
                     kind="effect", entity_id=target,
                     text=f"    ⚐ effect ends on {tname}: id={eff_id}",
+                ))
+
+            elif code == 304:  # UPDATE_EFFECT — stat buff recalc
+                target = action[1] if len(action) > 1 else None
+                eff_id = action[2] if len(action) > 2 else -1
+                tname = self.entities[target].name if target in self.entities else f"E{target}"
+                current_events.append(SpatialEvent(
+                    kind="effect", entity_id=target,
+                    text=f"    ⚑ update-effect on {tname}: id={eff_id}",
                 ))
 
         if current_events:
