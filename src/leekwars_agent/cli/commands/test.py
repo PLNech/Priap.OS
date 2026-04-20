@@ -71,15 +71,20 @@ def run_test(ctx: click.Context, scenario_id: int, ai: int | None, wait: bool) -
     """
     api = login_api()
     try:
-        # Get AI ID if not specified
+        # Get AI ID if not specified — default to the first leek's deployed AI.
+        # Post-migration: farmer['leeks'][lid]['ai'] carries the numeric ID;
+        # `/ai/test-scenario` still accepts ai_id (frontend confirmed).
         if ai is None:
-            # Use first AI from farmer's list
-            ais = api.get_farmer_ais().get("ais", [])
-            if not ais:
-                error("No AIs found")
+            leeks = api.farmer.get("leeks", {})
+            if not leeks:
+                error("No leeks found on this farmer")
                 raise SystemExit(1)
-            ai = ais[0]["id"]
-            ai_name = ais[0]["name"]
+            first_leek = next(iter(leeks.values()))
+            ai = first_leek.get("ai")
+            if not ai:
+                error(f"Leek {first_leek.get('name')} has no deployed AI")
+                raise SystemExit(1)
+            ai_name = f"{first_leek.get('name')}'s AI"
         else:
             ai_data = api.get_ai(ai)
             ai_name = ai_data.get("ai", {}).get("name", f"AI {ai}")

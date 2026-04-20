@@ -154,8 +154,19 @@ class TestFightInvestigator:
         return response.json()
 
     def get_farmer_ais(self) -> list:
-        """Get farmer's AIs."""
-        return self.api.get_farmer_ais().get("ais", [])
+        """Get a legacy-shaped AI list: [{id, name}, ...] for first leek's deployed AI.
+
+        Post-migration, `list_farmer_ais()` returns path-keyed entries without
+        numeric IDs. We synthesize {id, name} from the leek's deployed AI id
+        (which `/ai/test-scenario` still accepts).
+        """
+        leeks = self.api.farmer.get("leeks", {})
+        if not leeks:
+            return []
+        first_leek = next(iter(leeks.values()))
+        ai_id = first_leek.get("ai")
+        name = f"{first_leek.get('name')}'s AI"
+        return [{"id": ai_id, "name": name}] if ai_id else []
 
     def analyze_fight(self, fight_id: int) -> dict:
         """Analyze a fight's starting conditions and outcome."""
