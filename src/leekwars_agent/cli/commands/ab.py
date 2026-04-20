@@ -114,14 +114,22 @@ def schedule_cmd(ctx: click.Context, leek_id: int, today: str | None) -> None:
 @click.option("--apply", is_flag=True,
               help="Actually run `leek ai deploy` and append to ledger. Without this flag, "
                    "only prints what would happen (dry-run).")
+@click.option("--record-only", is_flag=True,
+              help="Append a ledger entry WITHOUT running `leek ai deploy`. Use this to "
+                   "record a baseline when the AI is already live on the server.")
 @click.pass_context
 def deploy(ctx: click.Context, variant: str, leek_id: int, ai_file: str | None,
-           ledger: str, note: str | None, apply: bool) -> None:
+           ledger: str, note: str | None, apply: bool, record_only: bool) -> None:
     """Deploy a variant and append a record to the ledger.
 
-    Without --apply, runs as a dry-run. With --apply, invokes
-    `leek ai deploy <file>` and then appends the ledger line.
+    Modes:
+      (default)       — dry-run. Prints what would happen.
+      --apply         — `leek ai deploy <file>` + append ledger row.
+      --record-only   — append ledger row only. AI must already be live.
     """
+    if apply and record_only:
+        raise click.ClickException("--apply and --record-only are mutually exclusive")
+
     path = Path(ai_file) if ai_file else VARIANT_FILES[variant]
     if not path.exists():
         raise click.ClickException(f"AI file not found: {path}")
@@ -130,26 +138,29 @@ def deploy(ctx: click.Context, variant: str, leek_id: int, ai_file: str | None,
     console.print(f"  File: {path}")
     console.print(f"  Sha1: {ab.sha1_file(path)[:10]}")
 
-    if not apply:
-        console.print("[yellow]Dry-run. Pass --apply to actually deploy + record.[/yellow]")
+    if not apply and not record_only:
+        console.print("[yellow]Dry-run. Pass --apply to deploy + record, "
+                      "or --record-only to just record.[/yellow]")
         return
 
-    # Defer to existing `leek ai deploy` via subprocess. Clean separation:
-    # deploy succeeds -> append ledger; deploy fails -> bail, no ledger entry.
-    result = subprocess.run(
-        ["leek", "ai", "deploy", str(path)],
-        capture_output=True, text=True,
-    )
-    sys.stdout.write(result.stdout)
-    sys.stderr.write(result.stderr)
-    if result.returncode != 0:
-        raise click.ClickException(f"leek ai deploy failed (rc={result.returncode})")
+    if apply:
+        # Defer to existing `leek ai deploy` via subprocess. Clean separation:
+        # deploy succeeds -> append ledger; deploy fails -> bail, no ledger entry.
+        result = subprocess.run(
+            ["leek", "ai", "deploy", str(path)],
+            capture_output=True, text=True,
+        )
+        sys.stdout.write(result.stdout)
+        sys.stderr.write(result.stderr)
+        if result.returncode != 0:
+            raise click.ClickException(f"leek ai deploy failed (rc={result.returncode})")
 
     rec = ab.append_deploy(
         variant=variant, ai_file=path, leek_id=leek_id,
         note=note, ledger=Path(ledger),
     )
-    console.print(f"[green]✓ Recorded deploy[/green] at {rec.ts.isoformat()}")
+    tag = "recorded (no API call)" if record_only else "deployed + recorded"
+    console.print(f"[green]✓ {tag}[/green] at {rec.ts.isoformat()}")
 
 
 @ab_cli.command("evaluate")
