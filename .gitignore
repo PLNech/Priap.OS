@@ -47,3 +47,6 @@ data/
 tools/leek-wars-generator/
 tools/leek-wars/
 tools/tagadai/
+
+# logs
+logs/
